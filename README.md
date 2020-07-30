@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/jauntsdn/netty-websocket-http2.svg?branch=develop)](https://travis-ci.org/jauntsdn/netty-websocket-http2)
+
 # netty-websocket-http2
 
 Netty based implementation of [rfc8441](https://tools.ietf.org/html/rfc8441) - bootstrapping websockets with http/2
