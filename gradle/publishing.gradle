@@ -1,4 +1,9 @@
 subprojects {
+
+    tasks.withType(GenerateModuleMetadata) {
+        enabled = false
+    }
+
     plugins.withType(MavenPublishPlugin) {
         publishing {
             publications {

@@ -51,7 +51,6 @@ subprojects {
 
     repositories {
         mavenCentral()
-        mavenLocal()
     }
 
     plugins.withType(JavaPlugin) {

@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/jauntsdn/netty-websocket-http2.svg?branch=develop)](https://travis-ci.org/jauntsdn/netty-websocket-http2)
+![Maven Central](https://img.shields.io/maven-central/v/com.jauntsdn.netty/netty-websocket-http2)
 
 # netty-websocket-http2
 
