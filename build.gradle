@@ -1,0 +1,130 @@
+/*
+ * Copyright 2019 - present Maksym Ostroverkhov.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id "com.palantir.git-version"
+    id "com.github.sherter.google-java-format" apply false
+    id "io.spring.dependency-management" apply false
+    id "com.google.osdetector" apply false
+}
+
+description = "Netty based implementation of rfc8441 - bootstrapping websockets with http/2. Parent project"
+
+apply from: "gradle/dependency-management.gradle"
+apply from: "gradle/publishing.gradle"
+
+allprojects {
+    dependencyLocking {
+        lockAllConfigurations()
+    }
+}
+
+subprojects {
+    apply plugin: "java-library"
+    apply plugin: "com.github.sherter.google-java-format"
+    apply plugin: "com.google.osdetector"
+
+    version = projectVersion(project)
+
+    println "Building module ${name}:${version}"
+
+    dependencies {
+        api "org.slf4j:slf4j-api"
+        testImplementation "org.assertj:assertj-core"
+        testImplementation "org.junit.jupiter:junit-jupiter-api"
+        testImplementation "org.junit.jupiter:junit-jupiter-params"
+        testRuntimeOnly "ch.qos.logback:logback-classic"
+    }
+
+    repositories {
+        mavenCentral()
+        mavenLocal()
+    }
+
+    plugins.withType(JavaPlugin) {
+
+        compileJava {
+            sourceCompatibility = 1.8
+            targetCompatibility = 1.8
+            dependsOn "googleJavaFormat"
+        }
+
+        javadoc {
+            options.with {
+                links jdkJavaDoc()
+                links "https://netty.io/4.1/api/"
+            }
+        }
+
+        test {
+            testLogging {
+                events "failed"
+                exceptionFormat "full"
+            }
+        }
+    }
+
+    plugins.withType(JavaLibraryPlugin) {
+
+        task sourcesJar(type: Jar, dependsOn: classes) {
+            classifier "sources"
+            from sourceSets.main.allJava
+        }
+
+        task javadocJar(type: Jar, dependsOn: javadoc) {
+            classifier "javadoc"
+            from javadoc.destinationDir
+        }
+
+        artifacts {
+            archives sourcesJar, javadocJar, jar
+        }
+    }
+
+    googleJavaFormat {
+        toolVersion = "1.6"
+    }
+}
+
+task printProjectVersion {
+    doLast {
+        println "Project version: ${projectVersion(project)}"
+    }
+}
+
+def jdkJavaDoc() {
+    def version = JavaVersion.current()
+    def majorVersion = version.majorVersion
+    if (version.isJava11Compatible()) {
+        return "https://docs.oracle.com/en/java/javase/$majorVersion/docs/api/"
+    } else {
+        return "https://docs.oracle.com/javase/$majorVersion/docs/api/"
+    }
+}
+
+def projectVersion(project) {
+    def versionSuffix = ""
+    def gitBranchName = versionDetails().branchName
+    def branchName = gitBranchName ?: project.findProperty("branch")
+    if (branchName != null) {
+        if (branchName == "develop") {
+            versionSuffix = "-SNAPSHOT"
+        } else if (branchName.startsWith("feature")) {
+            versionSuffix = "-${branchName.replace("/", "-")}-SNAPSHOT"
+        }
+    }
+    return project.version + versionSuffix
+}

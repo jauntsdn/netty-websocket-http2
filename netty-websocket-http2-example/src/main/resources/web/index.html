@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>htt2-websocket echo example</title>
+</head>
+<body style="font-family: 'Roboto Slab', sans-serif;">
+<div id="header"
+     style="border-top: 5px solid #2196f3;
+            min-height: 50px;position: fixed;
+            border-bottom: 1px solid #e7e7e7;
+            background-color: #f8f8f8;
+            top: 0;
+            right: 0;
+            left: 0;
+            z-index: 1030;">
+    <a style="font-size:14px;text-decoration: none;
+              display:block;color: #777;
+              padding: 5px;
+              margin-left: 100px;
+              height:50px;line-height: 50px;" href="https://jauntsdn.com/post/">
+        continue on jauntsdn.com
+    </a>
+
+</div>
+<main style="
+    display: block;
+    margin: auto;
+    padding: 25px;
+    flex: 1 0 auto;
+    max-width: 750px;
+    box-sizing: border-box;
+    text-align: center;">
+    <div style="transform: translateY(4vh);">
+        <h2>netty-websocket-http2</h2>
+        <h4>rfc8441 - bootstrapping websockets with http2</h4>
+        <div>open this page in http2-websocket compatible browser, e.g. Mozilla Firefox</div>
+        <div style="transform: translateY(6vh);
+                    text-align: left;
+                    margin-left:150px">
+            <div style="padding: 3px;" id="state">state: disconnected</div>
+            <div style="padding: 3px;" id="sent">sent: press start button to run echo example</div>
+            <div style="padding: 3px;" id="received">received: press start button to run echo example</div>
+            <div style="padding: 3px;" id="counter">counter: 0</div>
+        </div>
+        <button disabled id="ping"
+                style="transform: translateY(8vh);
+                       width: 100px;
+                       background-color: #f8f8f8;
+                       border: 1px solid #e7e7e7;
+                       border-radius: 4px;
+                       padding: 15px 32px;
+                       text-align: center;
+                       text-decoration: none;
+                       display: inline-block;">
+            start
+        </button>
+        <div style="width: 185px;
+                    height: 49px;
+                    transform: translateY(17vh);
+                    margin: 0 auto;
+                    background: url(../jaunt_icon.png)">
+        </div>
+    </div>
+</main>
+</body>
+<script src="index.js"></script>
+
