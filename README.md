@@ -70,11 +70,11 @@ Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.creat
 
 Http2Headers headers =
    new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/0.0.1");
-ChannelFuture handshake =
+ChannelFuture handshakeFuture =
    /*http1 websocket handler*/
    handShaker.handshake("/echo", headers, new EchoWebSocketHandler());
     
-handshake.channel().writeAndFlush(new TextWebSocketFrame("hello http2 websocket"));
+handshakeFuture.channel().writeAndFlush(new TextWebSocketFrame("hello http2 websocket"));
 ```
 Successfully handshaked http2 stream spawns websocket subchannel, and provided http1 websocket handlers are added
 to its pipeline.
