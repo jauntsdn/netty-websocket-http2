@@ -79,7 +79,9 @@ handshake.channel().writeAndFlush(new TextWebSocketFrame("hello http2 websocket"
 Successfully handshaked http2 stream spawns websocket subchannel, and provided http1 websocket handlers are added
 to its pipeline.
 
-Runnable demo is available in `netty-websocket-http2-example` module - [channelserver](ref), [channelclient](ref).
+Runnable demo is available in `netty-websocket-http2-example` module - 
+[channelserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelserver/Main.java), 
+[channelclient](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelclient/Main.java).
 
 ### websocket handshake only API
 Intended for intermediaries/proxies.   
@@ -97,7 +99,9 @@ Only verifies whether http2 stream is valid websocket, then passes it down the p
 ```  
 Works with both callbacks-style `Http2ConnectionHandler` and frames based `Http2FrameCodec`.      
 
-Runnable demo is available in `netty-websocket-http2-example` module - [handshakeserver](ref), [channelclient](ref).
+Runnable demo is available in `netty-websocket-http2-example` module - 
+[handshakeserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/handshakeserver/Main.java), 
+[channelclient](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelclient/Main.java).
 
 ### compression & subprotocols
 Server/client `permessage-deflate` compression configuration is shared by all streams
