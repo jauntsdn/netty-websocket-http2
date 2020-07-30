@@ -8,7 +8,7 @@ Library is addressing 2 use cases: for application servers and clients,
 It is transparent use of existing http1 websocket handlers on top of http2 streams; for gateways/proxies, 
 It is websockets-over-http2 support with no additional dependencies and minimal overhead.
 
-[https://jauntsdn.com/post/netty-websockets-over-http2/](https://jauntsdn.com/post/netty-websockets-over-http2/)
+[https://jauntsdn.com/post/netty-websocket-http2/](https://jauntsdn.com/post/netty-websocket-http2/)
 
 ### websocket channel API  
 Intended for application servers and clients.  
