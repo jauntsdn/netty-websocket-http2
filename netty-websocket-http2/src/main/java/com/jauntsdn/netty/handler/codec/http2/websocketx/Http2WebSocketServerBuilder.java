@@ -81,7 +81,7 @@ public final class Http2WebSocketServerBuilder {
   }
 
   public Http2WebSocketServerBuilder handler(String path, ChannelHandler handler) {
-    return handler(path, "", AcceptorHandler.ACCEPT_ALL, handler);
+    return handler(path, "", Http2WebSocketAcceptor.ACCEPT_ALL, handler);
   }
 
   public Http2WebSocketServerBuilder handler(

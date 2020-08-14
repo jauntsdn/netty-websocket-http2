@@ -27,4 +27,19 @@ public interface Http2WebSocketAcceptor {
   default boolean writesResponseHeaders() {
     return true;
   }
+
+  Http2WebSocketAcceptor ACCEPT_ALL =
+      new Http2WebSocketAcceptor() {
+
+        @Override
+        public ChannelFuture accept(
+            ChannelHandlerContext context, Http2Headers request, Http2Headers response) {
+          return context.newSucceededFuture();
+        }
+
+        @Override
+        public boolean writesResponseHeaders() {
+          return false;
+        }
+      };
 }

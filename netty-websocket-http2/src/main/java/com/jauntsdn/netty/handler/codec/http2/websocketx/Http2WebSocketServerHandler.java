@@ -122,8 +122,6 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
   }
 
   static class AcceptorHandler {
-    static final Http2WebSocketAcceptor ACCEPT_ALL =
-        (ctx, request, response) -> ctx.newSucceededFuture();
     private final String subprotocol;
     private Http2WebSocketAcceptor acceptor;
     private ChannelHandler handler;
