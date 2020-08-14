@@ -129,3 +129,5 @@ def projectVersion(project) {
     }
     return project.version + versionSuffix
 }
+
+defaultTasks 'clean', 'build'
