@@ -16,8 +16,6 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static io.netty.channel.ChannelHandler.*;
-
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
@@ -29,20 +27,15 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http2.Http2FrameCodec;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
-import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.*;
-import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
-import java.io.InputStream;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslHandler;
 import java.net.SocketAddress;
-import java.security.KeyStore;
 import java.util.concurrent.TimeUnit;
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class IntegrationSmokeTest {
+public class PingPongTest extends AbstractTest {
   private Channel client;
   private Channel server;
 
@@ -189,47 +182,5 @@ public class IntegrationSmokeTest {
       ctx.writeAndFlush(new TextWebSocketFrame(PING));
       super.channelActive(ctx);
     }
-  }
-
-  static SslContext serverSslContext(String keystoreFile, String keystorePassword)
-      throws Exception {
-    SslProvider sslProvider = sslProvider();
-    KeyStore keyStore = KeyStore.getInstance("PKCS12");
-    InputStream keystoreStream =
-        IntegrationSmokeTest.class.getClassLoader().getResourceAsStream(keystoreFile);
-    char[] keystorePasswordArray = keystorePassword.toCharArray();
-    keyStore.load(keystoreStream, keystorePasswordArray);
-
-    KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
-    keyManagerFactory.init(keyStore, keystorePasswordArray);
-
-    return SslContextBuilder.forServer(keyManagerFactory)
-        .protocols("TLSv1.3")
-        .sslProvider(sslProvider)
-        .applicationProtocolConfig(alpnConfig())
-        .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-        .build();
-  }
-
-  static SslContext clientSslContext() throws SSLException {
-    return SslContextBuilder.forClient()
-        .protocols("TLSv1.3")
-        .sslProvider(sslProvider())
-        .applicationProtocolConfig(alpnConfig())
-        .trustManager(InsecureTrustManagerFactory.INSTANCE)
-        .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-        .build();
-  }
-
-  static ApplicationProtocolConfig alpnConfig() {
-    return new ApplicationProtocolConfig(
-        ApplicationProtocolConfig.Protocol.ALPN,
-        ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
-        ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
-        ApplicationProtocolNames.HTTP_2);
-  }
-
-  static SslProvider sslProvider() {
-    return SslProvider.OPENSSL_REFCNT;
   }
 }
