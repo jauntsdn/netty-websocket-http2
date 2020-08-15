@@ -304,7 +304,8 @@ public class Http2WebSocketClientHandshaker {
       handshake.complete(e);
       return;
     }
-    webSocketsParent.register(streamIdFactory.incrementAndGetNextStreamId(), webSocketChannel);
+    int streamId = streamIdFactory.incrementAndGetNextStreamId();
+    webSocketsParent.register(streamId, webSocketChannel.setStreamId(streamId));
 
     String path = webSocketChannel.path();
     String authority = authority();

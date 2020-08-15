@@ -126,7 +126,7 @@ abstract class AbstractTest {
     return SslProvider.OPENSSL_REFCNT;
   }
 
-  static class WebsocketEventsRecorder extends ChannelInboundHandlerAdapter {
+  static class WebsocketEventsHandler extends ChannelInboundHandlerAdapter {
     private final List<Http2WebSocketEvent> events = new CopyOnWriteArrayList<>();
 
     @Override
