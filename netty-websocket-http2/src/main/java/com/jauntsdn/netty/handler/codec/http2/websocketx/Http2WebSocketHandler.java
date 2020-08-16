@@ -238,9 +238,9 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   }
 
   void registerWebSocket(int streamId, Http2WebSocketChannel webSocket) {
-    webSocket.setStreamId(streamId);
-    webSockets.put(streamId, webSocket);
-    webSocket.closeFuture().addListener(future -> webSockets.remove(streamId));
+    IntObjectMap<Http2WebSocketChannel> ws = webSockets;
+    ws.put(streamId, webSocket);
+    webSocket.closeFuture().addListener(future -> ws.remove(streamId));
   }
 
   /*

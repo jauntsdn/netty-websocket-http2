@@ -1193,9 +1193,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
         path,
         streamId,
         Http2Error.CANCEL.code());
-    ChannelFuture channelFuture =
-        webSocketChannelParent.writeRstStream(streamId, Http2Error.CANCEL.code());
-    flush();
+    WebSocketsParent parent = webSocketChannelParent;
+    ChannelFuture channelFuture = parent.writeRstStream(streamId, Http2Error.CANCEL.code());
+    parent.context().flush();
     return channelFuture;
   }
 
@@ -1312,7 +1312,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
         switch (webSocketEvent.type()) {
           case CLOSE_LOCAL:
             writeData(Unpooled.EMPTY_BUFFER, true).addListener(this);
-            flush();
+            webSocketChannelParent.context().flush();
             break;
           case WEIGHT_UPDATE:
             /*priority update is for client websocket only*/
