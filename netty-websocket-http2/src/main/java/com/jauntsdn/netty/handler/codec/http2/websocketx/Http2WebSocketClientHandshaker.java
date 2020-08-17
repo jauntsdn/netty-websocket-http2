@@ -150,8 +150,11 @@ public class Http2WebSocketClientHandshaker {
     return webSocketChannel.handshakePromise();
   }
 
-  void handshake(
-      Http2WebSocketChannel webSocketChannel, Http2Headers responseHeaders, boolean endOfStream) {
+  void handshake(Http2WebSocket webSocket, Http2Headers responseHeaders, boolean endOfStream) {
+    if (webSocket == Http2WebSocket.CLOSED) {
+      return;
+    }
+    Http2WebSocketChannel webSocketChannel = (Http2WebSocketChannel) webSocket;
     String path = webSocketChannel.path();
     ChannelPromise handshakePromise = webSocketChannel.handshakePromise();
 
