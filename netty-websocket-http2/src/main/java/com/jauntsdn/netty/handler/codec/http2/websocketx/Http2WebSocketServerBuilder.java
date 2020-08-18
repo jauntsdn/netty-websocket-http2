@@ -32,6 +32,8 @@ public final class Http2WebSocketServerBuilder {
   private final Map<String, AcceptorHandler> webSocketHandlers = new HashMap<>();
   private long handshakeTimeoutMillis = 15_000;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
+  private long closedWebSocketRemoveTimeoutMillis = 30_000;
+  private TimeoutScheduler closedWebSocketTimeoutScheduler;
 
   Http2WebSocketServerBuilder() {}
 
@@ -49,6 +51,21 @@ public final class Http2WebSocketServerBuilder {
   public Http2WebSocketServerBuilder handshakeTimeoutMillis(long handshakeTimeoutMillis) {
     this.handshakeTimeoutMillis =
         Preconditions.requirePositive(handshakeTimeoutMillis, "handshakeTimeoutMillis");
+    return this;
+  }
+
+  public Http2WebSocketServerBuilder closedWebSocketRemoveTimeout(
+      long closedWebSocketRemoveTimeoutMillis) {
+    this.closedWebSocketRemoveTimeoutMillis =
+        Preconditions.requirePositive(
+            closedWebSocketRemoveTimeoutMillis, "closedWebSocketRemoveTimeoutMillis");
+    return this;
+  }
+
+  public Http2WebSocketServerBuilder closedWebSocketRemoveScheduler(
+      TimeoutScheduler timeoutScheduler) {
+    this.closedWebSocketTimeoutScheduler =
+        Objects.requireNonNull(timeoutScheduler, "closedWebSocketTimeoutScheduler");
     return this;
   }
 
@@ -137,6 +154,8 @@ public final class Http2WebSocketServerBuilder {
         config,
         isEncoderMaskPayload,
         handshakeTimeoutMillis,
+        closedWebSocketRemoveTimeoutMillis,
+        closedWebSocketTimeoutScheduler,
         perMessageDeflateServerExtensionHandshaker,
         webSocketHandlers);
   }

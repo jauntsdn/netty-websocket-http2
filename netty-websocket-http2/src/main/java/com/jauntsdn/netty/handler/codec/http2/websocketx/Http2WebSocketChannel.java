@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http2FrameListener {
+class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http2WebSocket {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketChannel.class);
   private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
   private static final AttributeKey<Short> STREAM_WEIGHT_KEY =
@@ -341,6 +341,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
     }
   }
 
+  @Override
   public void trySetWritable() {
     // The parent is writable again but the child channel itself may still not be writable.
     // Lets try to set the child channel writable to match the state of the parent channel
@@ -349,6 +350,16 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
     if (totalPendingSize < config().getWriteBufferLowWaterMark()) {
       setWritable(false);
     }
+  }
+
+  @Override
+  public void fireExceptionCaught(Throwable t) {
+    pipeline.fireExceptionCaught(t);
+  }
+
+  @Override
+  public void closeForcibly() {
+    unsafe.closeForcibly();
   }
 
   private void setWritable(boolean invokeLater) {
@@ -401,7 +412,8 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
     return streamId;
   }
 
-  void streamClosed() {
+  @Override
+  public void streamClosed() {
     unsafe.readEOS();
     // Attempt to drain any queued data from the queue and deliver it to the application before
     // closing this

@@ -27,6 +27,7 @@ public final class Http2WebSocketClientBuilder {
   private boolean isEncoderMaskPayload = true;
   private long handshakeTimeoutMillis = 15_000;
   private short streamWeight;
+  private long closedWebSocketRemoveTimeoutMillis = 30_000;
 
   Http2WebSocketClientBuilder() {}
 
@@ -44,6 +45,14 @@ public final class Http2WebSocketClientBuilder {
   public Http2WebSocketClientBuilder handshakeTimeoutMillis(long handshakeTimeoutMillis) {
     this.handshakeTimeoutMillis =
         Preconditions.requirePositive(handshakeTimeoutMillis, "handshakeTimeoutMillis");
+    return this;
+  }
+
+  public Http2WebSocketClientBuilder closedWebSocketRemoveTimeout(
+      long closedWebSocketRemoveTimeoutMillis) {
+    this.closedWebSocketRemoveTimeoutMillis =
+        Preconditions.requirePositive(
+            closedWebSocketRemoveTimeoutMillis, "closedWebSocketRemoveTimeoutMillis");
     return this;
   }
 
@@ -99,6 +108,11 @@ public final class Http2WebSocketClientBuilder {
       weight = DEFAULT_STREAM_WEIGHT;
     }
     return new Http2WebSocketClientHandler(
-        config, isEncoderMaskPayload, weight, handshakeTimeoutMillis, compressionHandshaker);
+        config,
+        isEncoderMaskPayload,
+        weight,
+        handshakeTimeoutMillis,
+        closedWebSocketRemoveTimeoutMillis,
+        compressionHandshaker);
   }
 }
