@@ -128,15 +128,7 @@ public final class Http2WebSocketServerBuilder {
   }
 
   public Http2WebSocketServerHandler handshakeOnly() {
-    webSocketHandlers.clear();
-    WebSocketDecoderConfig config = webSocketDecoderConfig;
-    if (config == null) {
-      config = WebSocketDecoderConfig.newBuilder().build();
-    }
-    if (perMessageDeflateServerExtensionHandshaker != null) {
-      logger.info("Compression is not applied in http2 websockets handshake only mode");
-    }
-    return new Http2WebSocketServerHandler(config, isEncoderMaskPayload);
+    return new Http2WebSocketServerHandler();
   }
 
   public Http2WebSocketServerHandler build() {

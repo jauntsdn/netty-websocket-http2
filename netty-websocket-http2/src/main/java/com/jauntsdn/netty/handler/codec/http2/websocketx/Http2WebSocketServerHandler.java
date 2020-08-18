@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,13 +42,14 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
   private final Map<String, AcceptorHandler> webSocketHandlers;
   private Http2WebSocketServerHandshaker http2WebSocketHandShaker;
 
+  /*subchannel*/
   Http2WebSocketServerHandler(
-      WebSocketDecoderConfig webSocketDecoderConfig,
+      @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long handshakeTimeoutMillis,
       long closedWebSocketRemoveTimeoutMillis,
-      TimeoutScheduler closedWebSocketTimeoutScheduler,
-      PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
+      @Nullable TimeoutScheduler closedWebSocketTimeoutScheduler,
+      @Nullable PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
       Map<String, AcceptorHandler> webSocketHandlers) {
     super(webSocketDecoderConfig, closedWebSocketRemoveTimeoutMillis);
     this.isEncoderMaskPayload = isEncoderMaskPayload;
@@ -57,9 +59,9 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
     this.webSocketHandlers = webSocketHandlers;
   }
 
-  Http2WebSocketServerHandler(
-      WebSocketDecoderConfig webSocketDecoderConfig, boolean isEncoderMaskPayload) {
-    this(webSocketDecoderConfig, isEncoderMaskPayload, 0, 0, null, null, null);
+  /*handshake only*/
+  Http2WebSocketServerHandler() {
+    this(null, false, 0, 0, null, null, null);
   }
 
   public static Http2WebSocketServerBuilder builder() {

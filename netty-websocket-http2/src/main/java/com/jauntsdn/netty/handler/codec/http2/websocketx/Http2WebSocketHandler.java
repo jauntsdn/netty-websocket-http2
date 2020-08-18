@@ -28,6 +28,7 @@ import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
     implements Http2FrameListener {
@@ -42,7 +43,8 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   Http2FrameListener next;
 
   Http2WebSocketHandler(
-      WebSocketDecoderConfig webSocketDecoderConfig, long closedWebSocketRemoveTimeoutMillis) {
+      @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
+      long closedWebSocketRemoveTimeoutMillis) {
     this.config = webSocketDecoderConfig;
     this.closedWebSocketRemoveTimeoutMillis = closedWebSocketRemoveTimeoutMillis;
   }
@@ -50,7 +52,9 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     this.ctx = ctx;
-    this.http2Handler = Preconditions.requireHandler(ctx.channel(), Http2ConnectionHandler.class);
+    Http2ConnectionHandler http2Handler =
+        this.http2Handler =
+            Preconditions.requireHandler(ctx.channel(), Http2ConnectionHandler.class);
     this.isAutoRead = ctx.channel().config().isAutoRead();
     Http2ConnectionDecoder decoder = http2Handler.decoder();
     Http2ConnectionEncoder encoder = http2Handler.encoder();
@@ -75,9 +79,7 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
 
   @Override
   public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-    if (!webSockets.isEmpty()) {
-      webSockets.values().forEach(Http2WebSocket::streamClosed);
-    }
+    connectionClosed();
     super.close(ctx, promise);
   }
 
@@ -85,9 +87,7 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   public void onGoAwayRead(
       ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData)
       throws Http2Exception {
-    for (Http2WebSocket webSocket : webSockets.values()) {
-      webSocket.streamClosed();
-    }
+    connectionClosed();
     next().onGoAwayRead(ctx, lastStreamId, errorCode, debugData);
   }
 
@@ -268,6 +268,15 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
         eventLoop.schedule(
             removeWebSocket, closedWebSocketRemoveTimeoutMillis, TimeUnit.MILLISECONDS);
     removeWebSocket.removeWebSocketFuture(removeWebSocketFuture);
+  }
+
+  private void connectionClosed() {
+    IntObjectMap<Http2WebSocket> ws = webSockets;
+    if (!ws.isEmpty()) {
+      for (Http2WebSocket webSocket : ws.values()) {
+        webSocket.streamClosed();
+      }
+    }
   }
 
   private static class RemoveWebSocket implements Runnable, GenericFutureListener<ChannelFuture> {

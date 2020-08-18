@@ -57,7 +57,7 @@ class Http2WebSocketServerHandshaker {
 
   Http2WebSocketServerHandshaker(
       WebSocketsParent webSocketsParent,
-      WebSocketDecoderConfig webSocketDecoderConfig,
+      @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long handshakeTimeoutMillis,
       @Nullable Map<String, AcceptorHandler> webSocketHandlers,
