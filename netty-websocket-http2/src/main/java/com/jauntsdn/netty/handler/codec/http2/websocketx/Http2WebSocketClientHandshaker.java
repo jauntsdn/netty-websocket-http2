@@ -117,13 +117,14 @@ public class Http2WebSocketClientHandshaker {
 
     Http2WebSocketChannel webSocketChannel =
         new Http2WebSocketChannel(
-            webSocketsParent,
-            serial,
-            path,
-            subprotocol,
-            webSocketDecoderConfig,
-            isEncoderMaskPayload,
-            webSocketHandler);
+                webSocketsParent,
+                serial,
+                path,
+                subprotocol,
+                webSocketDecoderConfig,
+                isEncoderMaskPayload,
+                webSocketHandler)
+            .initialize();
 
     Http2WebSocketClientHandshake handshake =
         new Http2WebSocketClientHandshake(
