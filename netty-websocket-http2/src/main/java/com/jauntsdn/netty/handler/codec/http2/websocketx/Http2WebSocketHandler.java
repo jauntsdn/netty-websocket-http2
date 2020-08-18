@@ -16,6 +16,8 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import static io.netty.handler.codec.http2.Http2Exception.*;
+
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
@@ -195,25 +197,39 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
 
   @Override
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-    webSockets
-        .values()
-        .forEach(
-            ws -> {
-              try {
-                ClosedChannelException e = new ClosedChannelException();
-                e.initCause(cause);
-                ws.fireExceptionCaught(e);
-              } finally {
-                ws.closeForcibly();
-              }
-            });
+    if (!(cause instanceof StreamException)) {
+      super.exceptionCaught(ctx, cause);
+      return;
+    }
+    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    if (!webSockets.isEmpty()) {
+      StreamException streamException = (StreamException) cause;
+      Http2WebSocket webSocket = webSockets.get(streamException.streamId());
+      if (webSocket == null) {
+        super.exceptionCaught(ctx, cause);
+        return;
+      }
+      if (webSocket != Http2WebSocket.CLOSED) {
+        try {
+          ClosedChannelException e = new ClosedChannelException();
+          e.initCause(streamException);
+          webSocket.fireExceptionCaught(e);
+        } finally {
+          webSocket.closeForcibly();
+        }
+      }
+      return;
+    }
     super.exceptionCaught(ctx, cause);
   }
 
   @Override
   public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
     if (ctx.channel().isWritable()) {
-      webSockets.values().forEach(Http2WebSocket::trySetWritable);
+      IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+      if (!webSockets.isEmpty()) {
+        webSockets.forEach((key, webSocket) -> webSocket.trySetWritable());
+      }
     }
     super.channelWritabilityChanged(ctx);
   }
@@ -241,8 +257,8 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   }
 
   void registerWebSocket(int streamId, Http2WebSocketChannel webSocket) {
-    IntObjectMap<Http2WebSocket> ws = webSockets;
-    ws.put(streamId, webSocket);
+    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    webSockets.put(streamId, webSocket);
     webSocket
         .closeFuture()
         .addListener(
@@ -252,8 +268,8 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
               if (closeFuture.isDone()) {
                 return;
               }
-              ws.put(streamId, Http2WebSocket.CLOSED);
-              removeAfterTimeout(streamId, ws, closeFuture, channel.eventLoop());
+              webSockets.put(streamId, Http2WebSocket.CLOSED);
+              removeAfterTimeout(streamId, webSockets, closeFuture, channel.eventLoop());
             });
   }
 
@@ -271,11 +287,9 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   }
 
   private void connectionClosed() {
-    IntObjectMap<Http2WebSocket> ws = webSockets;
-    if (!ws.isEmpty()) {
-      for (Http2WebSocket webSocket : ws.values()) {
-        webSocket.streamClosed();
-      }
+    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    if (!webSockets.isEmpty()) {
+      webSockets.forEach((key, webSocket) -> webSocket.streamClosed());
     }
   }
 
