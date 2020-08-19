@@ -18,10 +18,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.channel.ChannelInitializer;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -34,8 +31,8 @@ import java.io.InputStream;
 import java.net.SocketAddress;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLException;
@@ -127,14 +124,33 @@ abstract class AbstractTest {
   }
 
   static class WebsocketEventsHandler extends ChannelInboundHandlerAdapter {
-    private final List<Http2WebSocketEvent> events = new CopyOnWriteArrayList<>();
+    private final int eventsCount;
+    private final List<Http2WebSocketEvent> events = new ArrayList<>();
+    private volatile ChannelPromise eventsReceived;
+
+    public WebsocketEventsHandler(int eventsCount) {
+      this.eventsCount = eventsCount;
+    }
+
+    @Override
+    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+      eventsReceived = ctx.newPromise();
+      super.handlerAdded(ctx);
+    }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
       if (evt instanceof Http2WebSocketEvent) {
         events.add((Http2WebSocketEvent) evt);
+        if (events.size() == eventsCount) {
+          eventsReceived.setSuccess();
+        }
       }
       super.userEventTriggered(ctx, evt);
+    }
+
+    ChannelFuture eventsReceived() {
+      return eventsReceived;
     }
 
     public List<Http2WebSocketEvent> events() {

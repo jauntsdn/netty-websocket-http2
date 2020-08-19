@@ -64,7 +64,7 @@ public class ProtocolHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler();
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -85,10 +85,9 @@ public class ProtocolHandshakeTest extends AbstractTest {
         Http2WebSocketClientHandshaker.create(client)
             .handshake("/test", new ChannelInboundHandlerAdapter());
     handshake.await(5, TimeUnit.SECONDS);
-    /*remote handshake events are sent immediately after handshake promise completion*/
-    Thread.sleep(1);
-
     Assertions.assertThat(handshake.isSuccess()).isTrue();
+
+    eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
     Assertions.assertThat(events).hasSize(2);
     Http2WebSocketEvent startEvent = events.get(0);
@@ -115,7 +114,7 @@ public class ProtocolHandshakeTest extends AbstractTest {
 
     SocketAddress address = server.localAddress();
     SslContext clientSslContext = clientSslContext();
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler();
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
     client =
         createClient(
                 address,
@@ -134,11 +133,14 @@ public class ProtocolHandshakeTest extends AbstractTest {
     ChannelFuture handshake =
         Http2WebSocketClientHandshaker.create(client)
             .handshake("/test", new ChannelInboundHandlerAdapter());
-    handshake.await(5, TimeUnit.SECONDS);
+    handshake.await(6, TimeUnit.SECONDS);
     Assertions.assertThat(handshake.isSuccess()).isFalse();
     Assertions.assertThat(handshake.cause()).isExactlyInstanceOf(WebSocketHandshakeException.class);
-    Assertions.assertThat(handshake.channel().isOpen()).isFalse();
+    Channel webSocketChannel = handshake.channel();
+    webSocketChannel.closeFuture().await(5, TimeUnit.SECONDS);
+    Assertions.assertThat(webSocketChannel.isOpen()).isFalse();
 
+    eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
     Assertions.assertThat(events).hasSize(2);
     Http2WebSocketEvent startEvent = events.get(0);

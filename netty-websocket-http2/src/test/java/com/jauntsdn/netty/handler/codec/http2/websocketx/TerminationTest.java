@@ -90,7 +90,9 @@ public class TerminationTest extends AbstractTest {
     Assertions.assertThat(clientWebSocketChannel.isOpen()).isFalse();
 
     Channel serverWebsocketChannel = serverWebsocketCloseHandler.websocketChannel();
-    Assertions.assertThat(serverWebsocketChannel.closeFuture().isSuccess()).isTrue();
+    ChannelFuture serverWebSocketCloseFuture = serverWebsocketChannel.closeFuture();
+    serverWebSocketCloseFuture.await(5, TimeUnit.SECONDS);
+    Assertions.assertThat(serverWebSocketCloseFuture.isSuccess()).isTrue();
     Assertions.assertThat(serverWebsocketChannel.isOpen()).isFalse();
 
     Assertions.assertThat(client.isOpen()).isTrue();
