@@ -16,38 +16,47 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import static io.netty.handler.codec.http2.Http2Exception.*;
+
 import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelDuplexHandler;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPromise;
+import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http2.*;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.ScheduledFuture;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 
 public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
     implements Http2FrameListener {
-  final IntObjectMap<Http2WebSocketChannel> webSockets = new IntObjectHashMap<>();
+  final IntObjectMap<Http2WebSocket> webSockets = new IntObjectHashMap<>();
   final WebSocketDecoderConfig config;
-  WebSocketsParent webSocketsParent;
+  final long closedWebSocketRemoveTimeoutMillis;
 
+  WebSocketsParent webSocketsParent;
   ChannelHandlerContext ctx;
   boolean isAutoRead;
   Http2ConnectionHandler http2Handler;
   Http2FrameListener next;
 
-  Http2WebSocketHandler(WebSocketDecoderConfig webSocketDecoderConfig) {
+  Http2WebSocketHandler(
+      @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
+      long closedWebSocketRemoveTimeoutMillis) {
     this.config = webSocketDecoderConfig;
+    this.closedWebSocketRemoveTimeoutMillis = closedWebSocketRemoveTimeoutMillis;
   }
 
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     this.ctx = ctx;
-    this.http2Handler = Preconditions.requireHandler(ctx.channel(), Http2ConnectionHandler.class);
+    Http2ConnectionHandler http2Handler =
+        this.http2Handler =
+            Preconditions.requireHandler(ctx.channel(), Http2ConnectionHandler.class);
     this.isAutoRead = ctx.channel().config().isAutoRead();
     Http2ConnectionDecoder decoder = http2Handler.decoder();
     Http2ConnectionEncoder encoder = http2Handler.encoder();
@@ -72,9 +81,7 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
 
   @Override
   public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-    if (!webSockets.isEmpty()) {
-      webSockets.values().forEach(Http2WebSocketChannel::streamClosed);
-    }
+    connectionClosed();
     super.close(ctx, promise);
   }
 
@@ -82,9 +89,7 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   public void onGoAwayRead(
       ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData)
       throws Http2Exception {
-    for (Http2WebSocketChannel webSocket : webSockets.values()) {
-      webSocket.streamClosed();
-    }
+    connectionClosed();
     next().onGoAwayRead(ctx, lastStreamId, errorCode, debugData);
   }
 
@@ -192,25 +197,39 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
 
   @Override
   public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-    webSockets
-        .values()
-        .forEach(
-            ws -> {
-              try {
-                ClosedChannelException e = new ClosedChannelException();
-                e.initCause(cause);
-                ws.pipeline().fireExceptionCaught(e);
-              } finally {
-                ws.unsafe().closeForcibly();
-              }
-            });
+    if (!(cause instanceof StreamException)) {
+      super.exceptionCaught(ctx, cause);
+      return;
+    }
+    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    if (!webSockets.isEmpty()) {
+      StreamException streamException = (StreamException) cause;
+      Http2WebSocket webSocket = webSockets.get(streamException.streamId());
+      if (webSocket == null) {
+        super.exceptionCaught(ctx, cause);
+        return;
+      }
+      if (webSocket != Http2WebSocket.CLOSED) {
+        try {
+          ClosedChannelException e = new ClosedChannelException();
+          e.initCause(streamException);
+          webSocket.fireExceptionCaught(e);
+        } finally {
+          webSocket.closeForcibly();
+        }
+      }
+      return;
+    }
     super.exceptionCaught(ctx, cause);
   }
 
   @Override
   public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
     if (ctx.channel().isWritable()) {
-      webSockets.values().forEach(Http2WebSocketChannel::trySetWritable);
+      IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+      if (!webSockets.isEmpty()) {
+        webSockets.forEach((key, webSocket) -> webSocket.trySetWritable());
+      }
     }
     super.channelWritabilityChanged(ctx);
   }
@@ -226,7 +245,7 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   }
 
   Http2FrameListener webSocketOrNext(int streamId) {
-    Http2WebSocketChannel webSocket = webSockets.get(streamId);
+    Http2WebSocket webSocket = webSockets.get(streamId);
     if (webSocket != null) {
       ChannelHandlerContext c = ctx;
       if (!isAutoRead) {
@@ -238,9 +257,74 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   }
 
   void registerWebSocket(int streamId, Http2WebSocketChannel webSocket) {
-    webSocket.setStreamId(streamId);
+    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
     webSockets.put(streamId, webSocket);
-    webSocket.closeFuture().addListener(future -> webSockets.remove(streamId));
+    webSocket
+        .closeFuture()
+        .addListener(
+            future -> {
+              Channel channel = ctx.channel();
+              ChannelFuture closeFuture = channel.closeFuture();
+              if (closeFuture.isDone()) {
+                return;
+              }
+              webSockets.put(streamId, Http2WebSocket.CLOSED);
+              removeAfterTimeout(streamId, webSockets, closeFuture, channel.eventLoop());
+            });
+  }
+
+  void removeAfterTimeout(
+      int streamId,
+      IntObjectMap<Http2WebSocket> webSockets,
+      ChannelFuture connectionCloseFuture,
+      EventLoop eventLoop) {
+    RemoveWebSocket removeWebSocket =
+        new RemoveWebSocket(streamId, webSockets, connectionCloseFuture);
+    ScheduledFuture<?> removeWebSocketFuture =
+        eventLoop.schedule(
+            removeWebSocket, closedWebSocketRemoveTimeoutMillis, TimeUnit.MILLISECONDS);
+    removeWebSocket.removeWebSocketFuture(removeWebSocketFuture);
+  }
+
+  private void connectionClosed() {
+    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    if (!webSockets.isEmpty()) {
+      webSockets.forEach((key, webSocket) -> webSocket.streamClosed());
+    }
+  }
+
+  private static class RemoveWebSocket implements Runnable, GenericFutureListener<ChannelFuture> {
+    private final IntObjectMap<Http2WebSocket> webSockets;
+    private final int streamId;
+    private final ChannelFuture connectionCloseFuture;
+    private ScheduledFuture<?> removeWebSocketFuture;
+
+    RemoveWebSocket(
+        int streamId,
+        IntObjectMap<Http2WebSocket> webSockets,
+        ChannelFuture connectionCloseFuture) {
+      this.streamId = streamId;
+      this.webSockets = webSockets;
+      this.connectionCloseFuture = connectionCloseFuture;
+    }
+
+    void removeWebSocketFuture(ScheduledFuture<?> removeWebSocketFuture) {
+      this.removeWebSocketFuture = removeWebSocketFuture;
+      connectionCloseFuture.addListener(this);
+    }
+
+    /*connection close*/
+    @Override
+    public void operationComplete(ChannelFuture future) {
+      removeWebSocketFuture.cancel(true);
+    }
+
+    /*after websocket close timeout*/
+    @Override
+    public void run() {
+      webSockets.remove(streamId);
+      connectionCloseFuture.removeListener(this);
+    }
   }
 
   /*

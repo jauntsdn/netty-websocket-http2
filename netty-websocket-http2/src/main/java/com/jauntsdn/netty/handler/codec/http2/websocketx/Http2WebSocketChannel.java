@@ -47,7 +47,8 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http2FrameListener {
+class Http2WebSocketChannel extends DefaultAttributeMap
+    implements Channel, Http2WebSocket, GenericFutureListener<ChannelFuture> {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketChannel.class);
   private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
   private static final AttributeKey<Short> STREAM_WEIGHT_KEY =
@@ -116,6 +117,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
   private final String subprotocol;
   private final ChannelPromise closePromise;
   private final ChannelPromise handshakePromise;
+  private GenericFutureListener<ChannelFuture> handshakePromiseListener;
 
   private volatile int streamId;
   private volatile boolean registered;
@@ -136,65 +138,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
   private Queue<ByteBuf> inboundBuffer;
   private boolean readCompletePending;
   private short pendingStreamWeight;
-  private boolean isHandshakeCompleted;
   private WebSocketExtensionEncoder compressionEncoder;
   private WebSocketExtensionDecoder compressionDecoder;
-
-  /*client*/
-  Http2WebSocketChannel(
-      WebSocketsParent webSocketChannelParent,
-      int websocketChannelSerial,
-      String path,
-      String subprotocol,
-      WebSocketDecoderConfig config,
-      boolean isEncoderMaskPayload,
-      ChannelHandler websocketHandler) {
-    this.isHandshakeCompleted = false;
-    this.webSocketChannelParent = webSocketChannelParent;
-    this.websocketChannelSerial = String.valueOf(websocketChannelSerial);
-    this.path = path;
-    this.subprotocol = subprotocol;
-    pipeline = new WebSocketChannelPipeline(this);
-    channelId = new Http2WebSocketChannelId(parent().id(), websocketChannelSerial);
-
-    ChannelPipeline pl = pipeline;
-    PreHandshakeHandler preHandshakeHandler = new PreHandshakeHandler();
-    pl.addLast(preHandshakeHandler, websocketHandler);
-
-    closePromise = pl.newPromise();
-
-    ChannelPromise hp = handshakePromise = newPromise();
-    hp.addListener(
-        future -> {
-          isHandshakeCompleted = true;
-
-          Throwable cause = future.cause();
-          if (cause != null) {
-            preHandshakeHandler.cancel(cause);
-            return;
-          }
-
-          if (config.withUTF8Validator()) {
-            pl.addFirst(new Utf8FrameValidator());
-          }
-          WebSocketExtensionEncoder encoder = compressionEncoder;
-          WebSocketExtensionDecoder decoder = compressionDecoder;
-          if (encoder != null && decoder != null) {
-            pl.addFirst(
-                new WebSocket13FrameDecoder(config),
-                decoder,
-                new WebSocket13FrameEncoder(isEncoderMaskPayload),
-                encoder);
-          } else {
-            pl.addFirst(
-                new WebSocket13FrameDecoder(config),
-                new WebSocket13FrameEncoder(isEncoderMaskPayload));
-          }
-          preHandshakeHandler.complete();
-        });
-
-    parent().closeFuture().addListener(future -> streamClosed());
-  }
+  boolean isHandshakeCompleted;
 
   /*server*/
   Http2WebSocketChannel(
@@ -212,10 +158,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
     this.websocketChannelSerial = String.valueOf(websocketChannelSerial);
     this.path = path;
     this.subprotocol = subprotocol;
-    pipeline = new WebSocketChannelPipeline(this);
     channelId = new Http2WebSocketChannelId(parent().id(), websocketChannelSerial);
+    ChannelPipeline pl = pipeline = new WebSocketChannelPipeline(this);
 
-    ChannelPipeline pl = pipeline;
     if (compressionEncoder != null && compressionDecoder != null) {
       pl.addLast(
           new WebSocket13FrameDecoder(config),
@@ -232,10 +177,89 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
     pl.addLast(websocketHandler);
 
     closePromise = pl.newPromise();
-
     handshakePromise = null;
+    /*removed by unsafe.close()*/
+    parent().closeFuture().addListener(this);
+  }
 
-    parent().closeFuture().addListener(future -> streamClosed());
+  /*client*/
+  Http2WebSocketChannel(
+      WebSocketsParent webSocketChannelParent,
+      int websocketChannelSerial,
+      String path,
+      String subprotocol,
+      WebSocketDecoderConfig config,
+      boolean isEncoderMaskPayload,
+      ChannelHandler websocketHandler) {
+    this.webSocketChannelParent = webSocketChannelParent;
+    this.websocketChannelSerial = String.valueOf(websocketChannelSerial);
+    this.path = path;
+    this.subprotocol = subprotocol;
+    channelId = new Http2WebSocketChannelId(parent().id(), websocketChannelSerial);
+    ChannelPipeline pl = pipeline = new WebSocketChannelPipeline(this);
+
+    PreHandshakeHandler preHandshakeHandler = new PreHandshakeHandler();
+    pl.addLast(preHandshakeHandler, websocketHandler);
+
+    closePromise = pl.newPromise();
+    handshakePromise = pl.newPromise();
+    handshakePromiseListener =
+        new CompleteClientHandshake(config, isEncoderMaskPayload, preHandshakeHandler);
+  }
+
+  /*called on user thread, done outside constructor to not publish
+  underconstructed "this"*/
+  Http2WebSocketChannel initialize() {
+    GenericFutureListener<ChannelFuture> handshakeListener = handshakePromiseListener;
+    handshakePromiseListener = null;
+    handshakePromise.addListener(handshakeListener);
+    /*removed by unsafe.close()*/
+    parent().closeFuture().addListener(this);
+    return this;
+  }
+
+  class CompleteClientHandshake implements GenericFutureListener<ChannelFuture> {
+    private final WebSocketDecoderConfig config;
+    private final boolean isEncoderMaskPayload;
+    private final PreHandshakeHandler preHandshakeHandler;
+
+    public CompleteClientHandshake(
+        WebSocketDecoderConfig config,
+        boolean isEncoderMaskPayload,
+        PreHandshakeHandler preHandshakeHandler) {
+      this.config = config;
+      this.isEncoderMaskPayload = isEncoderMaskPayload;
+      this.preHandshakeHandler = preHandshakeHandler;
+    }
+
+    @Override
+    public void operationComplete(ChannelFuture future) {
+      isHandshakeCompleted = true;
+
+      Throwable cause = future.cause();
+      if (cause != null) {
+        preHandshakeHandler.cancel(cause);
+        return;
+      }
+      WebSocketDecoderConfig config = this.config;
+      ChannelPipeline pl = pipeline();
+      if (config.withUTF8Validator()) {
+        pl.addFirst(new Utf8FrameValidator());
+      }
+      WebSocketExtensionEncoder encoder = compressionEncoder;
+      WebSocketExtensionDecoder decoder = compressionDecoder;
+      if (encoder != null && decoder != null) {
+        pl.addFirst(
+            new WebSocket13FrameDecoder(config),
+            decoder,
+            new WebSocket13FrameEncoder(isEncoderMaskPayload),
+            encoder);
+      } else {
+        pl.addFirst(
+            new WebSocket13FrameDecoder(config), new WebSocket13FrameEncoder(isEncoderMaskPayload));
+      }
+      preHandshakeHandler.complete();
+    }
   }
 
   String serial() {
@@ -260,6 +284,12 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
       WebSocketExtensionEncoder compressionEncoder, WebSocketExtensionDecoder compressionDecoder) {
     this.compressionEncoder = compressionEncoder;
     this.compressionDecoder = compressionDecoder;
+  }
+
+  /*parent channel closed*/
+  @Override
+  public void operationComplete(ChannelFuture future) {
+    streamClosed();
   }
 
   /* websocket stream */
@@ -341,6 +371,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
     }
   }
 
+  @Override
   public void trySetWritable() {
     // The parent is writable again but the child channel itself may still not be writable.
     // Lets try to set the child channel writable to match the state of the parent channel
@@ -349,6 +380,16 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
     if (totalPendingSize < config().getWriteBufferLowWaterMark()) {
       setWritable(false);
     }
+  }
+
+  @Override
+  public void fireExceptionCaught(Throwable t) {
+    pipeline.fireExceptionCaught(t);
+  }
+
+  @Override
+  public void closeForcibly() {
+    unsafe.closeForcibly();
   }
 
   private void setWritable(boolean invokeLater) {
@@ -401,7 +442,8 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
     return streamId;
   }
 
-  void streamClosed() {
+  @Override
+  public void streamClosed() {
     unsafe.readEOS();
     // Attempt to drain any queued data from the queue and deliver it to the application before
     // closing this
@@ -810,6 +852,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
         return;
       }
       closeInitiated = true;
+
+      parent().closeFuture().removeListener(Http2WebSocketChannel.this);
+
       // Just set to false as removing from an underlying queue would even be more expensive.
       readCompletePending = false;
 
@@ -1193,9 +1238,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
         path,
         streamId,
         Http2Error.CANCEL.code());
-    ChannelFuture channelFuture =
-        webSocketChannelParent.writeRstStream(streamId, Http2Error.CANCEL.code());
-    flush();
+    WebSocketsParent parent = webSocketChannelParent;
+    ChannelFuture channelFuture = parent.writeRstStream(streamId, Http2Error.CANCEL.code());
+    parent.context().flush();
     return channelFuture;
   }
 
@@ -1312,7 +1357,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap implements Channel, Http
         switch (webSocketEvent.type()) {
           case CLOSE_LOCAL:
             writeData(Unpooled.EMPTY_BUFFER, true).addListener(this);
-            flush();
+            webSocketChannelParent.context().flush();
             break;
           case WEIGHT_UPDATE:
             /*priority update is for client websocket only*/

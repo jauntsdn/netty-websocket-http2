@@ -16,4 +16,15 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-public class IntegrationSmokeTest {}
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+
+public interface TimeoutScheduler {
+
+  Handle schedule(Runnable runnable, long delay, TimeUnit timeUnit, Executor executor);
+
+  interface Handle {
+
+    void cancel();
+  }
+}

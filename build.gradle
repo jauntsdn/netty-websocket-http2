@@ -45,13 +45,13 @@ subprojects {
         api "org.slf4j:slf4j-api"
         testImplementation "org.assertj:assertj-core"
         testImplementation "org.junit.jupiter:junit-jupiter-api"
+        testRuntime 'org.junit.jupiter:junit-jupiter-engine'
         testImplementation "org.junit.jupiter:junit-jupiter-params"
         testRuntimeOnly "ch.qos.logback:logback-classic"
     }
 
     repositories {
         mavenCentral()
-        mavenLocal()
     }
 
     plugins.withType(JavaPlugin) {
@@ -70,6 +70,7 @@ subprojects {
         }
 
         test {
+            useJUnitPlatform()
             testLogging {
                 events "failed"
                 exceptionFormat "full"
@@ -128,3 +129,5 @@ def projectVersion(project) {
     }
     return project.version + versionSuffix
 }
+
+defaultTasks 'clean', 'build'

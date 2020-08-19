@@ -16,16 +16,19 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import io.netty.handler.codec.http2.Http2Headers;
+import io.netty.util.collection.IntObjectMap;
+import io.netty.util.concurrent.GenericFutureListener;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,25 +38,30 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
   private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;
   private final boolean isEncoderMaskPayload;
   private final long handshakeTimeoutMillis;
+  private final TimeoutScheduler closedWebSocketTimeoutScheduler;
   private final Map<String, AcceptorHandler> webSocketHandlers;
   private Http2WebSocketServerHandshaker http2WebSocketHandShaker;
 
+  /*subchannel*/
   Http2WebSocketServerHandler(
-      WebSocketDecoderConfig webSocketDecoderConfig,
+      @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long handshakeTimeoutMillis,
-      PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
+      long closedWebSocketRemoveTimeoutMillis,
+      @Nullable TimeoutScheduler closedWebSocketTimeoutScheduler,
+      @Nullable PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
       Map<String, AcceptorHandler> webSocketHandlers) {
-    super(webSocketDecoderConfig);
+    super(webSocketDecoderConfig, closedWebSocketRemoveTimeoutMillis);
     this.isEncoderMaskPayload = isEncoderMaskPayload;
     this.handshakeTimeoutMillis = handshakeTimeoutMillis;
+    this.closedWebSocketTimeoutScheduler = closedWebSocketTimeoutScheduler;
     this.compressionHandshaker = compressionHandshaker;
     this.webSocketHandlers = webSocketHandlers;
   }
 
-  Http2WebSocketServerHandler(
-      WebSocketDecoderConfig webSocketDecoderConfig, boolean isEncoderMaskPayload) {
-    this(webSocketDecoderConfig, isEncoderMaskPayload, 0, null, null);
+  /*handshake only*/
+  Http2WebSocketServerHandler() {
+    this(null, false, 0, 0, null, null, null);
   }
 
   public static Http2WebSocketServerBuilder builder() {
@@ -114,6 +122,30 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
     }
   }
 
+  @Override
+  void removeAfterTimeout(
+      int streamId,
+      IntObjectMap<Http2WebSocket> webSockets,
+      ChannelFuture connectionCloseFuture,
+      EventLoop eventLoop) {
+    TimeoutScheduler scheduler = closedWebSocketTimeoutScheduler;
+    /* assume most users prefer timeouts by eventloop;
+    external scheduler is handled as special case to save few allocations */
+    if (scheduler != null) {
+      RemoveWebSocket removeWebSocket =
+          new RemoveWebSocket(streamId, webSockets, connectionCloseFuture);
+      TimeoutScheduler.Handle removeWebSocketHandle =
+          scheduler.schedule(
+              removeWebSocket,
+              closedWebSocketRemoveTimeoutMillis,
+              TimeUnit.MILLISECONDS,
+              eventLoop);
+      removeWebSocket.removeWebSocketHandle(removeWebSocketHandle);
+      return;
+    }
+    super.removeAfterTimeout(streamId, webSockets, connectionCloseFuture, eventLoop);
+  }
+
   private boolean handshakeWebSocket(int streamId, Http2Headers headers, boolean endOfStream) {
     if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
       return http2WebSocketHandShaker.handshake(streamId, headers, endOfStream);
@@ -121,9 +153,41 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
     return true;
   }
 
+  private static class RemoveWebSocket implements Runnable, GenericFutureListener<ChannelFuture> {
+    private final IntObjectMap<Http2WebSocket> webSockets;
+    private final int streamId;
+    private final ChannelFuture connectionCloseFuture;
+    private TimeoutScheduler.Handle removeWebSocketHandle;
+
+    RemoveWebSocket(
+        int streamId,
+        IntObjectMap<Http2WebSocket> webSockets,
+        ChannelFuture connectionCloseFuture) {
+      this.streamId = streamId;
+      this.webSockets = webSockets;
+      this.connectionCloseFuture = connectionCloseFuture;
+    }
+
+    void removeWebSocketHandle(TimeoutScheduler.Handle removeWebSocketHandle) {
+      this.removeWebSocketHandle = removeWebSocketHandle;
+      connectionCloseFuture.addListener(this);
+    }
+
+    /*connection close*/
+    @Override
+    public void operationComplete(ChannelFuture future) {
+      removeWebSocketHandle.cancel();
+    }
+
+    /*after websocket close timeout*/
+    @Override
+    public void run() {
+      webSockets.remove(streamId);
+      connectionCloseFuture.removeListener(this);
+    }
+  }
+
   static class AcceptorHandler {
-    static final Http2WebSocketAcceptor ACCEPT_ALL =
-        (ctx, request, response) -> ctx.newSucceededFuture();
     private final String subprotocol;
     private Http2WebSocketAcceptor acceptor;
     private ChannelHandler handler;

@@ -49,8 +49,9 @@ public class Http2WebSocketClientHandler extends Http2WebSocketHandler {
       boolean encoderMaskPayload,
       short streamWeight,
       long handshakeTimeoutMillis,
+      long closedWebSocketRemoveTimeoutMillis,
       @Nullable PerMessageDeflateClientExtensionHandshaker compressionHandshaker) {
-    super(webSocketDecoderConfig);
+    super(webSocketDecoderConfig, closedWebSocketRemoveTimeoutMillis);
     this.encoderMaskPayload = encoderMaskPayload;
     this.streamWeight = streamWeight;
     this.handshakeTimeoutMillis = handshakeTimeoutMillis;
@@ -158,7 +159,7 @@ public class Http2WebSocketClientHandler extends Http2WebSocketHandler {
 
   private boolean handshakeWebSocket(
       int streamId, Http2Headers responseHeaders, boolean endOfStream) {
-    Http2WebSocketChannel webSocketChannel = webSockets.get(streamId);
+    Http2WebSocket webSocketChannel = webSockets.get(streamId);
     if (webSocketChannel == null) {
       return true;
     }

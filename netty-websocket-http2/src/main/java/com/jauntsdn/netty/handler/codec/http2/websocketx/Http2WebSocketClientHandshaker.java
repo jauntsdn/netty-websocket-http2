@@ -117,13 +117,14 @@ public class Http2WebSocketClientHandshaker {
 
     Http2WebSocketChannel webSocketChannel =
         new Http2WebSocketChannel(
-            webSocketsParent,
-            serial,
-            path,
-            subprotocol,
-            webSocketDecoderConfig,
-            isEncoderMaskPayload,
-            webSocketHandler);
+                webSocketsParent,
+                serial,
+                path,
+                subprotocol,
+                webSocketDecoderConfig,
+                isEncoderMaskPayload,
+                webSocketHandler)
+            .initialize();
 
     Http2WebSocketClientHandshake handshake =
         new Http2WebSocketClientHandshake(
@@ -150,8 +151,11 @@ public class Http2WebSocketClientHandshaker {
     return webSocketChannel.handshakePromise();
   }
 
-  void handshake(
-      Http2WebSocketChannel webSocketChannel, Http2Headers responseHeaders, boolean endOfStream) {
+  void handshake(Http2WebSocket webSocket, Http2Headers responseHeaders, boolean endOfStream) {
+    if (webSocket == Http2WebSocket.CLOSED) {
+      return;
+    }
+    Http2WebSocketChannel webSocketChannel = (Http2WebSocketChannel) webSocket;
     String path = webSocketChannel.path();
     ChannelPromise handshakePromise = webSocketChannel.handshakePromise();
 
@@ -304,7 +308,8 @@ public class Http2WebSocketClientHandshaker {
       handshake.complete(e);
       return;
     }
-    webSocketsParent.register(streamIdFactory.incrementAndGetNextStreamId(), webSocketChannel);
+    int streamId = streamIdFactory.incrementAndGetNextStreamId();
+    webSocketsParent.register(streamId, webSocketChannel.setStreamId(streamId));
 
     String path = webSocketChannel.path();
     String authority = authority();

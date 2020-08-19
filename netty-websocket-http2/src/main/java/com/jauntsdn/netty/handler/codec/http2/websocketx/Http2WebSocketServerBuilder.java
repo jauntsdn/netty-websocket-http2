@@ -32,6 +32,8 @@ public final class Http2WebSocketServerBuilder {
   private final Map<String, AcceptorHandler> webSocketHandlers = new HashMap<>();
   private long handshakeTimeoutMillis = 15_000;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
+  private long closedWebSocketRemoveTimeoutMillis = 30_000;
+  private TimeoutScheduler closedWebSocketTimeoutScheduler;
 
   Http2WebSocketServerBuilder() {}
 
@@ -49,6 +51,21 @@ public final class Http2WebSocketServerBuilder {
   public Http2WebSocketServerBuilder handshakeTimeoutMillis(long handshakeTimeoutMillis) {
     this.handshakeTimeoutMillis =
         Preconditions.requirePositive(handshakeTimeoutMillis, "handshakeTimeoutMillis");
+    return this;
+  }
+
+  public Http2WebSocketServerBuilder closedWebSocketRemoveTimeout(
+      long closedWebSocketRemoveTimeoutMillis) {
+    this.closedWebSocketRemoveTimeoutMillis =
+        Preconditions.requirePositive(
+            closedWebSocketRemoveTimeoutMillis, "closedWebSocketRemoveTimeoutMillis");
+    return this;
+  }
+
+  public Http2WebSocketServerBuilder closedWebSocketRemoveScheduler(
+      TimeoutScheduler timeoutScheduler) {
+    this.closedWebSocketTimeoutScheduler =
+        Objects.requireNonNull(timeoutScheduler, "closedWebSocketTimeoutScheduler");
     return this;
   }
 
@@ -81,7 +98,7 @@ public final class Http2WebSocketServerBuilder {
   }
 
   public Http2WebSocketServerBuilder handler(String path, ChannelHandler handler) {
-    return handler(path, "", AcceptorHandler.ACCEPT_ALL, handler);
+    return handler(path, "", Http2WebSocketAcceptor.ACCEPT_ALL, handler);
   }
 
   public Http2WebSocketServerBuilder handler(
@@ -111,15 +128,7 @@ public final class Http2WebSocketServerBuilder {
   }
 
   public Http2WebSocketServerHandler handshakeOnly() {
-    webSocketHandlers.clear();
-    WebSocketDecoderConfig config = webSocketDecoderConfig;
-    if (config == null) {
-      config = WebSocketDecoderConfig.newBuilder().build();
-    }
-    if (perMessageDeflateServerExtensionHandshaker != null) {
-      logger.info("Compression is not applied in http2 websockets handshake only mode");
-    }
-    return new Http2WebSocketServerHandler(config, isEncoderMaskPayload);
+    return new Http2WebSocketServerHandler();
   }
 
   public Http2WebSocketServerHandler build() {
@@ -137,6 +146,8 @@ public final class Http2WebSocketServerBuilder {
         config,
         isEncoderMaskPayload,
         handshakeTimeoutMillis,
+        closedWebSocketRemoveTimeoutMillis,
+        closedWebSocketTimeoutScheduler,
         perMessageDeflateServerExtensionHandshaker,
         webSocketHandlers);
   }

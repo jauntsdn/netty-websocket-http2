@@ -26,6 +26,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http.websocketx.extensions.*;
 import io.netty.handler.codec.http2.*;
 import io.netty.util.AsciiString;
+import java.nio.channels.ClosedChannelException;
 import java.util.*;
 import javax.annotation.Nullable;
 
@@ -56,7 +57,7 @@ class Http2WebSocketServerHandshaker {
 
   Http2WebSocketServerHandshaker(
       WebSocketsParent webSocketsParent,
-      WebSocketDecoderConfig webSocketDecoderConfig,
+      @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long handshakeTimeoutMillis,
       @Nullable Map<String, AcceptorHandler> webSocketHandlers,
@@ -107,7 +108,7 @@ class Http2WebSocketServerHandshaker {
           requestHeaders,
           startNanos,
           System.nanoTime(),
-          WebSocketHandshakeException.class.getSimpleName(),
+          WebSocketHandshakeException.class.getName(),
           Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion);
 
       writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true);
@@ -132,7 +133,7 @@ class Http2WebSocketServerHandshaker {
           requestHeaders,
           startNanos,
           System.nanoTime(),
-          WebSocketHandshakeException.class.getSimpleName(),
+          WebSocketHandshakeException.class.getName(),
           Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND + path);
 
       writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true);
@@ -153,7 +154,7 @@ class Http2WebSocketServerHandshaker {
           requestHeaders,
           startNanos,
           System.nanoTime(),
-          WebSocketHandshakeException.class.getSimpleName(),
+          WebSocketHandshakeException.class.getName(),
           Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND + path);
 
       writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true);
@@ -211,7 +212,7 @@ class Http2WebSocketServerHandshaker {
           requestHeaders,
           startNanos,
           System.nanoTime(),
-          WebSocketHandshakeException.class.getSimpleName(),
+          WebSocketHandshakeException.class.getName(),
           Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE);
 
       writeHeaders(ctx, streamId, HEADERS_INTERNAL_ERROR, true);
@@ -227,44 +228,61 @@ class Http2WebSocketServerHandshaker {
       return false;
     }
 
-    /* synchronous acceptor, no need for timeout - just register webSocket*/
-    ChannelHandler webSocketHandler = acceptorHandler.handler();
-    Http2WebSocketChannel webSocket =
-        new Http2WebSocketChannel(
-            webSocketsParent,
-            webSocketChannelSerial++,
-            path,
-            subprotocol,
-            webSocketDecoderConfig,
-            isEncoderMaskPayload,
-            compressionEncoder,
-            compressionDecoder,
-            webSocketHandler);
-    /*synchronous on eventLoop*/
-    ChannelFuture registered = ctx.channel().eventLoop().register(webSocket);
-
-    /*event loop registration error*/
-    if (!registered.isSuccess()) {
-      Http2WebSocketHandshakeEvent.fireStartAndError(
-          ctx.channel(),
-          id,
-          path,
-          requestHeaders,
-          startNanos,
-          System.nanoTime(),
-          registered.cause());
-      writeHeaders(ctx, streamId, HEADERS_INTERNAL_ERROR, true);
-      webSocket.streamClosed();
-      return false;
-    }
-    webSocketsParent.register(streamId, webSocket);
-
+    WebSocketExtensionEncoder finalCompressionEncoder = compressionEncoder;
+    WebSocketExtensionDecoder finalCompressionDecoder = compressionDecoder;
     Http2Headers successHeaders = successHeaders(responseHeaders);
-
     writeHeaders(ctx, streamId, successHeaders, false)
         .addListener(
             future -> {
               if (future.isSuccess()) {
+                /* synchronous acceptor, no need for timeout - just register webSocket*/
+                ChannelHandler webSocketHandler = acceptorHandler.handler();
+                Http2WebSocketChannel webSocket =
+                    new Http2WebSocketChannel(
+                            webSocketsParent,
+                            webSocketChannelSerial++,
+                            path,
+                            subprotocol,
+                            webSocketDecoderConfig,
+                            isEncoderMaskPayload,
+                            finalCompressionEncoder,
+                            finalCompressionDecoder,
+                            webSocketHandler)
+                        .setStreamId(streamId);
+                /*synchronous on eventLoop*/
+                ChannelFuture registered = ctx.channel().eventLoop().register(webSocket);
+
+                /*event loop registration error*/
+                if (!registered.isSuccess()) {
+                  Http2WebSocketHandshakeEvent.fireStartAndError(
+                      ctx.channel(),
+                      id,
+                      path,
+                      requestHeaders,
+                      startNanos,
+                      System.nanoTime(),
+                      registered.cause());
+                  writeRstStream(ctx, streamId);
+                  webSocket.streamClosed();
+                  return;
+                }
+
+                /*websocket channel closed synchronously*/
+                if (webSocket.closeFuture().isDone()) {
+                  Http2WebSocketHandshakeEvent.fireStartAndError(
+                      ctx.channel(),
+                      id,
+                      path,
+                      requestHeaders,
+                      startNanos,
+                      System.nanoTime(),
+                      ClosedChannelException.class.getName(),
+                      "websocket channel closed immediately after eventloop registration");
+                  writeRstStream(ctx, streamId);
+                  return;
+                }
+                webSocketsParent.register(streamId, webSocket);
+
                 Http2WebSocketHandshakeEvent.fireStartAndSuccess(
                     webSocket,
                     id,
@@ -283,7 +301,6 @@ class Http2WebSocketServerHandshaker {
                   startNanos,
                   System.nanoTime(),
                   future.cause());
-              webSocket.streamClosed();
             });
     return false;
   }
