@@ -36,8 +36,9 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
       throws Http2Exception {
     if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
       if (Http2WebSocketServerHandshaker.handshakeProtocol(headers, endOfStream)) {
-        Http2WebSocketServerHandshaker.handshakedWebSocket(headers);
-        super.onHeadersRead(ctx, streamId, headers, padding, endOfStream);
+        Http2Headers handshakeOnlyWebSocket =
+            Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
+        super.onHeadersRead(ctx, streamId, handshakeOnlyWebSocket, padding, endOfStream);
       } else {
         writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code());
       }
@@ -59,9 +60,17 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
       throws Http2Exception {
     if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
       if (Http2WebSocketServerHandshaker.handshakeProtocol(headers, endOfStream)) {
-        Http2WebSocketServerHandshaker.handshakedWebSocket(headers);
+        Http2Headers handshakeOnlyWebSocket =
+            Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
         super.onHeadersRead(
-            ctx, streamId, headers, streamDependency, weight, exclusive, padding, endOfStream);
+            ctx,
+            streamId,
+            handshakeOnlyWebSocket,
+            streamDependency,
+            weight,
+            exclusive,
+            padding,
+            endOfStream);
       } else {
         writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code());
       }
@@ -74,5 +83,6 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
   private void writeRstStream(ChannelHandlerContext ctx, int streamId, long errorCode) {
     ChannelPromise p = ctx.newPromise();
     http2Handler.encoder().writeRstStream(ctx, streamId, errorCode, p);
+    ctx.flush();
   }
 }

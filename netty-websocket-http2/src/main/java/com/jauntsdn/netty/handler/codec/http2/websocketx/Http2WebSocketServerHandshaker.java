@@ -313,10 +313,10 @@ class Http2WebSocketServerHandshaker {
     ctx.flush();
   }
 
-  static void handshakedWebSocket(Http2Headers headers) {
+  static Http2Headers handshakeOnlyWebSocket(Http2Headers headers) {
     headers.remove(Http2WebSocketProtocol.HEADER_PROTOCOL_NAME);
     headers.method(Http2WebSocketProtocol.HEADER_METHOD_CONNECT_HANDSHAKED);
-    headers.set(
+    return headers.set(
         Http2WebSocketProtocol.HEADER_PROTOCOL_NAME_HANDSHAKED,
         Http2WebSocketProtocol.HEADER_PROTOCOL_VALUE);
   }
