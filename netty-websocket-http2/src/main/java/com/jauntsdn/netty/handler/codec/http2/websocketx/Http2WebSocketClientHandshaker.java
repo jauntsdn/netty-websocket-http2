@@ -352,7 +352,6 @@ public class Http2WebSocketClientHandshaker {
               }
               webSocketChannel.setStreamWeightAttribute(weight);
             });
-    webSocketsParent.context().flush();
   }
 
   private String authority() {

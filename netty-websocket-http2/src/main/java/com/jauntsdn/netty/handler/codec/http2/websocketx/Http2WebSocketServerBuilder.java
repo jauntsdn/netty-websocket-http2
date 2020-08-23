@@ -159,4 +159,24 @@ public final class Http2WebSocketServerBuilder {
         perMessageDeflateServerExtensionHandshaker,
         webSocketHandlers);
   }
+
+  private AcceptorHandler handler(String path) {
+    return webSocketHandlers.get(path);
+  }
+
+  private void addHandler(String path, AcceptorHandler acceptorHandler) {
+    Map<String, AcceptorHandler> handlers = webSocketHandlers;
+    switch (handlers.size()) {
+      case 0:
+        webSocketHandlers = Collections.singletonMap(path, acceptorHandler);
+        break;
+      case 1:
+        Map<String, AcceptorHandler> h = webSocketHandlers = new HashMap<>(/*capacity*/ 4);
+        h.putAll(handlers);
+        h.put(path, acceptorHandler);
+        break;
+      default:
+        handlers.put(path, acceptorHandler);
+    }
+  }
 }
