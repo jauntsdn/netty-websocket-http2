@@ -20,7 +20,7 @@ import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEv
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketStreamWeightUpdateEvent;
 import static java.lang.Math.min;
 
-import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.WebSocketsParent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;

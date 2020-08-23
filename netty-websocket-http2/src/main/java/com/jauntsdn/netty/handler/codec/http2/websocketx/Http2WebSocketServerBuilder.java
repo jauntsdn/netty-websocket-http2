@@ -21,6 +21,7 @@ import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketSe
 import io.netty.channel.ChannelHandler;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
+import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,13 @@ public final class Http2WebSocketServerBuilder {
   private TimeoutScheduler closedWebSocketTimeoutScheduler;
 
   Http2WebSocketServerBuilder() {}
+
+  public static Http2FrameCodecBuilder configureHttp2Server(Http2FrameCodecBuilder http2Builder) {
+    http2Builder
+        .initialSettings()
+        .put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
+    return http2Builder.validateHeaders(false);
+  }
 
   public Http2WebSocketServerBuilder decoderConfig(WebSocketDecoderConfig webSocketDecoderConfig) {
     this.webSocketDecoderConfig =
@@ -127,8 +135,8 @@ public final class Http2WebSocketServerBuilder {
     return this;
   }
 
-  public Http2WebSocketServerHandler handshakeOnly() {
-    return new Http2WebSocketServerHandler();
+  public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly() {
+    return new Http2WebSocketHandshakeOnlyServerHandler();
   }
 
   public Http2WebSocketServerHandler build() {

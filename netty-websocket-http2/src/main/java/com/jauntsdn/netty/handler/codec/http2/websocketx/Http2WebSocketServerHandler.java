@@ -20,7 +20,6 @@ import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
 import io.netty.handler.codec.http2.Http2Exception;
-import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.collection.IntObjectMap;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -29,57 +28,38 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
-  private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerHandler.class);
-
-  private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;
-  private final boolean isEncoderMaskPayload;
+public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHandler {
   private final long handshakeTimeoutMillis;
-  private final TimeoutScheduler closedWebSocketTimeoutScheduler;
+  private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;
   private final Map<String, AcceptorHandler> webSocketHandlers;
-  private Http2WebSocketServerHandshaker http2WebSocketHandShaker;
+  private final TimeoutScheduler closedWebSocketTimeoutScheduler;
 
-  /*subchannel*/
+  private Http2WebSocketServerHandshaker handshaker;
+
   Http2WebSocketServerHandler(
-      @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
+      WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long handshakeTimeoutMillis,
       long closedWebSocketRemoveTimeoutMillis,
       @Nullable TimeoutScheduler closedWebSocketTimeoutScheduler,
       @Nullable PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
       Map<String, AcceptorHandler> webSocketHandlers) {
-    super(webSocketDecoderConfig, closedWebSocketRemoveTimeoutMillis);
-    this.isEncoderMaskPayload = isEncoderMaskPayload;
+    super(webSocketDecoderConfig, isEncoderMaskPayload, closedWebSocketRemoveTimeoutMillis);
     this.handshakeTimeoutMillis = handshakeTimeoutMillis;
     this.closedWebSocketTimeoutScheduler = closedWebSocketTimeoutScheduler;
     this.compressionHandshaker = compressionHandshaker;
     this.webSocketHandlers = webSocketHandlers;
   }
 
-  /*handshake only*/
-  Http2WebSocketServerHandler() {
-    this(null, false, 0, 0, null, null, null);
-  }
-
   public static Http2WebSocketServerBuilder builder() {
     return new Http2WebSocketServerBuilder();
-  }
-
-  public static Http2FrameCodecBuilder configureHttp2Server(Http2FrameCodecBuilder http2Builder) {
-    http2Builder
-        .initialSettings()
-        .put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
-    return http2Builder.validateHeaders(false);
   }
 
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     super.handlerAdded(ctx);
-
-    this.http2WebSocketHandShaker =
+    this.handshaker =
         new Http2WebSocketServerHandshaker(
             webSocketsParent,
             config,
@@ -148,7 +128,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
 
   private boolean handshakeWebSocket(int streamId, Http2Headers headers, boolean endOfStream) {
     if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
-      return http2WebSocketHandShaker.handshake(streamId, headers, endOfStream);
+      return handshaker.handshake(streamId, headers, endOfStream);
     }
     return true;
   }

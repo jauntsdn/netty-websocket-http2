@@ -19,7 +19,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.*;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
 
-import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.WebSocketsParent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
@@ -57,10 +57,10 @@ class Http2WebSocketServerHandshaker {
 
   Http2WebSocketServerHandshaker(
       WebSocketsParent webSocketsParent,
-      @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
+      WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long handshakeTimeoutMillis,
-      @Nullable Map<String, AcceptorHandler> webSocketHandlers,
+      Map<String, AcceptorHandler> webSocketHandlers,
       @Nullable WebSocketServerExtensionHandshaker compressionHandshaker) {
     this.webSocketsParent = webSocketsParent;
     this.webSocketHandlers = webSocketHandlers;
@@ -70,32 +70,35 @@ class Http2WebSocketServerHandshaker {
     this.compressionHandshaker = compressionHandshaker;
   }
 
+  static boolean handshakeProtocol(final Http2Headers requestHeaders, boolean endOfStream) {
+    if (endOfStream) {
+      return false;
+    }
+    CharSequence pathSeq = requestHeaders.path();
+    if (isEmpty(pathSeq)) {
+      return false;
+    }
+    CharSequence authority = requestHeaders.authority();
+    if (isEmpty(authority)) {
+      return false;
+    }
+    CharSequence scheme = requestHeaders.scheme();
+    if (isEmpty(scheme) || !isHttp(scheme)) {
+      return false;
+    }
+    return true;
+  }
+
   boolean handshake(final int streamId, final Http2Headers requestHeaders, boolean endOfStream) {
     long startNanos = System.nanoTime();
     ChannelHandlerContext ctx = webSocketsParent.context();
 
-    if (endOfStream) {
+    if (!handshakeProtocol(requestHeaders, endOfStream)) {
       writeRstStream(ctx, streamId);
       return false;
     }
+    String path = requestHeaders.path().toString();
 
-    CharSequence pathSeq = requestHeaders.path();
-    if (isEmpty(pathSeq)) {
-      writeRstStream(ctx, streamId);
-      return false;
-    }
-
-    CharSequence authority = requestHeaders.authority();
-    if (isEmpty(authority)) {
-      writeRstStream(ctx, streamId);
-      return false;
-    }
-
-    CharSequence scheme = requestHeaders.scheme();
-    if (isEmpty(scheme) || !isHttp(scheme)) {
-      writeRstStream(ctx, streamId);
-      return false;
-    }
     String id = String.valueOf(streamId);
     CharSequence webSocketVersion =
         requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME);
@@ -104,7 +107,7 @@ class Http2WebSocketServerHandshaker {
       Http2WebSocketHandshakeEvent.fireStartAndError(
           ctx.channel(),
           id,
-          pathSeq.toString(),
+          path,
           requestHeaders,
           startNanos,
           System.nanoTime(),
@@ -114,16 +117,9 @@ class Http2WebSocketServerHandshaker {
       writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true);
       return false;
     }
-    /* http2 websocket handshake is successful  */
-    Map<String, AcceptorHandler> handlers = webSocketHandlers;
-    /*handshake only*/
-    if (handlers == null) {
-      handshakeOnly(requestHeaders);
-      return true;
-    }
-    String path = pathSeq.toString();
 
-    AcceptorHandler acceptorHandler = handlers.get(path);
+    /* http2 websocket handshake is successful  */
+    AcceptorHandler acceptorHandler = webSocketHandlers.get(path);
     /*no handlers for path*/
     if (acceptorHandler == null) {
       Http2WebSocketHandshakeEvent.fireStartAndError(
@@ -317,7 +313,7 @@ class Http2WebSocketServerHandshaker {
     ctx.flush();
   }
 
-  private static void handshakeOnly(Http2Headers headers) {
+  static void handshakedWebSocket(Http2Headers headers) {
     headers.remove(Http2WebSocketProtocol.HEADER_PROTOCOL_NAME);
     headers.method(Http2WebSocketProtocol.HEADER_METHOD_CONNECT_HANDSHAKED);
     headers.set(

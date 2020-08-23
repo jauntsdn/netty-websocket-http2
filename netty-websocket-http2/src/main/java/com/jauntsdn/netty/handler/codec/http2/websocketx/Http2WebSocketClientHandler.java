@@ -25,7 +25,7 @@ import io.netty.handler.ssl.SslHandler;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.annotation.Nullable;
 
-public class Http2WebSocketClientHandler extends Http2WebSocketHandler {
+public class Http2WebSocketClientHandler extends Http2WebSocketChannelHandler {
   private static final AtomicReferenceFieldUpdater<
           Http2WebSocketClientHandler, Http2WebSocketClientHandshaker>
       HANDSHAKER =
@@ -34,25 +34,24 @@ public class Http2WebSocketClientHandler extends Http2WebSocketHandler {
               Http2WebSocketClientHandshaker.class,
               "handshaker");
 
-  private final boolean encoderMaskPayload;
   private final long handshakeTimeoutMillis;
   private final PerMessageDeflateClientExtensionHandshaker compressionHandshaker;
   private final short streamWeight;
+
+  private CharSequence scheme;
   private Boolean supportsWebSocket;
+  private boolean supportsWebSocketCalled;
   private volatile Http2Connection.Endpoint<Http2LocalFlowController> streamIdFactory;
   private volatile Http2WebSocketClientHandshaker handshaker;
-  private CharSequence scheme;
-  private boolean supportsWebSocketCalled;
 
   Http2WebSocketClientHandler(
       WebSocketDecoderConfig webSocketDecoderConfig,
-      boolean encoderMaskPayload,
+      boolean isEncoderMaskPayload,
       short streamWeight,
       long handshakeTimeoutMillis,
       long closedWebSocketRemoveTimeoutMillis,
       @Nullable PerMessageDeflateClientExtensionHandshaker compressionHandshaker) {
-    super(webSocketDecoderConfig, closedWebSocketRemoveTimeoutMillis);
-    this.encoderMaskPayload = encoderMaskPayload;
+    super(webSocketDecoderConfig, isEncoderMaskPayload, closedWebSocketRemoveTimeoutMillis);
     this.streamWeight = streamWeight;
     this.handshakeTimeoutMillis = handshakeTimeoutMillis;
     this.compressionHandshaker = compressionHandshaker;
@@ -139,7 +138,7 @@ public class Http2WebSocketClientHandler extends Http2WebSocketHandler {
             webSocketsParent,
             streamIdFactory,
             config,
-            encoderMaskPayload,
+            isEncoderMaskPayload,
             streamWeight,
             scheme,
             handshakeTimeoutMillis,

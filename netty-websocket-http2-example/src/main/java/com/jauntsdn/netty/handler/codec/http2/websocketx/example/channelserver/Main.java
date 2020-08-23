@@ -20,6 +20,7 @@ import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEv
 import static io.netty.channel.ChannelHandler.*;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketAcceptor;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.example.Security;
 import io.netty.bootstrap.ServerBootstrap;
@@ -96,7 +97,7 @@ public class Main {
       Http2FrameCodecBuilder http2Builder = Http2FrameCodecBuilder.forServer();
       http2Builder.initialSettings().initialWindowSize(1_000);
       Http2FrameCodec http2frameCodec =
-          Http2WebSocketServerHandler.configureHttp2Server(http2Builder).build();
+          Http2WebSocketServerBuilder.configureHttp2Server(http2Builder).build();
 
       EchoWebSocketHandler echoWebSocketHandler = new EchoWebSocketHandler();
       UserAgentBasedAcceptor userAgentBasedAcceptor = new UserAgentBasedAcceptor();
