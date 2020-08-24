@@ -91,10 +91,9 @@ class Http2WebSocketServerHandshaker {
 
   boolean handshake(final int streamId, final Http2Headers requestHeaders, boolean endOfStream) {
     long startNanos = System.nanoTime();
-    ChannelHandlerContext ctx = webSocketsParent.context();
 
     if (!handshakeProtocol(requestHeaders, endOfStream)) {
-      writeRstStream(ctx, streamId);
+      writeRstStream(streamId);
       return false;
     }
     String path = requestHeaders.path().toString();
@@ -102,6 +101,8 @@ class Http2WebSocketServerHandshaker {
     String id = String.valueOf(streamId);
     CharSequence webSocketVersion =
         requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME);
+
+    ChannelHandlerContext ctx = webSocketsParent.context();
 
     if (isUnsupportedWebSocketVersion(webSocketVersion)) {
       Http2WebSocketHandshakeEvent.fireStartAndError(
@@ -258,7 +259,7 @@ class Http2WebSocketServerHandshaker {
                       startNanos,
                       System.nanoTime(),
                       registered.cause());
-                  writeRstStream(ctx, streamId);
+                  writeRstStream(streamId);
                   webSocket.streamClosed();
                   return;
                 }
@@ -274,7 +275,7 @@ class Http2WebSocketServerHandshaker {
                       System.nanoTime(),
                       ClosedChannelException.class.getName(),
                       "websocket channel closed immediately after eventloop registration");
-                  writeRstStream(ctx, streamId);
+                  writeRstStream(streamId);
                   return;
                 }
                 webSocketsParent.register(streamId, webSocket);
@@ -308,9 +309,8 @@ class Http2WebSocketServerHandshaker {
     return channelFuture;
   }
 
-  private void writeRstStream(ChannelHandlerContext ctx, int streamId) {
+  private void writeRstStream(int streamId) {
     webSocketsParent.writeRstStream(streamId, Http2Error.PROTOCOL_ERROR.code());
-    ctx.flush();
   }
 
   static Http2Headers handshakeOnlyWebSocket(Http2Headers headers) {

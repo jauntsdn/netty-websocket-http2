@@ -1114,9 +1114,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     }
 
     void writeDataFrame(ByteBuf dataFrameContents, final ChannelPromise promise) {
-      ChannelFuture f = writeData(dataFrameContents, false);
+      ChannelFuture f = writeData(dataFrameContents, false, promise);
       if (f.isDone()) {
-        writeComplete(f, promise);
+        writeComplete(f);
       } else {
         final long bytes = FlowControlledFrameSizeEstimator.HANDLE_INSTANCE.size(dataFrameContents);
         incrementPendingOutboundBytes(bytes, false);
@@ -1124,7 +1124,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
             new ChannelFutureListener() {
               @Override
               public void operationComplete(ChannelFuture future) {
-                writeComplete(future, promise);
+                writeComplete(future);
                 decrementPendingOutboundBytes(bytes, false);
               }
             });
@@ -1132,11 +1132,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       }
     }
 
-    private void writeComplete(ChannelFuture future, ChannelPromise promise) {
+    private void writeComplete(ChannelFuture future) {
       Throwable cause = future.cause();
-      if (cause == null) {
-        promise.setSuccess();
-      } else {
+      if (cause != null) {
         Throwable error = wrapStreamClosedError(cause);
         // To make it more consistent with AbstractChannel we handle all IOExceptions here.
         if (error instanceof IOException) {
@@ -1149,7 +1147,6 @@ class Http2WebSocketChannel extends DefaultAttributeMap
             outboundClosed = true;
           }
         }
-        promise.setFailure(error);
       }
     }
 
@@ -1232,24 +1229,20 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     }
   }
 
-  private ChannelFuture writeRstStream() {
+  ChannelFuture writeRstStream() {
     logger.debug(
         "Websocket channel writing RST frame for path: {}, streamId: {}, errorCode: {}",
         path,
         streamId,
         Http2Error.CANCEL.code());
-    WebSocketsParent parent = webSocketChannelParent;
-    ChannelFuture channelFuture = parent.writeRstStream(streamId, Http2Error.CANCEL.code());
-    parent.context().flush();
-    return channelFuture;
+    return webSocketChannelParent.writeRstStream(streamId, Http2Error.CANCEL.code());
   }
 
-  private ChannelFuture writeData(ByteBuf msg, boolean endOfStream) {
-    logger.debug("Websocket channel writing DATA frame for path: {}, streamId: {}", path, streamId);
-    return webSocketChannelParent.writeData(streamId, msg, 0, endOfStream);
+  ChannelFuture writeData(ByteBuf msg, boolean endOfStream, ChannelPromise promise) {
+    return webSocketChannelParent.writeData(streamId, msg, endOfStream, promise);
   }
 
-  private ChannelFuture writePriority(short weight) {
+  ChannelFuture writePriority(short weight) {
     logger.debug(
         "Websocket channel writing PRIORITY frame for path: {}, streamId: {}, weight: {}",
         path,
@@ -1356,8 +1349,11 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         Http2WebSocketEvent webSocketEvent = (Http2WebSocketEvent) evt;
         switch (webSocketEvent.type()) {
           case CLOSE_LOCAL:
-            writeData(Unpooled.EMPTY_BUFFER, true).addListener(this);
-            webSocketChannelParent.context().flush();
+            logger.debug(
+                "Graceful local close of websocket, streamId: {}, path: {}", streamId, path);
+            ChannelHandlerContext ctx = webSocketChannelParent.context();
+            writeData(Unpooled.EMPTY_BUFFER, true, ctx.newPromise()).addListener(this);
+            ctx.flush();
             break;
           case WEIGHT_UPDATE:
             /*priority update is for client websocket only*/
@@ -1382,7 +1378,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
                         setStreamWeightAttribute(weight);
                       }
                     });
-            flush();*/
+            */
             break;
           default:
             /*noop*/

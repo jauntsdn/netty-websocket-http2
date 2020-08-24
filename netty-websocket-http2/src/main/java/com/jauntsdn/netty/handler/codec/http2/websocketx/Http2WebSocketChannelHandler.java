@@ -60,14 +60,6 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   }
 
   @Override
-  public void channelActive(ChannelHandlerContext ctx) throws Exception {
-    if (!isAutoRead) {
-      ctx.read();
-    }
-    super.channelActive(ctx);
-  }
-
-  @Override
   public void channelInactive(ChannelHandlerContext ctx) throws Exception {
     webSockets.clear();
     super.channelInactive(ctx);
@@ -328,26 +320,32 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
         int streamId, Http2Headers headers, boolean endStream, short weight) {
       ChannelHandlerContext c = ctx;
       ChannelPromise p = c.newPromise();
-      return connectionEncoder.writeHeaders(
-          c, streamId, headers, 0, weight, false, 0, endStream, p);
+      ChannelFuture channelFuture =
+          connectionEncoder.writeHeaders(c, streamId, headers, 0, weight, false, 0, endStream, p);
+      c.flush();
+      return channelFuture;
     }
 
-    ChannelFuture writeData(int streamId, ByteBuf data, int padding, boolean endStream) {
+    ChannelFuture writeData(int streamId, ByteBuf data, boolean endStream, ChannelPromise promise) {
       ChannelHandlerContext c = ctx;
-      ChannelPromise p = c.newPromise();
-      return connectionEncoder.writeData(c, streamId, data, padding, endStream, p);
+      return connectionEncoder.writeData(c, streamId, data, 0, endStream, promise);
     }
 
     ChannelFuture writeRstStream(int streamId, long errorCode) {
       ChannelHandlerContext c = ctx;
       ChannelPromise p = c.newPromise();
-      return connectionEncoder.writeRstStream(c, streamId, errorCode, p);
+      ChannelFuture channelFuture = connectionEncoder.writeRstStream(c, streamId, errorCode, p);
+      c.flush();
+      return channelFuture;
     }
 
     ChannelFuture writePriority(int streamId, short weight) {
       ChannelHandlerContext c = ctx;
       ChannelPromise p = c.newPromise();
-      return connectionEncoder.writePriority(c, streamId, 0, weight, false, p);
+      ChannelFuture channelFuture =
+          connectionEncoder.writePriority(c, streamId, 0, weight, false, p);
+      c.flush();
+      return channelFuture;
     }
 
     public boolean isParentReadInProgress() {

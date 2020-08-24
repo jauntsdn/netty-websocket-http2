@@ -36,7 +36,6 @@ import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.ReferenceCountUtil;
-import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -304,7 +303,7 @@ public class Main {
       return new BinaryWebSocketFrame(frame);
     }
 
-    class QueueLimitingFrameWriter implements ChannelPromise {
+    class QueueLimitingFrameWriter implements GenericFutureListener<ChannelFuture> {
       private final Channel channel;
       private final ChannelHandlerContext ctx;
       private final int lowMark;
@@ -327,7 +326,7 @@ public class Main {
             }
             if (channel.isWritable()) {
               queued++;
-              ctx.write(webSocketFrame(), this);
+              ctx.write(webSocketFrame()).addListener(this);
             } else {
               break;
             }
@@ -337,177 +336,18 @@ public class Main {
       }
 
       @Override
-      public Channel channel() {
-        return channel;
-      }
-
-      @Override
-      public ChannelPromise setSuccess(Void result) {
-        setSuccess();
-        return this;
-      }
-
-      @Override
-      public boolean trySuccess(Void result) {
-        setSuccess();
-        return true;
-      }
-
-      @Override
-      public ChannelPromise setSuccess() {
+      public void operationComplete(ChannelFuture future) {
+        Throwable cause = future.cause();
+        if (cause != null) {
+          logger.error("Error writing frame", cause);
+          if (!isTerminated) {
+            isTerminated = true;
+            ctx.close();
+          }
+          return;
+        }
         queued--;
         tryWrite();
-        return this;
-      }
-
-      @Override
-      public boolean trySuccess() {
-        setSuccess();
-        return true;
-      }
-
-      @Override
-      public ChannelPromise setFailure(Throwable cause) {
-        logger.error("Error writing frame", cause);
-        if (!isTerminated) {
-          isTerminated = true;
-          ctx.close();
-        }
-        return this;
-      }
-
-      @Override
-      public boolean tryFailure(Throwable cause) {
-        setFailure(cause);
-        return true;
-      }
-
-      @Override
-      public boolean setUncancellable() {
-        return true;
-      }
-
-      @Override
-      public boolean isSuccess() {
-        return true;
-      }
-
-      @Override
-      public boolean isCancellable() {
-        return false;
-      }
-
-      @Override
-      public Throwable cause() {
-        return null;
-      }
-
-      @Override
-      public ChannelPromise addListener(
-          GenericFutureListener<? extends Future<? super Void>> listener) {
-        return this;
-      }
-
-      @Override
-      public ChannelPromise addListeners(
-          GenericFutureListener<? extends Future<? super Void>>... listeners) {
-        return this;
-      }
-
-      @Override
-      public ChannelPromise removeListener(
-          GenericFutureListener<? extends Future<? super Void>> listener) {
-        return this;
-      }
-
-      @Override
-      public ChannelPromise removeListeners(
-          GenericFutureListener<? extends Future<? super Void>>... listeners) {
-        return this;
-      }
-
-      @Override
-      public ChannelPromise sync() {
-        throw notImplemented();
-      }
-
-      @Override
-      public ChannelPromise syncUninterruptibly() {
-        throw notImplemented();
-      }
-
-      @Override
-      public ChannelPromise await() {
-        throw notImplemented();
-      }
-
-      @Override
-      public ChannelPromise awaitUninterruptibly() {
-        throw notImplemented();
-      }
-
-      @Override
-      public boolean await(long timeout, TimeUnit unit) {
-        throw notImplemented();
-      }
-
-      @Override
-      public boolean await(long timeoutMillis) {
-        throw notImplemented();
-      }
-
-      @Override
-      public boolean awaitUninterruptibly(long timeout, TimeUnit unit) {
-        throw notImplemented();
-      }
-
-      @Override
-      public boolean awaitUninterruptibly(long timeoutMillis) {
-        throw notImplemented();
-      }
-
-      @Override
-      public Void getNow() {
-        throw notImplemented();
-      }
-
-      @Override
-      public boolean cancel(boolean mayInterruptIfRunning) {
-        return false;
-      }
-
-      @Override
-      public boolean isCancelled() {
-        return false;
-      }
-
-      @Override
-      public boolean isDone() {
-        return false;
-      }
-
-      @Override
-      public Void get() {
-        throw notImplemented();
-      }
-
-      @Override
-      public Void get(long timeout, TimeUnit unit) {
-        throw notImplemented();
-      }
-
-      @Override
-      public boolean isVoid() {
-        return false;
-      }
-
-      @Override
-      public ChannelPromise unvoid() {
-        return this;
-      }
-
-      private RuntimeException notImplemented() {
-        throw new UnsupportedOperationException("QueueLimitingFrameWriter");
       }
     }
   }

@@ -30,7 +30,7 @@ public final class Http2WebSocketServerBuilder {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerBuilder.class);
   private WebSocketDecoderConfig webSocketDecoderConfig;
   private boolean isEncoderMaskPayload = true;
-  private final Map<String, AcceptorHandler> webSocketHandlers = new HashMap<>();
+  private Map<String, AcceptorHandler> webSocketHandlers = Collections.emptyMap();
   private long handshakeTimeoutMillis = 15_000;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
@@ -120,10 +120,10 @@ public final class Http2WebSocketServerBuilder {
     Preconditions.requireNonNull(subprotocol, "subprotocol");
     Preconditions.requireNonNull(acceptor, "acceptor");
     Preconditions.requireNonNull(handler, "handler");
-    AcceptorHandler acceptorHandler = webSocketHandlers.get(path);
+    AcceptorHandler acceptorHandler = handler(path);
     if (acceptorHandler == null) {
       acceptorHandler = new AcceptorHandler(acceptor, handler, subprotocol);
-      webSocketHandlers.put(path, acceptorHandler);
+      addHandler(path, acceptorHandler);
     } else {
       if (!acceptorHandler.addHandler(subprotocol, acceptor, handler)) {
         String subprotocolOrEmpty = subprotocol.isEmpty() ? "no subprotocol" : subprotocol;
@@ -158,5 +158,25 @@ public final class Http2WebSocketServerBuilder {
         closedWebSocketTimeoutScheduler,
         perMessageDeflateServerExtensionHandshaker,
         webSocketHandlers);
+  }
+
+  private AcceptorHandler handler(String path) {
+    return webSocketHandlers.get(path);
+  }
+
+  private void addHandler(String path, AcceptorHandler acceptorHandler) {
+    Map<String, AcceptorHandler> handlers = webSocketHandlers;
+    switch (handlers.size()) {
+      case 0:
+        webSocketHandlers = Collections.singletonMap(path, acceptorHandler);
+        break;
+      case 1:
+        Map<String, AcceptorHandler> h = webSocketHandlers = new HashMap<>(/*capacity*/ 4);
+        h.putAll(handlers);
+        h.put(path, acceptorHandler);
+        break;
+      default:
+        handlers.put(path, acceptorHandler);
+    }
   }
 }
