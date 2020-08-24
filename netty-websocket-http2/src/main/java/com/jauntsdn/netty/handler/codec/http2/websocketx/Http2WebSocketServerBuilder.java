@@ -30,7 +30,7 @@ public final class Http2WebSocketServerBuilder {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerBuilder.class);
   private WebSocketDecoderConfig webSocketDecoderConfig;
   private boolean isEncoderMaskPayload = true;
-  private final Map<String, AcceptorHandler> webSocketHandlers = new HashMap<>();
+  private Map<String, AcceptorHandler> webSocketHandlers = Collections.emptyMap();
   private long handshakeTimeoutMillis = 15_000;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
@@ -120,10 +120,10 @@ public final class Http2WebSocketServerBuilder {
     Preconditions.requireNonNull(subprotocol, "subprotocol");
     Preconditions.requireNonNull(acceptor, "acceptor");
     Preconditions.requireNonNull(handler, "handler");
-    AcceptorHandler acceptorHandler = webSocketHandlers.get(path);
+    AcceptorHandler acceptorHandler = handler(path);
     if (acceptorHandler == null) {
       acceptorHandler = new AcceptorHandler(acceptor, handler, subprotocol);
-      webSocketHandlers.put(path, acceptorHandler);
+      addHandler(path, acceptorHandler);
     } else {
       if (!acceptorHandler.addHandler(subprotocol, acceptor, handler)) {
         String subprotocolOrEmpty = subprotocol.isEmpty() ? "no subprotocol" : subprotocol;

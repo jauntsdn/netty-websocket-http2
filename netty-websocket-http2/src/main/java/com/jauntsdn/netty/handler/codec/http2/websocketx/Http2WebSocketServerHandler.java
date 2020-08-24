@@ -190,7 +190,8 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
         this.acceptor = acceptor;
         this.handler = handler;
       } else {
-        Map<String, AcceptorHandler> handlers = subprotocolHandlers = new HashMap<>();
+        Map<String, AcceptorHandler> handlers =
+            subprotocolHandlers = new HashMap<>(/*capacity*/ 2, /*load factor*/ 1.0f);
         handlers.put(subprotocol, new AcceptorHandler(acceptor, handler, subprotocol, false));
       }
     }
@@ -211,7 +212,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       }
       Map<String, AcceptorHandler> handlers = subprotocolHandlers;
       if (handlers.isEmpty()) {
-        handlers = subprotocolHandlers = new HashMap<>();
+        handlers = subprotocolHandlers = new HashMap<>(/*capacity*/ 2, /*load factor*/ 1.0f);
       }
       return handlers.put(subprotocol, new AcceptorHandler(acceptor, handler, subprotocol, false))
           == null;
