@@ -204,7 +204,11 @@ public class Http2WebSocketClientHandshaker {
                 : Http2WebSocketMessages.HANDSHAKE_BAD_REQUEST;
         break;
       case "404":
-        errorMessage = Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND + path;
+        errorMessage =
+            String.format(
+                Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND,
+                path,
+                webSocketChannel.subprotocol());
         break;
       default:
         errorMessage = Http2WebSocketMessages.HANDSHAKE_GENERIC_ERROR + status;

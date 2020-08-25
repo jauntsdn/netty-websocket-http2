@@ -136,7 +136,7 @@ class Http2WebSocketServerHandshaker {
           startNanos,
           System.nanoTime(),
           WebSocketHandshakeException.class.getName(),
-          Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND + path);
+          String.format(Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND, path, subprotocols));
 
       writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true);
       return false;
@@ -154,7 +154,7 @@ class Http2WebSocketServerHandshaker {
           startNanos,
           System.nanoTime(),
           WebSocketHandshakeException.class.getName(),
-          Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND + path);
+          String.format(Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND, path, subprotocols));
 
       writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true);
       return false;
