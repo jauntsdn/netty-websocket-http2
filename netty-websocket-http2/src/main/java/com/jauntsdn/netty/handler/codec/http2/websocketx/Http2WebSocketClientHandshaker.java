@@ -253,6 +253,7 @@ public class Http2WebSocketClientHandshaker {
           webSocketChannel.parent(),
           webSocketChannel.serial(),
           webSocketChannel.path(),
+          webSocketChannel.subprotocol(),
           requestHeaders,
           startNanos,
           System.nanoTime(),

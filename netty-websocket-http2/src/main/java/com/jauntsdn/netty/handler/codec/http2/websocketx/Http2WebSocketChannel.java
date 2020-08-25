@@ -732,7 +732,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     if (endOfStream) {
       pipeline()
           .fireUserEventTriggered(
-              new Http2WebSocketRemoteCloseEvent(serial(), path, System.nanoTime()));
+              new Http2WebSocketRemoteCloseEvent(serial(), path, subprotocol, System.nanoTime()));
     }
   }
 

@@ -49,12 +49,15 @@ public abstract class Http2WebSocketEvent {
   public static class Http2WebSocketHandshakeEvent extends Http2WebSocketEvent {
     private final String id;
     private final String path;
+    private final String subprotocol;
     private final long timestampNanos;
 
-    Http2WebSocketHandshakeEvent(Type type, String id, String path, long timestampNanos) {
+    Http2WebSocketHandshakeEvent(
+        Type type, String id, String path, String subprotocol, long timestampNanos) {
       super(type);
       this.id = id;
       this.path = path;
+      this.subprotocol = subprotocol;
       this.timestampNanos = timestampNanos;
     }
 
@@ -66,6 +69,10 @@ public abstract class Http2WebSocketEvent {
       return path;
     }
 
+    public String subprotocols() {
+      return subprotocol;
+    }
+
     public long timestampNanos() {
       return timestampNanos;
     }
@@ -74,6 +81,7 @@ public abstract class Http2WebSocketEvent {
         Channel parentChannel,
         String serial,
         String path,
+        String subprotocols,
         Http2Headers requestHeaders,
         long startNanos,
         long errorNanos,
@@ -81,16 +89,18 @@ public abstract class Http2WebSocketEvent {
       ChannelPipeline parentPipeline = parentChannel.pipeline();
 
       parentPipeline.fireUserEventTriggered(
-          new Http2WebSocketHandshakeStartEvent(serial, path, startNanos, requestHeaders));
+          new Http2WebSocketHandshakeStartEvent(
+              serial, path, subprotocols, startNanos, requestHeaders));
 
       parentPipeline.fireUserEventTriggered(
-          new Http2WebSocketHandshakeErrorEvent(serial, path, errorNanos, null, t));
+          new Http2WebSocketHandshakeErrorEvent(serial, path, subprotocols, errorNanos, null, t));
     }
 
     static void fireStartAndError(
         Channel parentChannel,
         String serial,
         String path,
+        String subprotocols,
         Http2Headers requestHeaders,
         long startNanos,
         long errorNanos,
@@ -99,17 +109,19 @@ public abstract class Http2WebSocketEvent {
       ChannelPipeline parentPipeline = parentChannel.pipeline();
 
       parentPipeline.fireUserEventTriggered(
-          new Http2WebSocketHandshakeStartEvent(serial, path, startNanos, requestHeaders));
+          new Http2WebSocketHandshakeStartEvent(
+              serial, path, subprotocols, startNanos, requestHeaders));
 
       parentPipeline.fireUserEventTriggered(
           new Http2WebSocketHandshakeErrorEvent(
-              serial, path, errorNanos, null, errorName, errorMessage));
+              serial, path, subprotocols, errorNanos, null, errorName, errorMessage));
     }
 
     static void fireStartAndSuccess(
         Http2WebSocketChannel webSocketChannel,
         String serial,
         String path,
+        String subprotocols,
         Http2Headers requestHeaders,
         Http2Headers responseHeaders,
         long startNanos,
@@ -118,9 +130,11 @@ public abstract class Http2WebSocketEvent {
       ChannelPipeline webSocketPipeline = webSocketChannel.pipeline();
 
       Http2WebSocketHandshakeStartEvent startEvent =
-          new Http2WebSocketHandshakeStartEvent(serial, path, startNanos, requestHeaders);
+          new Http2WebSocketHandshakeStartEvent(
+              serial, path, subprotocols, startNanos, requestHeaders);
       Http2WebSocketHandshakeSuccessEvent successEvent =
-          new Http2WebSocketHandshakeSuccessEvent(serial, path, successNanos, responseHeaders);
+          new Http2WebSocketHandshakeSuccessEvent(
+              serial, path, subprotocols, successNanos, responseHeaders);
 
       parentPipeline.fireUserEventTriggered(startEvent);
       parentPipeline.fireUserEventTriggered(successEvent);
@@ -136,7 +150,11 @@ public abstract class Http2WebSocketEvent {
 
       Http2WebSocketHandshakeStartEvent startEvent =
           new Http2WebSocketHandshakeStartEvent(
-              webSocketChannel.serial(), webSocketChannel.path(), timestampNanos, requestHeaders);
+              webSocketChannel.serial(),
+              webSocketChannel.path(),
+              webSocketChannel.subprotocol(),
+              timestampNanos,
+              requestHeaders);
 
       parentPipeline.fireUserEventTriggered(startEvent);
       webSocketPipeline.fireUserEventTriggered(startEvent);
@@ -153,7 +171,12 @@ public abstract class Http2WebSocketEvent {
 
       Http2WebSocketHandshakeErrorEvent errorEvent =
           new Http2WebSocketHandshakeErrorEvent(
-              webSocketChannel.serial(), path, timestampNanos, responseHeaders, cause);
+              webSocketChannel.serial(),
+              path,
+              webSocketChannel.subprotocol(),
+              timestampNanos,
+              responseHeaders,
+              cause);
 
       parentPipeline.fireUserEventTriggered(errorEvent);
       webSocketPipeline.fireUserEventTriggered(errorEvent);
@@ -167,7 +190,11 @@ public abstract class Http2WebSocketEvent {
 
       Http2WebSocketHandshakeSuccessEvent successEvent =
           new Http2WebSocketHandshakeSuccessEvent(
-              webSocketChannel.serial(), path, timestampNanos, responseHeaders);
+              webSocketChannel.serial(),
+              path,
+              webSocketChannel.subprotocol(),
+              timestampNanos,
+              responseHeaders);
 
       parentPipeline.fireUserEventTriggered(successEvent);
       webSocketPipeline.fireUserEventTriggered(successEvent);
@@ -178,8 +205,12 @@ public abstract class Http2WebSocketEvent {
     private final Http2Headers requestHeaders;
 
     Http2WebSocketHandshakeStartEvent(
-        String id, String path, long timestampNanos, Http2Headers requestHeaders) {
-      super(Type.HANDSHAKE_START, id, path, timestampNanos);
+        String id,
+        String path,
+        String subprotocol,
+        long timestampNanos,
+        Http2Headers requestHeaders) {
+      super(Type.HANDSHAKE_START, id, path, subprotocol, timestampNanos);
       this.requestHeaders = requestHeaders;
     }
 
@@ -197,31 +228,34 @@ public abstract class Http2WebSocketEvent {
     Http2WebSocketHandshakeErrorEvent(
         String id,
         String path,
+        String subprotocols,
         long timestampNanos,
         Http2Headers responseHeaders,
         Throwable error) {
-      this(id, path, timestampNanos, responseHeaders, error, null, null);
+      this(id, path, subprotocols, timestampNanos, responseHeaders, error, null, null);
     }
 
     Http2WebSocketHandshakeErrorEvent(
         String id,
         String path,
+        String subprotocols,
         long timestampNanos,
         Http2Headers responseHeaders,
         String errorName,
         String errorMessage) {
-      this(id, path, timestampNanos, responseHeaders, null, errorName, errorMessage);
+      this(id, path, subprotocols, timestampNanos, responseHeaders, null, errorName, errorMessage);
     }
 
     private Http2WebSocketHandshakeErrorEvent(
         String id,
         String path,
+        String subprotocols,
         long timestampNanos,
         Http2Headers responseHeaders,
         Throwable error,
         String errorName,
         String errorMessage) {
-      super(Type.HANDSHAKE_ERROR, id, path, timestampNanos);
+      super(Type.HANDSHAKE_ERROR, id, path, subprotocols, timestampNanos);
       this.responseHeaders = responseHeaders;
       this.errorName = errorName;
       this.errorMessage = errorMessage;
@@ -249,8 +283,12 @@ public abstract class Http2WebSocketEvent {
     private final Http2Headers responseHeaders;
 
     Http2WebSocketHandshakeSuccessEvent(
-        String id, String path, long timestampNanos, Http2Headers responseHeaders) {
-      super(Type.HANDSHAKE_SUCCESS, id, path, timestampNanos);
+        String id,
+        String path,
+        String subprotocols,
+        long timestampNanos,
+        Http2Headers responseHeaders) {
+      super(Type.HANDSHAKE_SUCCESS, id, path, subprotocols, timestampNanos);
       this.responseHeaders = responseHeaders;
     }
 
@@ -261,8 +299,9 @@ public abstract class Http2WebSocketEvent {
 
   public static class Http2WebSocketRemoteCloseEvent extends Http2WebSocketHandshakeEvent {
 
-    Http2WebSocketRemoteCloseEvent(String id, String path, long timestampNanos) {
-      super(Type.CLOSE_REMOTE, id, path, timestampNanos);
+    Http2WebSocketRemoteCloseEvent(
+        String id, String path, String subprotocols, long timestampNanos) {
+      super(Type.CLOSE_REMOTE, id, path, subprotocols, timestampNanos);
     }
   }
 

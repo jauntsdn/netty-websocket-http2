@@ -136,24 +136,28 @@ public class Main {
         Http2WebSocketHandshakeEvent handshakeEvent = (Http2WebSocketHandshakeEvent) evt;
         String id = handshakeEvent.id();
         String path = handshakeEvent.path();
+        String subprotocols = handshakeEvent.subprotocols();
+        String subprotocolsOrEmpty = subprotocols.isEmpty() ? "<empty>" : subprotocols;
 
         switch (handshakeEvent.type()) {
           case HANDSHAKE_START:
             Http2WebSocketHandshakeEvent.Http2WebSocketHandshakeStartEvent startEvent =
                 handshakeEvent.cast();
             logger.info(
-                "==> WebSocket handshake start event - id: {}, path: {}, request headers: {}",
+                "==> WebSocket handshake start event - id: {}, path: {}, subprotocols: {}, request headers: {}",
                 id,
                 path,
+                subprotocolsOrEmpty,
                 headers(startEvent.requestHeaders()));
             break;
           case HANDSHAKE_SUCCESS:
             Http2WebSocketHandshakeEvent.Http2WebSocketHandshakeSuccessEvent successEvent =
                 handshakeEvent.cast();
             logger.info(
-                "==> WebSocket handshake success event - id: {}, path: {}, response headers: {}",
+                "==> WebSocket handshake success event - id: {}, path: {}, subprotocols: {}, response headers: {}",
                 id,
                 path,
+                subprotocolsOrEmpty,
                 headers(successEvent.responseHeaders()));
             break;
           case HANDSHAKE_ERROR:
@@ -170,9 +174,10 @@ public class Main {
               errorMessage = errorEvent.errorMessage();
             }
             logger.info(
-                "==> WebSocket handshake error event - id: {}, path: {}, error: {}: {}, response headers: {}",
+                "==> WebSocket handshake error event - id: {}, path: {}, subprotocols: {}, error: {}: {}, response headers: {}",
                 id,
                 path,
+                subprotocolsOrEmpty,
                 errorName,
                 errorMessage,
                 headers(errorEvent.responseHeaders()));
