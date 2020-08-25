@@ -97,7 +97,6 @@ class Http2WebSocketServerHandshaker {
       return false;
     }
     String path = requestHeaders.path().toString();
-    String id = String.valueOf(streamId);
     CharSequence webSocketVersion =
         requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME);
     /*subprotocol*/
@@ -110,7 +109,7 @@ class Http2WebSocketServerHandshaker {
     if (isUnsupportedWebSocketVersion(webSocketVersion)) {
       Http2WebSocketHandshakeEvent.fireStartAndError(
           ctx.channel(),
-          id,
+          streamId,
           path,
           subprotocols,
           requestHeaders,
@@ -129,7 +128,7 @@ class Http2WebSocketServerHandshaker {
     if (acceptorHandler == null) {
       Http2WebSocketHandshakeEvent.fireStartAndError(
           ctx.channel(),
-          id,
+          streamId,
           path,
           subprotocols,
           requestHeaders,
@@ -147,7 +146,7 @@ class Http2WebSocketServerHandshaker {
     if (handler == null) {
       Http2WebSocketHandshakeEvent.fireStartAndError(
           ctx.channel(),
-          id,
+          streamId,
           path,
           subprotocols,
           requestHeaders,
@@ -206,7 +205,7 @@ class Http2WebSocketServerHandshaker {
       accepted.cancel(true);
       Http2WebSocketHandshakeEvent.fireStartAndError(
           ctx.channel(),
-          id,
+          streamId,
           path,
           subprotocols,
           requestHeaders,
@@ -223,7 +222,7 @@ class Http2WebSocketServerHandshaker {
     if (!accepted.isSuccess()) {
       Http2WebSocketHandshakeEvent.fireStartAndError(
           ctx.channel(),
-          id,
+          streamId,
           path,
           subprotocols,
           requestHeaders,
@@ -263,7 +262,7 @@ class Http2WebSocketServerHandshaker {
                 if (!registered.isSuccess()) {
                   Http2WebSocketHandshakeEvent.fireStartAndError(
                       ctx.channel(),
-                      id,
+                      streamId,
                       path,
                       subprotocols,
                       requestHeaders,
@@ -279,7 +278,7 @@ class Http2WebSocketServerHandshaker {
                 if (webSocket.closeFuture().isDone()) {
                   Http2WebSocketHandshakeEvent.fireStartAndError(
                       ctx.channel(),
-                      id,
+                      streamId,
                       path,
                       subprotocols,
                       requestHeaders,
@@ -294,7 +293,7 @@ class Http2WebSocketServerHandshaker {
 
                 Http2WebSocketHandshakeEvent.fireStartAndSuccess(
                     webSocket,
-                    id,
+                    streamId,
                     path,
                     subprotocols,
                     requestHeaders,
@@ -305,7 +304,7 @@ class Http2WebSocketServerHandshaker {
               }
               Http2WebSocketHandshakeEvent.fireStartAndError(
                   ctx.channel(),
-                  id,
+                  streamId,
                   path,
                   subprotocols,
                   requestHeaders,

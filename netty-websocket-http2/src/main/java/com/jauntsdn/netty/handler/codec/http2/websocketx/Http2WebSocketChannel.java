@@ -112,7 +112,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   private final ChannelId channelId;
   private final ChannelPipeline pipeline;
   private final WebSocketsParent webSocketChannelParent;
-  private final String websocketChannelSerial;
+  private final int websocketChannelSerial;
   private final String path;
   private final String subprotocol;
   private final ChannelPromise closePromise;
@@ -155,7 +155,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       ChannelHandler websocketHandler) {
     this.isHandshakeCompleted = true;
     this.webSocketChannelParent = webSocketChannelParent;
-    this.websocketChannelSerial = String.valueOf(websocketChannelSerial);
+    this.websocketChannelSerial = websocketChannelSerial;
     this.path = path;
     this.subprotocol = subprotocol;
     channelId = new Http2WebSocketChannelId(parent().id(), websocketChannelSerial);
@@ -192,7 +192,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       boolean isEncoderMaskPayload,
       ChannelHandler websocketHandler) {
     this.webSocketChannelParent = webSocketChannelParent;
-    this.websocketChannelSerial = String.valueOf(websocketChannelSerial);
+    this.websocketChannelSerial = websocketChannelSerial;
     this.path = path;
     this.subprotocol = subprotocol;
     channelId = new Http2WebSocketChannelId(parent().id(), websocketChannelSerial);
@@ -262,7 +262,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     }
   }
 
-  String serial() {
+  int serial() {
     return websocketChannelSerial;
   }
 

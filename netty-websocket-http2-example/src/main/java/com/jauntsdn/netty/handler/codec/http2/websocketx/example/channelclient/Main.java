@@ -123,7 +123,7 @@ public class Main {
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
       if (evt instanceof Http2WebSocketHandshakeEvent) {
         Http2WebSocketHandshakeEvent handshakeEvent = (Http2WebSocketHandshakeEvent) evt;
-        String id = handshakeEvent.id();
+        int id = handshakeEvent.id();
         String path = handshakeEvent.path();
         String subprotocols = handshakeEvent.subprotocols();
         String subprotocolsOrEmpty = subprotocols.isEmpty() ? "<empty>" : subprotocols;
