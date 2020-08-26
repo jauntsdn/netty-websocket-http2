@@ -118,7 +118,10 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
 
   @Override
   public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-    connectionClosed();
+    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    if (!webSockets.isEmpty()) {
+      webSockets.forEach((key, webSocket) -> webSocket.streamClosed());
+    }
     super.close(ctx, promise);
   }
 
@@ -126,7 +129,11 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   public void onGoAwayRead(
       ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData)
       throws Http2Exception {
-    connectionClosed();
+    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    if (!webSockets.isEmpty()) {
+      webSockets.forEach(
+          (key, webSocket) -> webSocket.onGoAwayRead(ctx, lastStreamId, errorCode, debugData));
+    }
     next().onGoAwayRead(ctx, lastStreamId, errorCode, debugData);
   }
 
@@ -267,13 +274,6 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
     public void run() {
       webSockets.remove(streamId);
       connectionCloseFuture.removeListener(this);
-    }
-  }
-
-  private void connectionClosed() {
-    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
-    if (!webSockets.isEmpty()) {
-      webSockets.forEach((key, webSocket) -> webSocket.streamClosed());
     }
   }
 

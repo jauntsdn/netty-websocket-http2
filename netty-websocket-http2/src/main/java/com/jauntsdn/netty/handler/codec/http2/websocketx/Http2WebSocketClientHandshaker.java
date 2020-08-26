@@ -137,7 +137,7 @@ public class Http2WebSocketClientHandshaker {
               Throwable cause = future.cause();
               /*error due to external event, e.g. cancellation, timeout*/
               if (cause != null && !(cause instanceof WebSocketHandshakeException)) {
-                Http2WebSocketHandshakeEvent.fireError(
+                Http2WebSocketEvent.fireHandshakeError(
                     webSocketChannel, null, System.nanoTime(), cause);
               }
             });
@@ -216,7 +216,7 @@ public class Http2WebSocketClientHandshaker {
     if (errorMessage != null) {
       Exception cause = new WebSocketHandshakeException(errorMessage);
       if (handshakePromise.tryFailure(cause)) {
-        Http2WebSocketHandshakeEvent.fireError(
+        Http2WebSocketEvent.fireHandshakeError(
             webSocketChannel, responseHeaders, System.nanoTime(), cause);
       }
       return;
@@ -226,7 +226,7 @@ public class Http2WebSocketClientHandshaker {
           compressionExtension.newExtensionEncoder(), compressionExtension.newExtensionDecoder());
     }
     if (handshakePromise.trySuccess()) {
-      Http2WebSocketHandshakeEvent.fireSuccess(
+      Http2WebSocketEvent.fireHandshakeSuccess(
           webSocketChannel, responseHeaders, System.nanoTime());
     }
   }
@@ -253,7 +253,7 @@ public class Http2WebSocketClientHandshaker {
       Throwable cause = registered.cause();
       Exception e =
           new WebSocketHandshakeException("websocket handshake channel registration error", cause);
-      Http2WebSocketHandshakeEvent.fireStartAndError(
+      Http2WebSocketEvent.fireHandshakeStartAndError(
           webSocketChannel.parent(),
           webSocketChannel.serial(),
           webSocketChannel.path(),
@@ -266,7 +266,7 @@ public class Http2WebSocketClientHandshaker {
       handshake.complete(e);
       return;
     }
-    Http2WebSocketHandshakeEvent.fireStart(webSocketChannel, requestHeaders, startNanos);
+    Http2WebSocketEvent.fireHandshakeStart(webSocketChannel, requestHeaders, startNanos);
 
     Boolean supports = supportsWebSocket;
     /*websocket support is not known yet*/
@@ -309,7 +309,7 @@ public class Http2WebSocketClientHandshaker {
     if (!supportsWebSocket) {
       WebSocketHandshakeException e =
           new WebSocketHandshakeException(Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_BOOTSTRAP);
-      Http2WebSocketHandshakeEvent.fireError(webSocketChannel, null, System.nanoTime(), e);
+      Http2WebSocketEvent.fireHandshakeError(webSocketChannel, null, System.nanoTime(), e);
       handshake.complete(e);
       return;
     }

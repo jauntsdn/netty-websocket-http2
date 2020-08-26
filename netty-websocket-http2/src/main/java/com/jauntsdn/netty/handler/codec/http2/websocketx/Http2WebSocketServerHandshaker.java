@@ -107,7 +107,7 @@ class Http2WebSocketServerHandshaker {
     ChannelHandlerContext ctx = webSocketsParent.context();
 
     if (isUnsupportedWebSocketVersion(webSocketVersion)) {
-      Http2WebSocketHandshakeEvent.fireStartAndError(
+      Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
           path,
@@ -126,7 +126,7 @@ class Http2WebSocketServerHandshaker {
     AcceptorHandler acceptorHandler = webSocketHandlers.get(path);
     /*no handlers for path*/
     if (acceptorHandler == null) {
-      Http2WebSocketHandshakeEvent.fireStartAndError(
+      Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
           path,
@@ -144,7 +144,7 @@ class Http2WebSocketServerHandshaker {
     AcceptorHandler handler = acceptorHandler.subprotocolHandler(subprotocols);
     /*no handler for subprotocol - return 404*/
     if (handler == null) {
-      Http2WebSocketHandshakeEvent.fireStartAndError(
+      Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
           path,
@@ -203,7 +203,7 @@ class Http2WebSocketServerHandshaker {
     /*async acceptors are not yet supported*/
     if (!accepted.isDone()) {
       accepted.cancel(true);
-      Http2WebSocketHandshakeEvent.fireStartAndError(
+      Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
           path,
@@ -220,7 +220,7 @@ class Http2WebSocketServerHandshaker {
 
     /*rejected request*/
     if (!accepted.isSuccess()) {
-      Http2WebSocketHandshakeEvent.fireStartAndError(
+      Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
           path,
@@ -260,7 +260,7 @@ class Http2WebSocketServerHandshaker {
 
                 /*event loop registration error*/
                 if (!registered.isSuccess()) {
-                  Http2WebSocketHandshakeEvent.fireStartAndError(
+                  Http2WebSocketEvent.fireHandshakeStartAndError(
                       ctx.channel(),
                       streamId,
                       path,
@@ -276,7 +276,7 @@ class Http2WebSocketServerHandshaker {
 
                 /*websocket channel closed synchronously*/
                 if (webSocket.closeFuture().isDone()) {
-                  Http2WebSocketHandshakeEvent.fireStartAndError(
+                  Http2WebSocketEvent.fireHandshakeStartAndError(
                       ctx.channel(),
                       streamId,
                       path,
@@ -291,7 +291,7 @@ class Http2WebSocketServerHandshaker {
                 }
                 webSocketsParent.register(streamId, webSocket);
 
-                Http2WebSocketHandshakeEvent.fireStartAndSuccess(
+                Http2WebSocketEvent.fireHandshakeStartAndSuccess(
                     webSocket,
                     streamId,
                     path,
@@ -302,7 +302,7 @@ class Http2WebSocketServerHandshaker {
                     System.nanoTime());
                 return;
               }
-              Http2WebSocketHandshakeEvent.fireStartAndError(
+              Http2WebSocketEvent.fireHandshakeStartAndError(
                   ctx.channel(),
                   streamId,
                   path,

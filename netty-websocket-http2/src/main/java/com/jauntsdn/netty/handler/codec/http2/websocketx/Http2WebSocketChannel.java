@@ -325,13 +325,19 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   @Override
   public void onRstStreamRead(ChannelHandlerContext ctx, int streamId, long errorCode)
       throws Http2Exception {
+    pipeline()
+        .fireUserEventTriggered(
+            Http2WebSocketRemoteCloseEvent.reset(serial(), path, subprotocol, System.nanoTime()));
     streamClosed();
   }
 
   @Override
   public void onGoAwayRead(
-      ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData)
-      throws Http2Exception {
+      ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData) {
+    pipeline()
+        .fireUserEventTriggered(
+            new Http2WebSocketEvent.Http2WebSocketRemoteGoAwayEvent(
+                serial(), path, subprotocol, System.nanoTime(), errorCode));
     streamClosed();
   }
 
@@ -732,7 +738,8 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     if (endOfStream) {
       pipeline()
           .fireUserEventTriggered(
-              new Http2WebSocketRemoteCloseEvent(serial(), path, subprotocol, System.nanoTime()));
+              Http2WebSocketRemoteCloseEvent.endStream(
+                  serial(), path, subprotocol, System.nanoTime()));
     }
   }
 
@@ -1348,7 +1355,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         }
         Http2WebSocketEvent webSocketEvent = (Http2WebSocketEvent) evt;
         switch (webSocketEvent.type()) {
-          case CLOSE_LOCAL:
+          case CLOSE_LOCAL_ENDSTREAM:
             logger.debug(
                 "Graceful local close of websocket, streamId: {}, path: {}", streamId, path);
             ChannelHandlerContext ctx = webSocketChannelParent.context();
