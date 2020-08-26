@@ -263,11 +263,11 @@ public class Main {
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-      if (evt instanceof Http2WebSocketHandshakeEvent) {
-        Http2WebSocketHandshakeEvent handshakeEvent = (Http2WebSocketHandshakeEvent) evt;
+      if (evt instanceof Http2WebSocketInboundEvent) {
+        Http2WebSocketInboundEvent handshakeEvent = (Http2WebSocketInboundEvent) evt;
         Type eventType = handshakeEvent.type();
         switch (eventType) {
-          case CLOSE_REMOTE:
+          case CLOSE_REMOTE_ENDSTREAM:
           case HANDSHAKE_START:
             break;
           case HANDSHAKE_SUCCESS:

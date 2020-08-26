@@ -132,8 +132,8 @@ public class Main {
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-      if (evt instanceof Http2WebSocketHandshakeEvent) {
-        Http2WebSocketHandshakeEvent handshakeEvent = (Http2WebSocketHandshakeEvent) evt;
+      if (evt instanceof Http2WebSocketInboundEvent) {
+        Http2WebSocketInboundEvent handshakeEvent = (Http2WebSocketInboundEvent) evt;
         int id = handshakeEvent.id();
         String path = handshakeEvent.path();
         String subprotocols = handshakeEvent.subprotocols();
@@ -141,8 +141,7 @@ public class Main {
 
         switch (handshakeEvent.type()) {
           case HANDSHAKE_START:
-            Http2WebSocketHandshakeEvent.Http2WebSocketHandshakeStartEvent startEvent =
-                handshakeEvent.cast();
+            Http2WebSocketHandshakeStartEvent startEvent = handshakeEvent.cast();
             logger.info(
                 "==> WebSocket handshake start event - id: {}, path: {}, subprotocols: {}, request headers: {}",
                 id,
@@ -151,8 +150,7 @@ public class Main {
                 headers(startEvent.requestHeaders()));
             break;
           case HANDSHAKE_SUCCESS:
-            Http2WebSocketHandshakeEvent.Http2WebSocketHandshakeSuccessEvent successEvent =
-                handshakeEvent.cast();
+            Http2WebSocketHandshakeSuccessEvent successEvent = handshakeEvent.cast();
             logger.info(
                 "==> WebSocket handshake success event - id: {}, path: {}, subprotocols: {}, response headers: {}",
                 id,
@@ -161,8 +159,7 @@ public class Main {
                 headers(successEvent.responseHeaders()));
             break;
           case HANDSHAKE_ERROR:
-            Http2WebSocketHandshakeEvent.Http2WebSocketHandshakeErrorEvent errorEvent =
-                handshakeEvent.cast();
+            Http2WebSocketHandshakeErrorEvent errorEvent = handshakeEvent.cast();
             String errorName;
             String errorMessage;
             Throwable cause = errorEvent.error();
@@ -182,7 +179,7 @@ public class Main {
                 errorMessage,
                 headers(errorEvent.responseHeaders()));
             break;
-          case CLOSE_REMOTE:
+          case CLOSE_REMOTE_ENDSTREAM:
             logger.info("==> WebSocket stream close remote - id: {}, path: {}", id, path);
             break;
 

@@ -25,6 +25,10 @@ import io.netty.handler.codec.http2.Http2FrameListener;
 
 interface Http2WebSocket extends Http2FrameListener {
 
+  /*get rid of checked throws Http2Exception */
+  @Override
+  void onGoAwayRead(ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData);
+
   void trySetWritable();
 
   void fireExceptionCaught(Throwable t);
@@ -36,6 +40,10 @@ interface Http2WebSocket extends Http2FrameListener {
   Http2WebSocket CLOSED = new Http2WebSocketClosedChannel();
 
   class Http2WebSocketClosedChannel extends Http2FrameAdapter implements Http2WebSocket {
+
+    @Override
+    public void onGoAwayRead(
+        ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData) {}
 
     @Override
     public void streamClosed() {}

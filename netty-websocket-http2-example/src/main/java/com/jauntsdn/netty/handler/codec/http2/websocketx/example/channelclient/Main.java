@@ -121,8 +121,8 @@ public class Main {
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-      if (evt instanceof Http2WebSocketHandshakeEvent) {
-        Http2WebSocketHandshakeEvent handshakeEvent = (Http2WebSocketHandshakeEvent) evt;
+      if (evt instanceof Http2WebSocketInboundEvent) {
+        Http2WebSocketInboundEvent handshakeEvent = (Http2WebSocketInboundEvent) evt;
         int id = handshakeEvent.id();
         String path = handshakeEvent.path();
         String subprotocols = handshakeEvent.subprotocols();
@@ -175,7 +175,7 @@ public class Main {
                 errorMessage,
                 headers(errorEvent.responseHeaders()));
             break;
-          case CLOSE_REMOTE:
+          case CLOSE_REMOTE_ENDSTREAM:
             logger.info(
                 "==> WebSocket stream close remote - id: {}, path: {}, subprotocols: {}",
                 id,
