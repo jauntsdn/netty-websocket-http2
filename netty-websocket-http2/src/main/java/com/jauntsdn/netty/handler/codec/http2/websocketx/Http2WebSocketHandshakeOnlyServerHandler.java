@@ -50,7 +50,7 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
             Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
         super.onHeadersRead(ctx, streamId, handshakeOnlyWebSocket, padding, endOfStream);
       } else {
-        onWebSocketRejected(streamId, headers, endOfStream);
+        onWebSocketRejected(ctx, streamId, headers, endOfStream);
         writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code());
       }
     } else {
@@ -83,7 +83,7 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
             padding,
             endOfStream);
       } else {
-        onWebSocketRejected(streamId, headers, endOfStream);
+        onWebSocketRejected(ctx, streamId, headers, endOfStream);
         writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code());
       }
     } else {
@@ -98,11 +98,12 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
     ctx.flush();
   }
 
-  private void onWebSocketRejected(int streamId, Http2Headers headers, boolean endOfStream) {
+  private void onWebSocketRejected(
+      ChannelHandlerContext ctx, int streamId, Http2Headers headers, boolean endOfStream) {
     RejectedWebSocketListener l = rejectedWebSocketListener;
     if (l != null) {
       try {
-        l.onWebSocketRejected(streamId, headers, endOfStream);
+        l.onWebSocketRejected(ctx, streamId, headers, endOfStream);
       } catch (Exception e) {
         logger.error("Rejected http2 websocket listener error", e);
       }
@@ -111,6 +112,7 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
 
   public interface RejectedWebSocketListener {
 
-    void onWebSocketRejected(int streamId, Http2Headers headers, boolean endOfStream);
+    void onWebSocketRejected(
+        ChannelHandlerContext ctx, int streamId, Http2Headers headers, boolean endOfStream);
   }
 }
