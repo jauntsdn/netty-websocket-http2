@@ -114,13 +114,36 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
     if (scheduler != null) {
       RemoveWebSocket removeWebSocket =
           new RemoveWebSocket(streamId, webSockets, connectionCloseFuture);
-      TimeoutScheduler.Handle removeWebSocketHandle =
-          scheduler.schedule(
-              removeWebSocket,
-              closedWebSocketRemoveTimeoutMillis,
-              TimeUnit.MILLISECONDS,
-              eventLoop);
-      removeWebSocket.removeWebSocketHandle(removeWebSocketHandle);
+      TimeoutScheduler.Handle removeWebSocketHandle;
+      try {
+        removeWebSocketHandle =
+            scheduler.schedule(
+                removeWebSocket,
+                closedWebSocketRemoveTimeoutMillis,
+                TimeUnit.MILLISECONDS,
+                eventLoop);
+      } catch (Exception e) {
+        ChannelHandlerContext c = ctx;
+        c.fireExceptionCaught(
+            new IllegalStateException(
+                String.format(
+                    "http2 websocket CloseTimeoutScheduler %s schedule() error",
+                    scheduler.getClass().getName()),
+                e));
+        c.close();
+        return;
+      }
+      if (removeWebSocketHandle == null) {
+        ChannelHandlerContext c = ctx;
+        c.fireExceptionCaught(
+            new IllegalStateException(
+                String.format(
+                    "http2 websocket CloseTimeoutScheduler %s schedule() returned null handle",
+                    scheduler.getClass().getName())));
+        c.close();
+        return;
+      }
+      removeWebSocket.setRemoveWebSocketHandle(removeWebSocketHandle);
       return;
     }
     super.removeAfterTimeout(streamId, webSockets, connectionCloseFuture, eventLoop);
@@ -148,7 +171,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       this.connectionCloseFuture = connectionCloseFuture;
     }
 
-    void removeWebSocketHandle(TimeoutScheduler.Handle removeWebSocketHandle) {
+    void setRemoveWebSocketHandle(TimeoutScheduler.Handle removeWebSocketHandle) {
       this.removeWebSocketHandle = removeWebSocketHandle;
       connectionCloseFuture.addListener(this);
     }
@@ -156,14 +179,31 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
     /*connection close*/
     @Override
     public void operationComplete(ChannelFuture future) {
-      removeWebSocketHandle.cancel();
+      TimeoutScheduler.Handle h = removeWebSocketHandle;
+      try {
+        h.cancel();
+      } catch (Exception e) {
+        Channel ch = connectionCloseFuture.channel();
+        ch.pipeline()
+            .fireExceptionCaught(
+                new IllegalStateException(
+                    String.format(
+                        "http2 websocket CloseTimeoutScheduler handle %s cancellation error",
+                        h.getClass().getName())));
+        ch.close();
+      }
     }
 
     /*after websocket close timeout*/
     @Override
     public void run() {
-      webSockets.remove(streamId);
-      connectionCloseFuture.removeListener(this);
+      EventLoop el = connectionCloseFuture.channel().eventLoop();
+      if (el.inEventLoop()) {
+        webSockets.remove(streamId);
+        connectionCloseFuture.removeListener(this);
+      } else {
+        el.execute(this);
+      }
     }
   }
 
