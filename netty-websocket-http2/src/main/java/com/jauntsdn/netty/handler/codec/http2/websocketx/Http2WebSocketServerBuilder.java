@@ -16,6 +16,7 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandshakeOnlyServerHandler.*;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
 
 import io.netty.channel.ChannelHandler;
@@ -39,7 +40,7 @@ public final class Http2WebSocketServerBuilder {
   Http2WebSocketServerBuilder() {}
 
   public static Http2FrameCodecBuilder configureHttp2Server(Http2FrameCodecBuilder http2Builder) {
-    http2Builder
+    Objects.requireNonNull(http2Builder, "http2Builder")
         .initialSettings()
         .put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
     return http2Builder.validateHeaders(false);
@@ -136,7 +137,13 @@ public final class Http2WebSocketServerBuilder {
   }
 
   public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly() {
-    return new Http2WebSocketHandshakeOnlyServerHandler();
+    return new Http2WebSocketHandshakeOnlyServerHandler(null);
+  }
+
+  public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly(
+      RejectedWebSocketListener rejectedWebSocketListener) {
+    return new Http2WebSocketHandshakeOnlyServerHandler(
+        Objects.requireNonNull(rejectedWebSocketListener, "rejectedWebSocketListener"));
   }
 
   public Http2WebSocketServerHandler build() {

@@ -21,10 +21,20 @@ import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http2.Http2Error;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Headers;
+import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHandler {
+  private static final Logger logger =
+      LoggerFactory.getLogger(Http2WebSocketHandshakeOnlyServerHandler.class);
 
-  Http2WebSocketHandshakeOnlyServerHandler() {}
+  private final RejectedWebSocketListener rejectedWebSocketListener;
+
+  Http2WebSocketHandshakeOnlyServerHandler(
+      @Nullable RejectedWebSocketListener rejectedWebSocketListener) {
+    this.rejectedWebSocketListener = rejectedWebSocketListener;
+  }
 
   @Override
   public void onHeadersRead(
@@ -40,6 +50,7 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
             Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
         super.onHeadersRead(ctx, streamId, handshakeOnlyWebSocket, padding, endOfStream);
       } else {
+        onWebSocketRejected(streamId, headers, endOfStream);
         writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code());
       }
     } else {
@@ -72,6 +83,7 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
             padding,
             endOfStream);
       } else {
+        onWebSocketRejected(streamId, headers, endOfStream);
         writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code());
       }
     } else {
@@ -84,5 +96,21 @@ public class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHand
     ChannelPromise p = ctx.newPromise();
     http2Handler.encoder().writeRstStream(ctx, streamId, errorCode, p);
     ctx.flush();
+  }
+
+  private void onWebSocketRejected(int streamId, Http2Headers headers, boolean endOfStream) {
+    RejectedWebSocketListener l = rejectedWebSocketListener;
+    if (l != null) {
+      try {
+        l.onWebSocketRejected(streamId, headers, endOfStream);
+      } catch (Exception e) {
+        logger.error("Rejected http2 websocket listener error", e);
+      }
+    }
+  }
+
+  public interface RejectedWebSocketListener {
+
+    void onWebSocketRejected(int streamId, Http2Headers headers, boolean endOfStream);
   }
 }

@@ -7,13 +7,13 @@ Netty based implementation of [rfc8441](https://tools.ietf.org/html/rfc8441) - b
 
 Library is addressing 2 use cases: for application servers and clients, 
 It is transparent use of existing http1 websocket handlers on top of http2 streams; for gateways/proxies, 
-It is websockets-over-http2 support with no additional dependencies and minimal overhead.
+It is websockets-over-http2 support with no http1 dependencies and minimal overhead.
 
 [https://jauntsdn.com/post/netty-websocket-http2/](https://jauntsdn.com/post/netty-websocket-http2/)
 
 ### websocket channel API  
 Intended for application servers and clients.  
-Allows transparent usage of existing http1 websocket handlers on top of http2 stream.  
+Allows transparent application of existing http1 websocket handlers on top of http2 stream.  
 
 * Server
 ```groovy
@@ -79,8 +79,8 @@ ChannelFuture handshakeFuture =
     
 handshakeFuture.channel().writeAndFlush(new TextWebSocketFrame("hello http2 websocket"));
 ```
-Successfully handshaked http2 stream spawns websocket subchannel, and provided http1 websocket handlers are added
-to its pipeline.
+Successfully handshaked http2 stream spawns websocket subchannel, with provided  
+http1 websocket handlers on its pipeline.
 
 Runnable demo is available in `netty-websocket-http2-example` module - 
 [channelserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelserver/Main.java), 
@@ -99,15 +99,22 @@ Only verifies whether http2 stream is valid websocket, then passes it down the p
                     frameCodec, 
                     http2webSocketHandler, 
                     http2StreamsHandler);
-```  
+``` 
+
 Works with both callbacks-style `Http2ConnectionHandler` and frames based `Http2FrameCodec`.      
 
+Websocket requests rejected due to protocol violation are reported to `RejectedWebSocketListener`
+
+```
+Http2WebSocketServerHandler.builder().handshakeOnly(rejectedWebSocketListener);
+```
+ 
 Runnable demo is available in `netty-websocket-http2-example` module - 
 [handshakeserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/handshakeserver/Main.java), 
 [channelclient](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelclient/Main.java).
 
 ### compression & subprotocols
-Server/client `permessage-deflate` compression configuration is shared by all streams
+Client and server `permessage-deflate` compression configuration is shared by all streams
 ```groovy
 Http2WebSocketServerBuilder.compression(enabled);
 ```
@@ -139,17 +146,20 @@ using `Websocket channel` style APIs.
 #### handshake events  
 
 Events are fired on parent channel, also on websocket channel if one gets created  
-* `Http2WebSocketHandshakeStartEvent(websocketId, path, timestampNanos, requestHeaders)`
-* `Http2WebSocketHandshakeErrorEvent(webSocketId, path, timestampNanos, responseHeaders, error)`
-* `Http2WebSocketHandshakeSuccessEvent(webSocketId, path, timestampNanos, responseHeaders)`
+* `Http2WebSocketHandshakeStartEvent(websocketId, path, subprotocols, timestampNanos, requestHeaders)`
+* `Http2WebSocketHandshakeErrorEvent(webSocketId, path, subprotocols, timestampNanos, responseHeaders, error)`
+* `Http2WebSocketHandshakeSuccessEvent(webSocketId, path, subprotocols, timestampNanos, responseHeaders)`
 
-#### graceful shutdown
+#### close events
 
-Outbound `Http2WebSocketLocalCloseEvent` on websocket channel pipeline shuts down
+Outbound `Http2WebSocketLocalCloseEvent` on websocket channel pipeline closes
 http2 stream by sending empty `DATA` frame with `END_STREAM` flag set.
 
-Graceful shutdown by remote endpoint is represented by inbound `Http2WebSocketRemoteCloseEvent` on 
-websocket channel pipeline. 
+Graceful and `RST` stream shutdown by remote endpoint is represented with inbound `Http2WebSocketRemoteCloseEvent` 
+(with type `CLOSE_REMOTE_ENDSTREAM` and `CLOSE_REMOTE_RESET` respectively)  on websocket channel pipeline. 
+
+Graceful connection shutdown by remote with `GO_AWAY` frame is represented by inbound `Http2WebSocketRemoteGoAwayEvent` 
+on websocket channel pipeline.  
 
 #### shutdown
 
@@ -186,7 +196,7 @@ The only browser with http2 websockets protocol support is `Mozilla Firefox`.
 
 ### build & binaries
 ```
-./gradlew clean build
+./gradlew
 ```
 
 Releases are published on MavenCentral
