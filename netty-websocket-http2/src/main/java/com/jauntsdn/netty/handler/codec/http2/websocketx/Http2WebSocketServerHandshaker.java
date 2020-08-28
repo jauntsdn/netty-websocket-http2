@@ -16,7 +16,6 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.*;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
