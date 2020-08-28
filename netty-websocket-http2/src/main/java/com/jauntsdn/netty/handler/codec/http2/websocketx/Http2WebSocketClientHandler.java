@@ -25,7 +25,12 @@ import io.netty.handler.ssl.SslHandler;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.annotation.Nullable;
 
-public class Http2WebSocketClientHandler extends Http2WebSocketChannelHandler {
+/**
+ * Provides client-side support for websocket-over-http2. Creates sub channel for http2 stream of
+ * successfully handshaked websocket. Subchannel is compatible with http1 websocket handlers. Should
+ * be used in tandem with {@link Http2WebSocketClientHandshaker}
+ */
+public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHandler {
   private static final AtomicReferenceFieldUpdater<
           Http2WebSocketClientHandler, Http2WebSocketClientHandshaker>
       HANDSHAKER =

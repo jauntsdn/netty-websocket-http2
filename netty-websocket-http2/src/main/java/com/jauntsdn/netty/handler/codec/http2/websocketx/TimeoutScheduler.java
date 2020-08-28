@@ -21,8 +21,16 @@ import java.util.concurrent.TimeUnit;
 
 public interface TimeoutScheduler {
 
+  /**
+   * @param runnable scheduled action. Must be non-null
+   * @param delay timeout delay. Must be non-negative
+   * @param timeUnit timeout time unit. Must be non-null
+   * @param executor executor associated with connection channel event loop
+   * @return timeout cancellation handle. Must be non-null.
+   */
   Handle schedule(Runnable runnable, long delay, TimeUnit timeUnit, Executor executor);
 
+  /** Scheduled timeout cancellation handle */
   interface Handle {
 
     void cancel();

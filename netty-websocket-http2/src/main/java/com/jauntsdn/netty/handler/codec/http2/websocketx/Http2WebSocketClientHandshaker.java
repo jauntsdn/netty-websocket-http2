@@ -35,7 +35,8 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class Http2WebSocketClientHandshaker {
+/** Establishes websocket-over-http2 on provided connection channel */
+public final class Http2WebSocketClientHandshaker {
   private static final Logger logger =
       LoggerFactory.getLogger(Http2WebSocketClientHandshaker.class);
   private static final int ESTIMATED_DEFERRED_HANDSHAKES = 4;
@@ -77,24 +78,71 @@ public class Http2WebSocketClientHandshaker {
     this.compressionHandshaker = compressionHandshaker;
   }
 
+  /**
+   * Creates new {@link Http2WebSocketClientHandshaker} for given connection channel
+   *
+   * @param channel connection channel. Pipeline must contain {@link Http2WebSocketClientHandler}
+   *     and netty http2 codec (e.g. Http2ConnectionHandler or Http2FrameCodec)
+   * @return new {@link Http2WebSocketClientHandshaker} instance
+   */
   public static Http2WebSocketClientHandshaker create(Channel channel) {
     Objects.requireNonNull(channel, "channel");
     return Preconditions.requireHandler(channel, Http2WebSocketClientHandler.class).handShaker();
   }
 
+  /**
+   * Starts websocket-over-http2 handshake using given path
+   *
+   * @param path websocket path, must be non-empty
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
   public ChannelFuture handshake(String path, ChannelHandler webSocketHandler) {
     return handshake(path, "", EMPTY_HEADERS, webSocketHandler);
   }
 
+  /**
+   * Starts websocket-over-http2 handshake using given path and request headers
+   *
+   * @param path websocket path, must be non-empty
+   * @param requestHeaders request headers, must be non-null
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
   public ChannelFuture handshake(
       String path, Http2Headers requestHeaders, ChannelHandler webSocketHandler) {
     return handshake(path, "", requestHeaders, webSocketHandler);
   }
 
+  /**
+   * Starts websocket-over-http2 handshake using given path and subprotocol
+   *
+   * @param path websocket path, must be non-empty
+   * @param subprotocol websocket subprotocol, must be non-null
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
   public ChannelFuture handshake(String path, String subprotocol, ChannelHandler webSocketHandler) {
     return handshake(path, subprotocol, EMPTY_HEADERS, webSocketHandler);
   }
 
+  /**
+   * Starts websocket-over-http2 handshake using given path, subprotocol and request headers
+   *
+   * @param path websocket path, must be non-empty
+   * @param subprotocol websocket subprotocol, must be non-null
+   * @param requestHeaders request headers, must be non-null
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
   public ChannelFuture handshake(
       String path,
       String subprotocol,

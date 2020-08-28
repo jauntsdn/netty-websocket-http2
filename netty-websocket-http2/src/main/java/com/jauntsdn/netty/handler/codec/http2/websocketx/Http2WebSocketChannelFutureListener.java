@@ -20,6 +20,10 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.util.concurrent.GenericFutureListener;
 
+/**
+ * ChannelFuture listener that gracefully closes websocket by sending empty DATA frame with
+ * END_STREAM flag set.
+ */
 public final class Http2WebSocketChannelFutureListener
     implements GenericFutureListener<ChannelFuture> {
   public static final Http2WebSocketChannelFutureListener CLOSE =

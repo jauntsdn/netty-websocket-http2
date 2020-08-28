@@ -27,6 +27,7 @@ import java.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/** Builder for {@link Http2WebSocketServerHandler} */
 public final class Http2WebSocketServerBuilder {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerBuilder.class);
   private WebSocketDecoderConfig webSocketDecoderConfig;
@@ -39,6 +40,7 @@ public final class Http2WebSocketServerBuilder {
 
   Http2WebSocketServerBuilder() {}
 
+  /** Utility method for configuring Http2FrameCodecBuilder with websocket-over-http2 support */
   public static Http2FrameCodecBuilder configureHttp2Server(Http2FrameCodecBuilder http2Builder) {
     Objects.requireNonNull(http2Builder, "http2Builder")
         .initialSettings()
@@ -46,23 +48,30 @@ public final class Http2WebSocketServerBuilder {
     return http2Builder.validateHeaders(false);
   }
 
+  /**
+   * @param webSocketDecoderConfig websocket decoder configuration. Must be non-null
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
   public Http2WebSocketServerBuilder decoderConfig(WebSocketDecoderConfig webSocketDecoderConfig) {
     this.webSocketDecoderConfig =
         Preconditions.requireNonNull(webSocketDecoderConfig, "webSocketDecoderConfig");
     return this;
   }
-
+  /**
+   * @param isEncoderMaskPayload enables websocket frames encoder payload masking
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
   public Http2WebSocketServerBuilder encoderMaskPayload(boolean isEncoderMaskPayload) {
     this.isEncoderMaskPayload = isEncoderMaskPayload;
     return this;
   }
 
-  public Http2WebSocketServerBuilder handshakeTimeoutMillis(long handshakeTimeoutMillis) {
-    this.handshakeTimeoutMillis =
-        Preconditions.requirePositive(handshakeTimeoutMillis, "handshakeTimeoutMillis");
-    return this;
-  }
-
+  /**
+   * @param closedWebSocketRemoveTimeoutMillis delay until websockets handler forgets closed
+   *     websocket. Necessary to gracefully handle incoming http2 frames racing with outgoing stream
+   *     termination frame.
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
   public Http2WebSocketServerBuilder closedWebSocketRemoveTimeout(
       long closedWebSocketRemoveTimeoutMillis) {
     this.closedWebSocketRemoveTimeoutMillis =
@@ -71,6 +80,11 @@ public final class Http2WebSocketServerBuilder {
     return this;
   }
 
+  /**
+   * @param timeoutScheduler scheduler used for closed websocket remove timeouts as described in
+   *     {@link #closedWebSocketRemoveTimeout(long)}. Must be non-null
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
   public Http2WebSocketServerBuilder closedWebSocketRemoveScheduler(
       TimeoutScheduler timeoutScheduler) {
     this.closedWebSocketTimeoutScheduler =
@@ -78,6 +92,10 @@ public final class Http2WebSocketServerBuilder {
     return this;
   }
 
+  /**
+   * @param isCompressionEnabled enables permessage-deflate compression with default configuration
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
   public Http2WebSocketServerBuilder compression(boolean isCompressionEnabled) {
     if (isCompressionEnabled) {
       if (perMessageDeflateServerExtensionHandshaker == null) {
@@ -90,6 +108,12 @@ public final class Http2WebSocketServerBuilder {
     return this;
   }
 
+  /**
+   * Enables permessage-deflate compression with extended configuration. Parameters are described in
+   * netty's PerMessageDeflateClientExtensionHandshaker
+   *
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
   public Http2WebSocketServerBuilder compression(
       int compressionLevel,
       boolean allowServerWindowSize,
@@ -106,15 +130,41 @@ public final class Http2WebSocketServerBuilder {
     return this;
   }
 
+  /**
+   * Adds http1 websocket handler for given path
+   *
+   * @param path websocket path. Must be non-empty
+   * @param handler websocket handler for given path. Must be non-null
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
   public Http2WebSocketServerBuilder handler(String path, ChannelHandler handler) {
     return handler(path, "", Http2WebSocketAcceptor.ACCEPT_ALL, handler);
   }
 
+  /**
+   * Adds http1 websocket handler with request acceptor for given path
+   *
+   * @param path websocket path. Must be non-empty
+   * @param acceptor websocket request acceptor. Must be non-null. Default acceptor {@link
+   *     Http2WebSocketAcceptor#ACCEPT_ALL} accepts all requests
+   * @param handler websocket handler for given path. Must be non-null
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
   public Http2WebSocketServerBuilder handler(
       String path, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
     return handler(path, "", acceptor, handler);
   }
 
+  /**
+   * Adds http1 websocket handler with request acceptor for given path and subprotocol
+   *
+   * @param path websocket path. Must be non-empty
+   * @param subprotocol websocket subprotocol. Must be non-null
+   * @param acceptor websocket request acceptor. Must be non-null. Default acceptor {@link
+   *     Http2WebSocketAcceptor#ACCEPT_ALL} accepts all requests
+   * @param handler websocket handler for given path and subprotocol. Must be non-null
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
   public Http2WebSocketServerBuilder handler(
       String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
     Preconditions.requireNonNull(path, "path");
@@ -136,16 +186,36 @@ public final class Http2WebSocketServerBuilder {
     return this;
   }
 
+  /**
+   * Builds handshake-only {@link Http2WebSocketHandshakeOnlyServerHandler}. All configuration
+   * options provided on this builder are ignored.
+   *
+   * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
+   */
   public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly() {
     return new Http2WebSocketHandshakeOnlyServerHandler(null);
   }
 
+  /**
+   * Builds handshake-only {@link Http2WebSocketHandshakeOnlyServerHandler}. All configuration
+   * options provided on this builder are ignored.
+   *
+   * @param rejectedWebSocketListener listener for websocket requests that were rejected due to
+   *     protocol violation
+   * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
+   */
   public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly(
       RejectedWebSocketListener rejectedWebSocketListener) {
     return new Http2WebSocketHandshakeOnlyServerHandler(
         Objects.requireNonNull(rejectedWebSocketListener, "rejectedWebSocketListener"));
   }
 
+  /**
+   * Builds subchannel based {@link Http2WebSocketServerHandler} compatible with http1 websocket
+   * handlers.
+   *
+   * @return new {@link Http2WebSocketServerHandler} instance
+   */
   public Http2WebSocketServerHandler build() {
     boolean hasCompression = perMessageDeflateServerExtensionHandshaker != null;
     WebSocketDecoderConfig config = webSocketDecoderConfig;

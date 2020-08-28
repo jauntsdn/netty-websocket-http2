@@ -29,6 +29,10 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
+/**
+ * Provides server-side support for websocket-over-http2. Creates sub channel for http2 stream of
+ * successfully handshaked websocket. Subchannel is compatible with http1 websocket handlers.
+ */
 public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHandler {
   private final long handshakeTimeoutMillis;
   private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;

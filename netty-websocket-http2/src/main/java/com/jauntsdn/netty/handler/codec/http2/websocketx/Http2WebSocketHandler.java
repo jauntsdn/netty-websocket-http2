@@ -21,6 +21,7 @@ import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http2.*;
 
+/** Base type for client and server websocket-over-http2 handlers */
 public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
     implements Http2FrameListener {
   Http2ConnectionHandler http2Handler;
