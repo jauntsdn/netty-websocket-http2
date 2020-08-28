@@ -378,16 +378,17 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
       // channelReadComplete(...) callbacks and only do it once as otherwise we will end-up with
       // multiple
       // write calls on the socket which is expensive.
-      Http2WebSocketChannel childChannel = readCompletePendingQueue.poll();
+      Queue<Http2WebSocketChannel> q = readCompletePendingQueue;
+      Http2WebSocketChannel childChannel = q.poll();
       if (childChannel != null) {
         try {
           do {
             childChannel.fireChildReadComplete();
-            childChannel = readCompletePendingQueue.poll();
+            childChannel = q.poll();
           } while (childChannel != null);
         } finally {
           parentReadInProgress = false;
-          readCompletePendingQueue.clear();
+          q.clear();
           ctx.flush();
         }
       } else {

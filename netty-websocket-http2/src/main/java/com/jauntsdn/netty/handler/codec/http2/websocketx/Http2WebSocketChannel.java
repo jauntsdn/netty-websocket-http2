@@ -713,7 +713,8 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     } else if (readStatus != ReadStatus.IDLE) {
       // If a read is in progress or has been requested, there cannot be anything in the queue,
       // otherwise we would have drained it from the queue and processed it during the read cycle.
-      assert inboundBuffer == null || inboundBuffer.isEmpty();
+      Queue<ByteBuf> inbound = inboundBuffer;
+      assert inbound == null || inbound.isEmpty();
       @SuppressWarnings("deprecation")
       final RecvByteBufAllocator.Handle allocHandle = unsafe.recvBufAllocHandle();
       unsafe.doRead0(data, allocHandle);
@@ -730,10 +731,11 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         unsafe.notifyReadComplete(allocHandle, true);
       }
     } else {
-      if (inboundBuffer == null) {
-        inboundBuffer = new ArrayDeque<>(4);
+      Queue<ByteBuf> inbound = inboundBuffer;
+      if (inbound == null) {
+        inbound = inboundBuffer = new ArrayDeque<>(4);
       }
-      inboundBuffer.add(data);
+      inbound.add(data);
     }
     if (endOfStream) {
       pipeline()
@@ -786,11 +788,12 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     @SuppressWarnings("deprecation")
     @Override
     public RecvByteBufAllocator.Handle recvBufAllocHandle() {
-      if (recvHandle == null) {
-        recvHandle = config().getRecvByteBufAllocator().newHandle();
-        recvHandle.reset(config());
+      RecvByteBufAllocator.Handle h = recvHandle;
+      if (h == null) {
+        h = recvHandle = config().getRecvByteBufAllocator().newHandle();
+        h.reset(config());
       }
-      return recvHandle;
+      return h;
     }
 
     @Override
@@ -817,9 +820,10 @@ class Http2WebSocketChannel extends DefaultAttributeMap
 
       promise.setSuccess();
 
-      pipeline().fireChannelRegistered();
+      ChannelPipeline pl = pipeline();
+      pl.fireChannelRegistered();
       if (isActive()) {
-        pipeline().fireChannelActive();
+        pl.fireChannelActive();
       }
     }
 
@@ -879,15 +883,16 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         writeRstStream();
       }
 
-      if (inboundBuffer != null) {
+      Queue<ByteBuf> inbound = inboundBuffer;
+      if (inbound != null) {
+        inboundBuffer = null;
         for (; ; ) {
-          ByteBuf msg = inboundBuffer.poll();
+          ByteBuf msg = inbound.poll();
           if (msg == null) {
             break;
           }
           ReferenceCountUtil.release(msg);
         }
-        inboundBuffer = null;
       }
 
       // The promise should be notified before we call fireChannelInactive().
@@ -934,15 +939,16 @@ class Http2WebSocketChannel extends DefaultAttributeMap
           new Runnable() {
             @Override
             public void run() {
+              ChannelPipeline pl = pipeline;
               if (fireChannelInactive) {
-                pipeline.fireChannelInactive();
+                pl.fireChannelInactive();
               }
               // The user can fire `deregister` events multiple times but we only want to fire the
               // pipeline
               // event if the channel was actually registered.
               if (registered) {
                 registered = false;
-                pipeline.fireChannelUnregistered();
+                pl.fireChannelUnregistered();
               }
               safeSetSuccess(promise);
             }
@@ -983,7 +989,6 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       if (!isActive()) {
         return;
       }
-      // updateLocalWindowIfNeeded();
 
       switch (readStatus) {
         case IDLE:
@@ -999,7 +1004,8 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     }
 
     private ByteBuf pollQueuedMessage() {
-      return inboundBuffer == null ? null : inboundBuffer.poll();
+      Queue<ByteBuf> inbound = inboundBuffer;
+      return inbound == null ? null : inbound.poll();
     }
 
     void doBeginRead() {
@@ -1457,7 +1463,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   }
 
   static class PreHandshakeHandler extends ChannelOutboundHandlerAdapter {
-    Queue<PendingOutbound> pendingOutbound;
+    Queue<PendingOutbound> outboundBuffer;
     boolean isDone;
     ChannelHandlerContext ctx;
 
@@ -1479,37 +1485,38 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         return;
       }
 
-      Queue<PendingOutbound> outbound = pendingOutbound;
+      Queue<PendingOutbound> outbound = outboundBuffer;
       if (outbound == null) {
-        outbound = pendingOutbound = new ArrayDeque<>();
+        outbound = outboundBuffer = new ArrayDeque<>();
       }
       outbound.offer(new PendingOutbound((WebSocketFrame) msg, promise));
     }
 
     void complete() {
-      Queue<PendingOutbound> outbound = pendingOutbound;
+      Queue<PendingOutbound> outbound = outboundBuffer;
+      ChannelHandlerContext c = ctx;
       if (outbound == null) {
-        ctx.pipeline().remove(this);
+        c.pipeline().remove(this);
         return;
       }
-      pendingOutbound = null;
+      outboundBuffer = null;
       PendingOutbound o = outbound.poll();
       do {
-        ctx.write(o.webSocketFrame, o.completePromise);
+        c.write(o.webSocketFrame, o.completePromise);
         o = outbound.poll();
       } while (o != null);
-      ctx.flush();
-      ctx.pipeline().remove(this);
+      c.flush();
+      c.pipeline().remove(this);
     }
 
     void cancel(@Nullable Throwable cause) {
       isDone = true;
-      Queue<PendingOutbound> outbound = pendingOutbound;
+      Queue<PendingOutbound> outbound = outboundBuffer;
       if (outbound == null) {
         ctx.close();
         return;
       }
-      pendingOutbound = null;
+      outboundBuffer = null;
 
       PendingOutbound o = outbound.poll();
       do {
