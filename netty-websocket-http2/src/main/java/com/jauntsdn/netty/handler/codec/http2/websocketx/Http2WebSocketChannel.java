@@ -64,14 +64,10 @@ class Http2WebSocketChannel extends DefaultAttributeMap
    * frames.
    */
   private static final class FlowControlledFrameSizeEstimator implements MessageSizeEstimator {
-
     static final FlowControlledFrameSizeEstimator INSTANCE = new FlowControlledFrameSizeEstimator();
-
-    private static final Handle HANDLE_INSTANCE =
-        new Handle() {
-          @Override
-          public int size(Object msg) {
-            return msg instanceof Http2DataFrame
+    static final Handle HANDLE_INSTANCE =
+        msg ->
+            msg instanceof Http2DataFrame
                 ?
                 // Guard against overflow.
                 (int)
@@ -80,8 +76,6 @@ class Http2WebSocketChannel extends DefaultAttributeMap
                         ((Http2DataFrame) msg).initialFlowControlledBytes()
                             + (long) MIN_HTTP2_FRAME_SIZE)
                 : MIN_HTTP2_FRAME_SIZE;
-          }
-        };
 
     @Override
     public Handle newHandle() {
@@ -429,14 +423,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     if (invokeLater) {
       Runnable task = fireChannelWritabilityChangedTask;
       if (task == null) {
-        fireChannelWritabilityChangedTask =
-            task =
-                new Runnable() {
-                  @Override
-                  public void run() {
-                    pipeline.fireChannelWritabilityChanged();
-                  }
-                };
+        fireChannelWritabilityChangedTask = task = () -> pipeline.fireChannelWritabilityChanged();
       }
       eventLoop().execute(task);
     } else {
@@ -852,13 +839,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         } else if (!(promise
             instanceof VoidChannelPromise)) { // Only needed if no VoidChannelPromise.
           // This means close() was called before so we just register a listener and return
-          closePromise.addListener(
-              new ChannelFutureListener() {
-                @Override
-                public void operationComplete(ChannelFuture future) {
-                  promise.setSuccess();
-                }
-              });
+          closePromise.addListener(future -> promise.setSuccess());
         }
         return;
       }
@@ -936,22 +917,19 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       // See:
       // https://github.com/netty/netty/issues/4435
       invokeLater(
-          new Runnable() {
-            @Override
-            public void run() {
-              ChannelPipeline pl = pipeline;
-              if (fireChannelInactive) {
-                pl.fireChannelInactive();
-              }
-              // The user can fire `deregister` events multiple times but we only want to fire the
-              // pipeline
-              // event if the channel was actually registered.
-              if (registered) {
-                registered = false;
-                pl.fireChannelUnregistered();
-              }
-              safeSetSuccess(promise);
+          () -> {
+            ChannelPipeline pl = pipeline;
+            if (fireChannelInactive) {
+              pl.fireChannelInactive();
             }
+            // The user can fire `deregister` events multiple times but we only want to fire the
+            // pipeline
+            // event if the channel was actually registered.
+            if (registered) {
+              registered = false;
+              pl.fireChannelUnregistered();
+            }
+            safeSetSuccess(promise);
           });
     }
 
@@ -1134,12 +1112,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         final long bytes = FlowControlledFrameSizeEstimator.HANDLE_INSTANCE.size(dataFrameContents);
         incrementPendingOutboundBytes(bytes, false);
         f.addListener(
-            new ChannelFutureListener() {
-              @Override
-              public void operationComplete(ChannelFuture future) {
-                writeComplete(future);
-                decrementPendingOutboundBytes(bytes, false);
-              }
+            (ChannelFuture future) -> {
+              writeComplete(future);
+              decrementPendingOutboundBytes(bytes, false);
             });
         writeDoneAndNoFlush = true;
       }
