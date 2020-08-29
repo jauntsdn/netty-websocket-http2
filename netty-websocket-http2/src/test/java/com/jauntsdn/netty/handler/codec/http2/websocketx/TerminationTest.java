@@ -143,18 +143,18 @@ public class TerminationTest extends AbstractTest {
         Http2WebSocketClientHandshaker.create(client)
             .handshake("/test", new ChannelInboundHandlerAdapter());
 
-    clientWebsocketHandshake.await(55, TimeUnit.SECONDS);
+    clientWebsocketHandshake.await(6, TimeUnit.SECONDS);
     Channel clientWebsocketChannel = clientWebsocketHandshake.channel();
     clientCloseHandler.accept(clientWebsocketChannel);
 
     ChannelFuture serverWebsocketCloseFuture = serverWebsocketCloseListenerHandler.closeFuture();
-    serverWebsocketCloseFuture.await(56, TimeUnit.SECONDS);
+    serverWebsocketCloseFuture.await(5, TimeUnit.SECONDS);
     Assertions.assertThat(serverWebsocketCloseFuture.isSuccess()).isTrue();
     Channel serverWebsocketChannel = serverWebsocketCloseFuture.channel();
     Assertions.assertThat(serverWebsocketChannel.isOpen()).isFalse();
 
     ChannelFuture clientWebsocketCloseFuture = clientWebsocketChannel.closeFuture();
-    clientWebsocketCloseFuture.await(56, TimeUnit.SECONDS);
+    clientWebsocketCloseFuture.await(5, TimeUnit.SECONDS);
     Assertions.assertThat(clientWebsocketCloseFuture.isSuccess()).isTrue();
     Assertions.assertThat(clientWebsocketChannel.isOpen()).isFalse();
 

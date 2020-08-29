@@ -32,7 +32,6 @@ import io.netty.handler.codec.http2.*;
 import io.netty.util.AttributeKey;
 import io.netty.util.DefaultAttributeMap;
 import io.netty.util.ReferenceCountUtil;
-import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.internal.StringUtil;
 import java.io.IOException;
@@ -59,47 +58,10 @@ class Http2WebSocketChannel extends DefaultAttributeMap
    */
   private static final int MIN_HTTP2_FRAME_SIZE = 9;
 
-  /**
-   * Returns the flow-control size for DATA frames, and {@value MIN_HTTP2_FRAME_SIZE} for all other
-   * frames.
-   */
-  private static final class FlowControlledFrameSizeEstimator implements MessageSizeEstimator {
-    static final FlowControlledFrameSizeEstimator INSTANCE = new FlowControlledFrameSizeEstimator();
-    static final Handle HANDLE_INSTANCE =
-        msg ->
-            msg instanceof Http2DataFrame
-                ?
-                // Guard against overflow.
-                (int)
-                    min(
-                        Integer.MAX_VALUE,
-                        ((Http2DataFrame) msg).initialFlowControlledBytes()
-                            + (long) MIN_HTTP2_FRAME_SIZE)
-                : MIN_HTTP2_FRAME_SIZE;
-
-    @Override
-    public Handle newHandle() {
-      return HANDLE_INSTANCE;
-    }
-  }
-
   private static final AtomicLongFieldUpdater<Http2WebSocketChannel> TOTAL_PENDING_SIZE_UPDATER =
       AtomicLongFieldUpdater.newUpdater(Http2WebSocketChannel.class, "totalPendingSize");
-
   private static final AtomicIntegerFieldUpdater<Http2WebSocketChannel> UNWRITABLE_UPDATER =
       AtomicIntegerFieldUpdater.newUpdater(Http2WebSocketChannel.class, "unwritable");
-
-  /** The current status of the read-processing for a {@link Http2WebSocketChannel}. */
-  private enum ReadStatus {
-    /** No read in progress and no read was requested (yet) */
-    IDLE,
-
-    /** Reading in progress */
-    IN_PROGRESS,
-
-    /** A read operation was requested. */
-    REQUESTED
-  }
 
   private final Http2StreamChannelConfig config = new Http2StreamChannelConfig(this);
   private final Http2ChannelUnsafe unsafe = new Http2ChannelUnsafe();
@@ -111,8 +73,8 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   private final String subprotocol;
   private final ChannelPromise closePromise;
   private final ChannelPromise handshakePromise;
-  private GenericFutureListener<ChannelFuture> handshakePromiseListener;
 
+  private GenericFutureListener<ChannelFuture> handshakePromiseListener;
   private volatile int streamId;
   private volatile boolean registered;
   private volatile long totalPendingSize;
@@ -289,8 +251,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   /* websocket stream */
   @Override
   public int onDataRead(
-      ChannelHandlerContext ctx, int streamId, ByteBuf data, int padding, boolean endOfStream)
-      throws Http2Exception {
+      ChannelHandlerContext ctx, int streamId, ByteBuf data, int padding, boolean endOfStream) {
     /*padded data is not handled, firefox does not pad, we neither*/
     int readableBytes = data.readableBytes();
     if (padding > 0) {
@@ -317,8 +278,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   }
 
   @Override
-  public void onRstStreamRead(ChannelHandlerContext ctx, int streamId, long errorCode)
-      throws Http2Exception {
+  public void onRstStreamRead(ChannelHandlerContext ctx, int streamId, long errorCode) {
     pipeline()
         .fireUserEventTriggered(
             Http2WebSocketRemoteCloseEvent.reset(serial(), path, subprotocol, System.nanoTime()));
@@ -437,11 +397,12 @@ class Http2WebSocketChannel extends DefaultAttributeMap
 
   @Override
   public void streamClosed() {
-    unsafe.readEOS();
+    Http2ChannelUnsafe u = unsafe;
+    u.readEOS();
     // Attempt to drain any queued data from the queue and deliver it to the application before
     // closing this
     // channel.
-    unsafe.doBeginRead();
+    u.doBeginRead();
   }
 
   @Override
@@ -702,9 +663,10 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       // otherwise we would have drained it from the queue and processed it during the read cycle.
       Queue<ByteBuf> inbound = inboundBuffer;
       assert inbound == null || inbound.isEmpty();
+      Http2ChannelUnsafe u = unsafe;
       @SuppressWarnings("deprecation")
-      final RecvByteBufAllocator.Handle allocHandle = unsafe.recvBufAllocHandle();
-      unsafe.doRead0(data, allocHandle);
+      final RecvByteBufAllocator.Handle allocHandle = u.recvBufAllocHandle();
+      u.doRead0(data, allocHandle);
       // We currently don't need to check for readEOS because the parent channel and child channel
       // are limited
       // to the same EventLoop thread. There are a limited number of frame types that may come after
@@ -715,7 +677,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       if (allocHandle.continueReading()) {
         maybeAddChannelToReadCompletePendingQueue();
       } else {
-        unsafe.notifyReadComplete(allocHandle, true);
+        u.notifyReadComplete(allocHandle, true);
       }
     } else {
       Queue<ByteBuf> inbound = inboundBuffer;
@@ -1088,7 +1050,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
 
       try {
         if (msg instanceof ByteBuf) {
-          writeDataFrame((ByteBuf) msg, promise);
+          writeData((ByteBuf) msg, false, promise);
         } else {
           String msgStr = msg.toString();
           ReferenceCountUtil.release(msg);
@@ -1104,8 +1066,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       }
     }
 
-    void writeDataFrame(ByteBuf dataFrameContents, final ChannelPromise promise) {
-      ChannelFuture f = writeData(dataFrameContents, false, promise);
+    void writeData(ByteBuf dataFrameContents, boolean endOfStream, final ChannelPromise promise) {
+      ChannelFuture f =
+          webSocketChannelParent.writeData(streamId, dataFrameContents, endOfStream, promise);
       if (f.isDone()) {
         writeComplete(f);
       } else {
@@ -1117,6 +1080,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap
               decrementPendingOutboundBytes(bytes, false);
             });
         writeDoneAndNoFlush = true;
+      }
+      if (endOfStream) {
+        streamClosed();
       }
     }
 
@@ -1226,10 +1192,6 @@ class Http2WebSocketChannel extends DefaultAttributeMap
     return webSocketChannelParent.writeRstStream(streamId, Http2Error.CANCEL.code());
   }
 
-  ChannelFuture writeData(ByteBuf msg, boolean endOfStream, ChannelPromise promise) {
-    return webSocketChannelParent.writeData(streamId, msg, endOfStream, promise);
-  }
-
   ChannelFuture writePriority(short weight) {
     logger.debug(
         "Websocket channel writing PRIORITY frame for path: {}, streamId: {}, weight: {}",
@@ -1254,21 +1216,19 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       int streamId,
       int streamDependency,
       short weight,
-      boolean exclusive)
-      throws Http2Exception {}
+      boolean exclusive) {}
 
   @Override
-  public void onSettingsAckRead(ChannelHandlerContext ctx) throws Http2Exception {}
+  public void onSettingsAckRead(ChannelHandlerContext ctx) {}
 
   @Override
-  public void onSettingsRead(ChannelHandlerContext ctx, Http2Settings settings)
-      throws Http2Exception {}
+  public void onSettingsRead(ChannelHandlerContext ctx, Http2Settings settings) {}
 
   @Override
-  public void onPingRead(ChannelHandlerContext ctx, long data) throws Http2Exception {}
+  public void onPingRead(ChannelHandlerContext ctx, long data) {}
 
   @Override
-  public void onPingAckRead(ChannelHandlerContext ctx, long data) throws Http2Exception {}
+  public void onPingAckRead(ChannelHandlerContext ctx, long data) {}
 
   @Override
   public void onPushPromiseRead(
@@ -1276,17 +1236,15 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       int streamId,
       int promisedStreamId,
       Http2Headers headers,
-      int padding)
-      throws Http2Exception {}
+      int padding) {}
 
   @Override
-  public void onWindowUpdateRead(ChannelHandlerContext ctx, int streamId, int windowSizeIncrement)
-      throws Http2Exception {}
+  public void onWindowUpdateRead(
+      ChannelHandlerContext ctx, int streamId, int windowSizeIncrement) {}
 
   @Override
   public void onUnknownFrame(
-      ChannelHandlerContext ctx, byte frameType, int streamId, Http2Flags flags, ByteBuf payload)
-      throws Http2Exception {
+      ChannelHandlerContext ctx, byte frameType, int streamId, Http2Flags flags, ByteBuf payload) {
     payload.release();
   }
 
@@ -1296,8 +1254,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       int streamId,
       Http2Headers headers,
       int padding,
-      boolean endOfStream)
-      throws Http2Exception {}
+      boolean endOfStream) {}
 
   @Override
   public void onHeadersRead(
@@ -1308,11 +1265,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       short weight,
       boolean exclusive,
       int padding,
-      boolean endOfStream)
-      throws Http2Exception {}
+      boolean endOfStream) {}
 
-  private class WebSocketChannelPipeline extends DefaultChannelPipeline
-      implements GenericFutureListener<Future<? super Void>> {
+  private class WebSocketChannelPipeline extends DefaultChannelPipeline {
 
     protected WebSocketChannelPipeline(Channel channel) {
       super(channel);
@@ -1340,8 +1295,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
             logger.debug(
                 "Graceful local close of websocket, streamId: {}, path: {}", streamId, path);
             ChannelHandlerContext ctx = webSocketChannelParent.context();
-            writeData(Unpooled.EMPTY_BUFFER, true, ctx.newPromise()).addListener(this);
-            ctx.flush();
+            unsafe.writeData(Unpooled.EMPTY_BUFFER, true, ctx.newPromise());
             break;
           case WEIGHT_UPDATE:
             /*priority update is for client websocket only*/
@@ -1374,11 +1328,6 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         return;
       }
       super.onUnhandledInboundUserEventTriggered(evt);
-    }
-
-    @Override
-    public void operationComplete(Future<? super Void> future) throws Exception {
-      streamClosed();
     }
   }
 
@@ -1511,5 +1460,41 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         this.completePromise = completePromise;
       }
     }
+  }
+
+  /**
+   * Returns the flow-control size for DATA frames, and {@value MIN_HTTP2_FRAME_SIZE} for all other
+   * frames.
+   */
+  private static final class FlowControlledFrameSizeEstimator implements MessageSizeEstimator {
+    static final FlowControlledFrameSizeEstimator INSTANCE = new FlowControlledFrameSizeEstimator();
+    static final Handle HANDLE_INSTANCE =
+        msg ->
+            msg instanceof Http2DataFrame
+                ?
+                // Guard against overflow.
+                (int)
+                    min(
+                        Integer.MAX_VALUE,
+                        ((Http2DataFrame) msg).initialFlowControlledBytes()
+                            + (long) MIN_HTTP2_FRAME_SIZE)
+                : MIN_HTTP2_FRAME_SIZE;
+
+    @Override
+    public Handle newHandle() {
+      return HANDLE_INSTANCE;
+    }
+  }
+
+  /** The current status of the read-processing for a {@link Http2WebSocketChannel}. */
+  private enum ReadStatus {
+    /** No read in progress and no read was requested (yet) */
+    IDLE,
+
+    /** Reading in progress */
+    IN_PROGRESS,
+
+    /** A read operation was requested. */
+    REQUESTED
   }
 }
