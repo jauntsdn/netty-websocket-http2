@@ -187,10 +187,11 @@ Currently blocked by [netty bug](https://github.com/netty/netty/issues/10416).
 
 `netty-websocket-http2-example` module contains demos showcasing both API styles, 
 with this library/browser as clients. 
-* `channelserver, channelclient` packages contain channel style demos. 
-* `handshakeserver` package contains handshake only style demo.
+* `channelserver, channelclient` packages for websocket subchannel API demos. 
+* `handshakeserver, channelclient` packages for handshake only API demo.
 
-Both servers have web page at `https://localhost:8099` that sends pings to
+### browser example
+Both example servers have web page at `https://localhost:8099` that sends pings to
 `/echo` endpoint.   
 The only browser with http2 websockets protocol support is `Mozilla Firefox`.
 
