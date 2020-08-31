@@ -221,12 +221,17 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
         .addListener(
             future -> {
               Channel channel = ctx.channel();
-              ChannelFuture closeFuture = channel.closeFuture();
-              if (closeFuture.isDone()) {
+              ChannelFuture connectionCloseFuture = channel.closeFuture();
+              if (connectionCloseFuture.isDone()) {
+                return;
+              }
+              /*stream is remotely closed already so there will be no frames stream received*/
+              if (!webSocket.isCloseInitiator()) {
+                webSockets.remove(streamId);
                 return;
               }
               webSockets.put(streamId, Http2WebSocket.CLOSED);
-              removeAfterTimeout(streamId, webSockets, closeFuture, channel.eventLoop());
+              removeAfterTimeout(streamId, webSockets, connectionCloseFuture, channel.eventLoop());
             });
   }
 

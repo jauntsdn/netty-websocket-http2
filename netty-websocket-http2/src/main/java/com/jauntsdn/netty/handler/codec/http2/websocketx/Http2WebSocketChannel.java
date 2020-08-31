@@ -82,6 +82,19 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   // Cached to reduce GC
   private Runnable fireChannelWritabilityChangedTask;
   private boolean outboundClosed;
+  /* channel IS close initiator if:
+   * 1. stream is closed by sending RST
+   * 2. stream is locally closed by sending DATA with END_STREAM flag, but before receiving
+   *    DATA with END_STREAM flag
+   *
+   * channel IS NOT close initiator if:
+   * 1. stream is remotely closed by receiving DATA with END_STREAM flag, but before sending
+   *    DATA with END_STREAM flag
+   *
+   * for other cases channel IS NOT close initiator (default null value)
+   *  */
+  Boolean closeInitiator;
+
   /**
    * This variable represents if a read is in progress for the current channel or was requested.
    * Note that depending upon the {@link RecvByteBufAllocator} behavior a read may extend beyond the
@@ -398,11 +411,21 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   @Override
   public void streamClosed() {
     Http2ChannelUnsafe u = unsafe;
-    u.readEOS();
     // Attempt to drain any queued data from the queue and deliver it to the application before
     // closing this
     // channel.
-    u.doBeginRead();
+    u.streamClosed();
+  }
+
+  boolean isCloseInitiator() {
+    Boolean ci = closeInitiator;
+    return ci != null && ci;
+  }
+
+  void trySetCloseInitiator(boolean isCloseInitiator) {
+    if (closeInitiator == null) {
+      closeInitiator = isCloseInitiator;
+    }
   }
 
   @Override
@@ -656,6 +679,10 @@ class Http2WebSocketChannel extends DefaultAttributeMap
    */
   void fireChildRead(ByteBuf data, boolean endOfStream) {
     assert eventLoop().inEventLoop();
+
+    if (endOfStream) {
+      trySetCloseInitiator(false);
+    }
     if (!isActive()) {
       ReferenceCountUtil.release(data);
     } else if (readStatus != ReadStatus.IDLE) {
@@ -721,7 +748,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
 
     private boolean writeDoneAndNoFlush;
     private boolean closeInitiated;
-    private boolean readEOS;
+    private boolean streamClosed;
 
     @Override
     public void connect(
@@ -822,7 +849,8 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       // before
       // as otherwise we may send a RST on a stream in an invalid state and cause a connection
       // error.
-      if (parent().isActive() && !readEOS && streamId > 0) {
+      if (parent().isActive() && !streamClosed && streamId > 0) {
+        trySetCloseInitiator(true);
         writeRstStream();
       }
 
@@ -954,7 +982,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       while (readStatus != ReadStatus.IDLE) {
         ByteBuf message = pollQueuedMessage();
         if (message == null) {
-          if (readEOS) {
+          if (streamClosed) {
             unsafe.closeForcibly();
           }
           // We need to double check that there is nothing left to flush such as a
@@ -968,10 +996,10 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         boolean continueReading = false;
         do {
           doRead0(message, allocHandle);
-        } while ((readEOS || (continueReading = allocHandle.continueReading()))
+        } while ((streamClosed || (continueReading = allocHandle.continueReading()))
             && (message = pollQueuedMessage()) != null);
 
-        if (continueReading && isParentReadInProgress() && !readEOS) {
+        if (continueReading && isParentReadInProgress() && !streamClosed) {
           // Currently the parent and child channel are on the same EventLoop thread. If the parent
           // is
           // currently reading it is possible that more frames will be delivered to this child
@@ -986,8 +1014,9 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       }
     }
 
-    void readEOS() {
-      readEOS = true;
+    void streamClosed() {
+      streamClosed = true;
+      doBeginRead();
     }
 
     @SuppressWarnings("deprecation")
@@ -1012,7 +1041,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       // cannot
       // rely upon flush occurring in channelReadComplete on the parent channel.
       flush();
-      if (readEOS) {
+      if (streamClosed) {
         unsafe.closeForcibly();
       }
     }
@@ -1294,6 +1323,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
           case CLOSE_LOCAL_ENDSTREAM:
             logger.debug(
                 "Graceful local close of websocket, streamId: {}, path: {}", streamId, path);
+            trySetCloseInitiator(true);
             ChannelHandlerContext ctx = webSocketChannelParent.context();
             unsafe.writeData(Unpooled.EMPTY_BUFFER, true, ctx.newPromise());
             break;
