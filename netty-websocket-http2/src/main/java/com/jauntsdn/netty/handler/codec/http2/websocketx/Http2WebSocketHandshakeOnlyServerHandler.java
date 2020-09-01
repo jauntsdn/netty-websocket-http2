@@ -26,13 +26,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Provides server-side support for websocket-over-http2. Verifies websocket-over-http2 request is
- * valid. Invalid websocket requests are rejected, valid websocket http2 stream frames are passed
- * down the pipeline. Websocket stream request headers are modified as follows: :method=POST,
- * x-protocol=websocket. Intended for proxies/intermidiaries that do not process websocket byte
- * streams, but only route respective http2 streams - hence is not compatible with http1 websocket
- * handlers. Compatibility with http1 websocket handlers is provided by complementary {@link
- * Http2WebSocketServerHandler}
+ * Provides server-side support for websocket-over-http2. Verifies websocket-over-http2 request
+ * validity. Invalid websocket requests are rejected by sending RST frame, valid websocket http2
+ * stream frames are passed down the pipeline. Valid websocket stream request headers are modified
+ * as follows: :method=POST, x-protocol=websocket. Intended for proxies/intermidiaries that do not
+ * process websocket byte streams, but only route respective http2 streams - hence is not compatible
+ * with http1 websocket handlers. http1 websocket handlers support is provided by complementary
+ * {@link Http2WebSocketServerHandler}
  */
 public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHandler {
   private static final Logger logger =

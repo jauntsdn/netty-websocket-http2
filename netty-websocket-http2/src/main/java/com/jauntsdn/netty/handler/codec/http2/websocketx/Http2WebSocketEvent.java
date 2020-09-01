@@ -21,6 +21,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http2.Http2Headers;
 import javax.annotation.Nullable;
 
+/** Base type for websocket-over-http2 events */
 public abstract class Http2WebSocketEvent {
   private final Type type;
 
@@ -171,13 +172,14 @@ public abstract class Http2WebSocketEvent {
     WEIGHT_UPDATE
   }
 
-  public static class Http2WebSocketInboundEvent extends Http2WebSocketEvent {
+  /** Base type for websocket-over-http2 lifecycle events */
+  public static class Http2WebSocketLifecycleEvent extends Http2WebSocketEvent {
     private final int id;
     private final String path;
     private final String subprotocol;
     private final long timestampNanos;
 
-    Http2WebSocketInboundEvent(
+    Http2WebSocketLifecycleEvent(
         Type type, int id, String path, String subprotocol, long timestampNanos) {
       super(type);
       this.id = id;
@@ -186,24 +188,29 @@ public abstract class Http2WebSocketEvent {
       this.timestampNanos = timestampNanos;
     }
 
+    /** @return id to correlate events of particular websocket */
     public int id() {
       return id;
     }
 
+    /** @return websocket path */
     public String path() {
       return path;
     }
 
+    /** @return websocket subprotocol */
     public String subprotocols() {
       return subprotocol;
     }
 
+    /** @return event timestamp */
     public long timestampNanos() {
       return timestampNanos;
     }
   }
 
-  public static class Http2WebSocketHandshakeStartEvent extends Http2WebSocketInboundEvent {
+  /** websocket-over-http2 handshake start event */
+  public static class Http2WebSocketHandshakeStartEvent extends Http2WebSocketLifecycleEvent {
     private final Http2Headers requestHeaders;
 
     Http2WebSocketHandshakeStartEvent(
@@ -212,12 +219,14 @@ public abstract class Http2WebSocketEvent {
       this.requestHeaders = requestHeaders;
     }
 
+    /** @return websocket request headers */
     public Http2Headers requestHeaders() {
       return requestHeaders;
     }
   }
 
-  public static class Http2WebSocketHandshakeErrorEvent extends Http2WebSocketInboundEvent {
+  /** websocket-over-http2 handshake error event */
+  public static class Http2WebSocketHandshakeErrorEvent extends Http2WebSocketLifecycleEvent {
     private final Http2Headers responseHeaders;
     private final String errorName;
     private final String errorMessage;
@@ -260,24 +269,39 @@ public abstract class Http2WebSocketEvent {
       this.error = error;
     }
 
+    /** @return response headers of failed websocket handshake */
     public Http2Headers responseHeaders() {
       return responseHeaders;
     }
 
+    /**
+     * @return exception associated with failed websocket handshake. May be null, in this case
+     *     {@link #errorName()} and {@link #errorMessage()} contain error details.
+     */
+    @Nullable
     public Throwable error() {
       return error;
     }
 
+    /**
+     * @return name of error associated with failed websocket handshake. May be null, in this case
+     *     {@link #error()} contains respective exception
+     */
     public String errorName() {
       return errorName;
     }
 
+    /**
+     * @return message of error associated with failed websocket handshake. May be null, in this
+     *     case {@link #error()} contains respective exception
+     */
     public String errorMessage() {
       return errorMessage;
     }
   }
 
-  public static class Http2WebSocketHandshakeSuccessEvent extends Http2WebSocketInboundEvent {
+  /** websocket-over-http2 handshake success event */
+  public static class Http2WebSocketHandshakeSuccessEvent extends Http2WebSocketLifecycleEvent {
     private final Http2Headers responseHeaders;
 
     Http2WebSocketHandshakeSuccessEvent(
@@ -290,12 +314,17 @@ public abstract class Http2WebSocketEvent {
       this.responseHeaders = responseHeaders;
     }
 
+    /** @return response headers of succeeded websocket handshake */
     public Http2Headers responseHeaders() {
       return responseHeaders;
     }
   }
 
-  public static class Http2WebSocketRemoteCloseEvent extends Http2WebSocketInboundEvent {
+  /**
+   * websocket-over-http2 close by remote event. Graceful close is denoted by {@link
+   * Type#CLOSE_REMOTE_ENDSTREAM}, forced close is denoted by {@link Type#CLOSE_REMOTE_RESET}
+   */
+  public static class Http2WebSocketRemoteCloseEvent extends Http2WebSocketLifecycleEvent {
     private Http2WebSocketRemoteCloseEvent(
         Type type, int id, String path, String subprotocols, long timestampNanos) {
       super(type, id, path, subprotocols, timestampNanos);
@@ -314,7 +343,8 @@ public abstract class Http2WebSocketEvent {
     }
   }
 
-  public static class Http2WebSocketRemoteGoAwayEvent extends Http2WebSocketInboundEvent {
+  /** graceful connection close by remote (GO_AWAY) event. */
+  public static class Http2WebSocketRemoteGoAwayEvent extends Http2WebSocketLifecycleEvent {
     private final long errorCode;
 
     Http2WebSocketRemoteGoAwayEvent(
@@ -323,11 +353,17 @@ public abstract class Http2WebSocketEvent {
       this.errorCode = errorCode;
     }
 
+    /** @return received GO_AWAY frame error code */
     public long errorCode() {
       return errorCode;
     }
   }
 
+  /**
+   * websocket-over-http2 local graceful close event. Firing {@link
+   * Http2WebSocketLocalCloseEvent#INSTANCE} on channel pipeline will close associated http2 stream
+   * locally by sending empty DATA frame with END_STREAN flag set
+   */
   public static final class Http2WebSocketLocalCloseEvent extends Http2WebSocketEvent {
     public static final Http2WebSocketLocalCloseEvent INSTANCE =
         new Http2WebSocketLocalCloseEvent();
@@ -337,6 +373,11 @@ public abstract class Http2WebSocketEvent {
     }
   }
 
+  /**
+   * websocket-over-http2 stream weight update event. Firing {@link
+   * Http2WebSocketLocalCloseEvent#INSTANCE} on channel pipeline will send PRIORITY frame for
+   * associated http2 stream
+   */
   public static final class Http2WebSocketStreamWeightUpdateEvent extends Http2WebSocketEvent {
     private final short streamWeight;
 
@@ -353,6 +394,10 @@ public abstract class Http2WebSocketEvent {
       return new Http2WebSocketStreamWeightUpdateEvent(streamWeight);
     }
 
+    /**
+     * @param webSocketChannel websocket-over-http2 channel
+     * @return weight of http2 stream associated with websocket channel
+     */
     @Nullable
     public static Short streamWeight(Channel webSocketChannel) {
       if (webSocketChannel instanceof Http2WebSocketChannel) {

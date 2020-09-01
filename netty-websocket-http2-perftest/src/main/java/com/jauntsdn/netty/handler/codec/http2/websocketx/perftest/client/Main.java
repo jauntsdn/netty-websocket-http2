@@ -263,8 +263,8 @@ public class Main {
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-      if (evt instanceof Http2WebSocketInboundEvent) {
-        Http2WebSocketInboundEvent handshakeEvent = (Http2WebSocketInboundEvent) evt;
+      if (evt instanceof Http2WebSocketLifecycleEvent) {
+        Http2WebSocketLifecycleEvent handshakeEvent = (Http2WebSocketLifecycleEvent) evt;
         Type eventType = handshakeEvent.type();
         switch (eventType) {
           case CLOSE_REMOTE_ENDSTREAM:
