@@ -16,10 +16,12 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.SingleElementOptimizedMap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http2.*;
+import io.netty.util.collection.IntCollections;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -28,14 +30,15 @@ import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   final WebSocketDecoderConfig config;
   final boolean isEncoderMaskPayload;
   final long closedWebSocketRemoveTimeoutMillis;
-  /*most connections will have 1 websocket*/
-  final IntObjectMap<Http2WebSocket> webSockets = new IntObjectHashMap<>(2);
+  final Supplier<IntObjectMap<Http2WebSocket>> webSocketRegistryFactory;
+  IntObjectMap<Http2WebSocket> webSocketRegistry = IntCollections.emptyMap();
 
   ChannelHandlerContext ctx;
   WebSocketsParent webSocketsParent;
@@ -44,10 +47,12 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   Http2WebSocketChannelHandler(
       @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
-      long closedWebSocketRemoveTimeoutMillis) {
+      long closedWebSocketRemoveTimeoutMillis,
+      boolean isSingleWebSocketPerConnection) {
     this.config = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
     this.closedWebSocketRemoveTimeoutMillis = closedWebSocketRemoveTimeoutMillis;
+    this.webSocketRegistryFactory = webSocketRegistryFactory(isSingleWebSocketPerConnection);
   }
 
   @Override
@@ -61,14 +66,14 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
 
   @Override
   public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-    webSockets.clear();
+    webSocketRegistry.clear();
     super.channelInactive(ctx);
   }
 
   @Override
   public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
     if (ctx.channel().isWritable()) {
-      IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+      IntObjectMap<Http2WebSocket> webSockets = this.webSocketRegistry;
       if (!webSockets.isEmpty()) {
         webSockets.forEach((key, webSocket) -> webSocket.trySetWritable());
       }
@@ -94,7 +99,7 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
       super.exceptionCaught(ctx, cause);
       return;
     }
-    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    IntObjectMap<Http2WebSocket> webSockets = this.webSocketRegistry;
     if (!webSockets.isEmpty()) {
       Http2Exception.StreamException streamException = (Http2Exception.StreamException) cause;
       Http2WebSocket webSocket = webSockets.get(streamException.streamId());
@@ -118,7 +123,7 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
 
   @Override
   public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    IntObjectMap<Http2WebSocket> webSockets = this.webSocketRegistry;
     if (!webSockets.isEmpty()) {
       webSockets.forEach((key, webSocket) -> webSocket.streamClosed());
     }
@@ -129,7 +134,7 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   public void onGoAwayRead(
       ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData)
       throws Http2Exception {
-    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
+    IntObjectMap<Http2WebSocket> webSockets = this.webSocketRegistry;
     if (!webSockets.isEmpty()) {
       webSockets.forEach(
           (key, webSocket) -> webSocket.onGoAwayRead(ctx, lastStreamId, errorCode, debugData));
@@ -202,7 +207,7 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   }
 
   Http2FrameListener webSocketOrNext(int streamId) {
-    Http2WebSocket webSocket = webSockets.get(streamId);
+    Http2WebSocket webSocket = webSocketRegistry.get(streamId);
     if (webSocket != null) {
       ChannelHandlerContext c = ctx;
       if (!isAutoRead) {
@@ -214,8 +219,12 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   }
 
   void registerWebSocket(int streamId, Http2WebSocketChannel webSocket) {
-    IntObjectMap<Http2WebSocket> webSockets = this.webSockets;
-    webSockets.put(streamId, webSocket);
+    IntObjectMap<Http2WebSocket> registry = webSocketRegistry;
+    if (registry == IntCollections.<Http2WebSocket>emptyMap()) {
+      webSocketRegistry = registry = webSocketRegistryFactory.get();
+    }
+    registry.put(streamId, webSocket);
+    IntObjectMap<Http2WebSocket> finalRegistry = registry;
     webSocket
         .closeFuture()
         .addListener(
@@ -227,11 +236,12 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
               }
               /*stream is remotely closed already so there will be no frames stream received*/
               if (!webSocket.isCloseInitiator()) {
-                webSockets.remove(streamId);
+                finalRegistry.remove(streamId);
                 return;
               }
-              webSockets.put(streamId, Http2WebSocket.CLOSED);
-              removeAfterTimeout(streamId, webSockets, connectionCloseFuture, channel.eventLoop());
+              finalRegistry.put(streamId, Http2WebSocket.CLOSED);
+              removeAfterTimeout(
+                  streamId, finalRegistry, connectionCloseFuture, channel.eventLoop());
             });
   }
 
@@ -279,6 +289,21 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
     public void run() {
       webSockets.remove(streamId);
       connectionCloseFuture.removeListener(this);
+    }
+  }
+
+  interface WebSocketRegistryFactory {
+
+    IntObjectMap<Http2WebSocket> create();
+  }
+
+  @SuppressWarnings("Convert2MethodRef")
+  static Supplier<IntObjectMap<Http2WebSocket>> webSocketRegistryFactory(
+      boolean isSingleWebSocketPerConnection) {
+    if (isSingleWebSocketPerConnection) {
+      return () -> new SingleElementOptimizedMap<>();
+    } else {
+      return () -> new IntObjectHashMap<>(4);
     }
   }
 

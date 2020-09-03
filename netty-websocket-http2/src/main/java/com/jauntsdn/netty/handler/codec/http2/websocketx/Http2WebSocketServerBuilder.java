@@ -37,6 +37,7 @@ public final class Http2WebSocketServerBuilder {
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
   private TimeoutScheduler closedWebSocketTimeoutScheduler;
+  private boolean isSingleWebSocketPerConnection;
 
   Http2WebSocketServerBuilder() {}
 
@@ -187,6 +188,16 @@ public final class Http2WebSocketServerBuilder {
   }
 
   /**
+   * @param isSingleWebSocketPerConnection optimize for at most 1 websocket per connection
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
+  public Http2WebSocketServerBuilder assumeSingleWebSocketPerConnection(
+      boolean isSingleWebSocketPerConnection) {
+    this.isSingleWebSocketPerConnection = isSingleWebSocketPerConnection;
+    return this;
+  }
+
+  /**
    * Builds handshake-only {@link Http2WebSocketHandshakeOnlyServerHandler}. All configuration
    * options provided on this builder are ignored.
    *
@@ -234,7 +245,8 @@ public final class Http2WebSocketServerBuilder {
         closedWebSocketRemoveTimeoutMillis,
         closedWebSocketTimeoutScheduler,
         perMessageDeflateServerExtensionHandshaker,
-        webSocketHandlers);
+        webSocketHandlers,
+        isSingleWebSocketPerConnection);
   }
 
   private AcceptorHandler handler(String path) {

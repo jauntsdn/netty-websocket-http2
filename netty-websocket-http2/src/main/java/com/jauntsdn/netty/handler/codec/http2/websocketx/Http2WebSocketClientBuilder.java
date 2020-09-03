@@ -29,6 +29,7 @@ public final class Http2WebSocketClientBuilder {
   private long handshakeTimeoutMillis = 15_000;
   private short streamWeight;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
+  private boolean isSingleWebSocketPerConnection;
 
   Http2WebSocketClientBuilder() {}
 
@@ -122,6 +123,16 @@ public final class Http2WebSocketClientBuilder {
     return this;
   }
 
+  /**
+   * @param isSingleWebSocketPerConnection optimize for at most 1 websocket per connection
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
+  public Http2WebSocketClientBuilder assumeSingleWebSocketPerConnection(
+      boolean isSingleWebSocketPerConnection) {
+    this.isSingleWebSocketPerConnection = isSingleWebSocketPerConnection;
+    return this;
+  }
+
   /** @return new {@link Http2WebSocketClientHandler} instance */
   public Http2WebSocketClientHandler build() {
     PerMessageDeflateClientExtensionHandshaker compressionHandshaker =
@@ -141,12 +152,14 @@ public final class Http2WebSocketClientBuilder {
     if (weight == 0) {
       weight = DEFAULT_STREAM_WEIGHT;
     }
+
     return new Http2WebSocketClientHandler(
         config,
         isEncoderMaskPayload,
         weight,
         handshakeTimeoutMillis,
         closedWebSocketRemoveTimeoutMillis,
-        compressionHandshaker);
+        compressionHandshaker,
+        isSingleWebSocketPerConnection);
   }
 }

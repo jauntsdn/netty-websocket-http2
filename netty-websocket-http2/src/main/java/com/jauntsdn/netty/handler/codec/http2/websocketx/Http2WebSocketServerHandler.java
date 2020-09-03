@@ -48,8 +48,13 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       long closedWebSocketRemoveTimeoutMillis,
       @Nullable TimeoutScheduler closedWebSocketTimeoutScheduler,
       @Nullable PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
-      Map<String, AcceptorHandler> webSocketHandlers) {
-    super(webSocketDecoderConfig, isEncoderMaskPayload, closedWebSocketRemoveTimeoutMillis);
+      Map<String, AcceptorHandler> webSocketHandlers,
+      boolean isSingleWebSocketPerConnection) {
+    super(
+        webSocketDecoderConfig,
+        isEncoderMaskPayload,
+        closedWebSocketRemoveTimeoutMillis,
+        isSingleWebSocketPerConnection);
     this.handshakeTimeoutMillis = handshakeTimeoutMillis;
     this.closedWebSocketTimeoutScheduler = closedWebSocketTimeoutScheduler;
     this.compressionHandshaker = compressionHandshaker;

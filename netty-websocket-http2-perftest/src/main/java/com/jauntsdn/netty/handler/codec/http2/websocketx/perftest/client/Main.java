@@ -29,7 +29,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
-import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http2.Http2FrameCodec;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import io.netty.handler.ssl.OpenSsl;
@@ -91,8 +90,8 @@ public class Main {
                     Http2FrameCodec http2FrameCodec = frameCodecBuilder.build();
                     Http2WebSocketClientHandler http2WebSocketClientHandler =
                         Http2WebSocketClientHandler.builder()
-                            .decoderConfig(WebSocketDecoderConfig.newBuilder().build())
                             .handshakeTimeoutMillis(15_000)
+                            .assumeSingleWebSocketPerConnection(true)
                             .build();
                     ch.pipeline().addLast(sslHandler, http2FrameCodec, http2WebSocketClientHandler);
                   }

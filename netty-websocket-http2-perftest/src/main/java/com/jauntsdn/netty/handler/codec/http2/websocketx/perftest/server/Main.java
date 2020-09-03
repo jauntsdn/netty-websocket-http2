@@ -99,6 +99,7 @@ public class Main {
 
       Http2WebSocketServerHandler http2webSocketHandler =
           Http2WebSocketServerHandler.builder()
+              .assumeSingleWebSocketPerConnection(true)
               .handler("/echo", new EchoWebSocketHandler())
               .build();
 
