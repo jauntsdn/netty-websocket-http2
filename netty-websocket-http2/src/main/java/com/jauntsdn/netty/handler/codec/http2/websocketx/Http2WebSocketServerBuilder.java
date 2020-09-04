@@ -235,7 +235,8 @@ public final class Http2WebSocketServerBuilder {
     } else {
       boolean isAllowExtensions = config.allowExtensions();
       if (!isAllowExtensions && hasCompression) {
-        config = config.toBuilder().allowExtensions(true).build();
+        throw new IllegalStateException(
+            "websocket compression is enabled while extensions are disabled");
       }
     }
     return new Http2WebSocketServerHandler(
