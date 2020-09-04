@@ -50,6 +50,13 @@ class Preconditions {
     return value;
   }
 
+  static int requireNonNegative(int value, String message) {
+    if (value < 0) {
+      throw new IllegalArgumentException(message + " must be non-negative: " + value);
+    }
+    return value;
+  }
+
   static short requireRange(int value, int from, int to, String message) {
     if (value >= from && value <= to) {
       return (short) value;

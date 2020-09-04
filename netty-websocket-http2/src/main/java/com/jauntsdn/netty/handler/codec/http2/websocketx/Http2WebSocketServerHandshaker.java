@@ -26,7 +26,6 @@ import io.netty.handler.codec.http.websocketx.extensions.*;
 import io.netty.handler.codec.http2.*;
 import io.netty.util.AsciiString;
 import java.nio.channels.ClosedChannelException;
-import java.util.*;
 import javax.annotation.Nullable;
 
 class Http2WebSocketServerHandshaker {
@@ -47,7 +46,7 @@ class Http2WebSocketServerHandshaker {
       ReadOnlyHttp2Headers.serverHeaders(true, AsciiString.of("500"));
 
   private final WebSocketsParent webSocketsParent;
-  private final Map<String, AcceptorHandler> webSocketHandlers;
+  private final WebSocketHandler.Container webSocketHandlers;
   private final WebSocketDecoderConfig webSocketDecoderConfig;
   private final boolean isEncoderMaskPayload;
   private final long handshakeTimeoutMillis;
@@ -59,7 +58,7 @@ class Http2WebSocketServerHandshaker {
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long handshakeTimeoutMillis,
-      Map<String, AcceptorHandler> webSocketHandlers,
+      WebSocketHandler.Container webSocketHandlers,
       @Nullable WebSocketServerExtensionHandshaker compressionHandshaker) {
     this.webSocketsParent = webSocketsParent;
     this.webSocketHandlers = webSocketHandlers;
@@ -120,28 +119,13 @@ class Http2WebSocketServerHandshaker {
       writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true);
       return false;
     }
-
     /* http2 websocket handshake is successful  */
-    AcceptorHandler acceptorHandler = webSocketHandlers.get(path);
+    WebSocketHandler handler =
+        subprotocols.isEmpty()
+            ? webSocketHandlers.get(path, subprotocols)
+            : webSocketHandlers.get(path, parseSubprotocols(subprotocols));
+
     /*no handlers for path*/
-    if (acceptorHandler == null) {
-      Http2WebSocketEvent.fireHandshakeStartAndError(
-          ctx.channel(),
-          streamId,
-          path,
-          subprotocols,
-          requestHeaders,
-          startNanos,
-          System.nanoTime(),
-          WebSocketHandshakeException.class.getName(),
-          String.format(Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND, path, subprotocols));
-
-      writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true);
-      return false;
-    }
-
-    AcceptorHandler handler = acceptorHandler.subprotocolHandler(subprotocols);
-    /*no handler for subprotocol - return 404*/
     if (handler == null) {
       Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
@@ -241,7 +225,7 @@ class Http2WebSocketServerHandshaker {
             future -> {
               if (future.isSuccess()) {
                 /* synchronous acceptor, no need for timeout - just register webSocket*/
-                ChannelHandler webSocketHandler = acceptorHandler.handler();
+                ChannelHandler webSocketHandler = handler.handler();
                 Http2WebSocketChannel webSocket =
                     new Http2WebSocketChannel(
                             webSocketsParent,
@@ -331,6 +315,14 @@ class Http2WebSocketServerHandshaker {
     return headers.set(
         Http2WebSocketProtocol.HEADER_PROTOCOL_NAME_HANDSHAKED,
         Http2WebSocketProtocol.HEADER_PROTOCOL_VALUE);
+  }
+
+  private static String[] parseSubprotocols(String subprotocols) {
+    String[] sp = subprotocols.split(",");
+    for (int i = 0; i < sp.length; i++) {
+      sp[i] = sp[i].trim();
+    }
+    return sp;
   }
 
   private static Http2Headers successHeaders(Http2Headers responseHeaders) {

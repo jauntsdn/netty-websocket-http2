@@ -18,6 +18,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandshakeOnlyServerHandler.*;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
 
 import io.netty.channel.ChannelHandler;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
@@ -32,12 +33,14 @@ public final class Http2WebSocketServerBuilder {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerBuilder.class);
   private WebSocketDecoderConfig webSocketDecoderConfig;
   private boolean isEncoderMaskPayload = true;
-  private Map<String, AcceptorHandler> webSocketHandlers = Collections.emptyMap();
   private long handshakeTimeoutMillis = 15_000;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
   private TimeoutScheduler closedWebSocketTimeoutScheduler;
   private boolean isSingleWebSocketPerConnection;
+  private int handlersCountHint;
+  private List<WebSocketPathHandler> webSocketPathHandlers;
+  private WebSocketHandler.Container websocketHandlers;
 
   Http2WebSocketServerBuilder() {}
 
@@ -132,6 +135,16 @@ public final class Http2WebSocketServerBuilder {
   }
 
   /**
+   * @param handlersCountHint number of handlers. Optional, enables minor optimizations.
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
+  public Http2WebSocketServerBuilder handlersCount(int handlersCountHint) {
+    this.handlersCountHint =
+        Preconditions.requireNonNegative(handlersCountHint, "handlersCountHint");
+    return this;
+  }
+
+  /**
    * Adds http1 websocket handler for given path
    *
    * @param path websocket path. Must be non-empty
@@ -172,18 +185,25 @@ public final class Http2WebSocketServerBuilder {
     Preconditions.requireNonNull(subprotocol, "subprotocol");
     Preconditions.requireNonNull(acceptor, "acceptor");
     Preconditions.requireNonNull(handler, "handler");
-    AcceptorHandler acceptorHandler = handler(path);
-    if (acceptorHandler == null) {
-      acceptorHandler = new AcceptorHandler(acceptor, handler, subprotocol);
-      addHandler(path, acceptorHandler);
-    } else {
-      if (!acceptorHandler.addHandler(subprotocol, acceptor, handler)) {
-        String subprotocolOrEmpty = subprotocol.isEmpty() ? "no subprotocol" : subprotocol;
-        throw new IllegalArgumentException(
-            String.format(
-                "Duplicate handler for path: %s, subprotocol: %s", path, subprotocolOrEmpty));
-      }
+
+    List<WebSocketPathHandler> pathHandlers = webSocketPathHandlers;
+    /*handlers list created first as there was no size hint*/
+    if (pathHandlers != null) {
+      pathHandlers.add(new WebSocketPathHandler(path, subprotocol, acceptor, handler));
+      return this;
     }
+    int count = handlersCountHint;
+    WebSocketHandler.Container handlers = websocketHandlers;
+    if (count > 0 && handlers == null) {
+      handlers = websocketHandlers = createWebSocketHandlersContainer(count);
+    }
+    /*handlers container created first as there was size hint*/
+    if (handlers != null) {
+      handlers.put(path, subprotocol, acceptor, handler);
+      return this;
+    }
+    pathHandlers = webSocketPathHandlers = new ArrayList<>(4);
+    pathHandlers.add(new WebSocketPathHandler(path, subprotocol, acceptor, handler));
     return this;
   }
 
@@ -239,6 +259,19 @@ public final class Http2WebSocketServerBuilder {
             "websocket compression is enabled while extensions are disabled");
       }
     }
+    WebSocketHandler.Container handlers = websocketHandlers;
+    if (handlers == null) {
+      List<WebSocketPathHandler> pathHandlers = webSocketPathHandlers;
+      if (pathHandlers == null) {
+        handlers = EmptyHandlerContainer.getInstance();
+      } else {
+        handlers = createWebSocketHandlersContainer(pathHandlers.size());
+        for (WebSocketPathHandler handler : pathHandlers) {
+          handlers.put(
+              handler.path(), handler.subprotocol(), handler.acceptor(), handler.handler());
+        }
+      }
+    }
     return new Http2WebSocketServerHandler(
         config,
         isEncoderMaskPayload,
@@ -246,27 +279,16 @@ public final class Http2WebSocketServerBuilder {
         closedWebSocketRemoveTimeoutMillis,
         closedWebSocketTimeoutScheduler,
         perMessageDeflateServerExtensionHandshaker,
-        webSocketHandlers,
+        handlers,
         isSingleWebSocketPerConnection);
   }
 
-  private AcceptorHandler handler(String path) {
-    return webSocketHandlers.get(path);
-  }
-
-  private void addHandler(String path, AcceptorHandler acceptorHandler) {
-    Map<String, AcceptorHandler> handlers = webSocketHandlers;
-    switch (handlers.size()) {
-      case 0:
-        webSocketHandlers = Collections.singletonMap(path, acceptorHandler);
-        break;
+  static WebSocketHandler.Container createWebSocketHandlersContainer(int handlersCount) {
+    switch (handlersCount) {
       case 1:
-        Map<String, AcceptorHandler> h = webSocketHandlers = new HashMap<>(/*capacity*/ 4);
-        h.putAll(handlers);
-        h.put(path, acceptorHandler);
-        break;
+        return new SingleHandlerContainer();
       default:
-        handlers.put(path, acceptorHandler);
+        return new DefaultHandlerContainer(handlersCount);
     }
   }
 }

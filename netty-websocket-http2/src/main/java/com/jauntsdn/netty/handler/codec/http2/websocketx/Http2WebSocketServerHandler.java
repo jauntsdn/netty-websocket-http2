@@ -23,9 +23,6 @@ import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.collection.IntObjectMap;
 import io.netty.util.concurrent.GenericFutureListener;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -36,7 +33,7 @@ import javax.annotation.Nullable;
 public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHandler {
   private final long handshakeTimeoutMillis;
   private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;
-  private final Map<String, AcceptorHandler> webSocketHandlers;
+  private final WebSocketHandler.Container webSocketHandlers;
   private final TimeoutScheduler closedWebSocketTimeoutScheduler;
 
   private Http2WebSocketServerHandshaker handshaker;
@@ -48,7 +45,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       long closedWebSocketRemoveTimeoutMillis,
       @Nullable TimeoutScheduler closedWebSocketTimeoutScheduler,
       @Nullable PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
-      Map<String, AcceptorHandler> webSocketHandlers,
+      WebSocketHandler.Container webSocketHandlers,
       boolean isSingleWebSocketPerConnection) {
     super(
         webSocketDecoderConfig,
@@ -216,87 +213,49 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
     }
   }
 
-  static class AcceptorHandler {
-    private final String subprotocol;
-    private Http2WebSocketAcceptor acceptor;
-    private ChannelHandler handler;
-    private Map<String, AcceptorHandler> subprotocolHandlers;
+  interface WebSocketHandler {
 
-    AcceptorHandler(Http2WebSocketAcceptor acceptor, ChannelHandler handler, String subprotocol) {
-      this(acceptor, handler, subprotocol, true);
-    }
+    Http2WebSocketAcceptor acceptor();
 
-    private AcceptorHandler(
-        Http2WebSocketAcceptor acceptor,
-        ChannelHandler handler,
-        String subprotocol,
-        boolean isPathHandler) {
-      this.subprotocol = subprotocol;
-      /*small optimization - most servers wont have protocol specific handlers, so
-       * create map for them lazily*/
-      if (!isPathHandler || subprotocol.isEmpty()) {
-        this.subprotocolHandlers = Collections.emptyMap();
+    ChannelHandler handler();
+
+    String subprotocol();
+
+    final class Impl implements WebSocketHandler {
+      private final Http2WebSocketAcceptor acceptor;
+      private final ChannelHandler handler;
+      private final String subprotocol;
+
+      public Impl(Http2WebSocketAcceptor acceptor, ChannelHandler handler, String subprotocol) {
         this.acceptor = acceptor;
         this.handler = handler;
-      } else {
-        Map<String, AcceptorHandler> handlers =
-            subprotocolHandlers = new HashMap<>(/*capacity*/ 2, /*load factor*/ 1.0f);
-        handlers.put(subprotocol, new AcceptorHandler(acceptor, handler, subprotocol, false));
+        this.subprotocol = subprotocol;
+      }
+
+      @Override
+      public Http2WebSocketAcceptor acceptor() {
+        return acceptor;
+      }
+
+      @Override
+      public ChannelHandler handler() {
+        return handler;
+      }
+
+      @Override
+      public String subprotocol() {
+        return subprotocol;
       }
     }
 
-    public String subprotocol() {
-      return subprotocol;
-    }
+    interface Container {
 
-    public boolean addHandler(
-        String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
-      if (subprotocol.isEmpty()) {
-        if (this.handler != null) {
-          return false;
-        }
-        this.acceptor = acceptor;
-        this.handler = handler;
-        return true;
-      }
-      Map<String, AcceptorHandler> handlers = subprotocolHandlers;
-      if (handlers.isEmpty()) {
-        handlers = subprotocolHandlers = new HashMap<>(/*capacity*/ 2, /*load factor*/ 1.0f);
-      }
-      return handlers.put(subprotocol, new AcceptorHandler(acceptor, handler, subprotocol, false))
-          == null;
-    }
+      void put(
+          String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler);
 
-    public AcceptorHandler subprotocolHandler(String clientSubprotocols) {
-      /*default (no-subprotocol) handler*/
-      if (clientSubprotocols.isEmpty()) {
-        if (handler != null) {
-          return this;
-        }
-        return null;
-      }
-      String[] subprotocols = clientSubprotocols.split(",");
-      for (String subprotocol : subprotocols) {
-        subprotocol = subprotocol.trim();
-        AcceptorHandler subprotocolHandler = subprotocolHandlers.get(subprotocol);
-        if (subprotocolHandler != null) {
-          return subprotocolHandler;
-        }
-      }
-      /*fallback to default (no-subprotocol) handler - reasonable clients will close websocket
-       * once discover requested protocol does not match*/
-      if (handler != null) {
-        return this;
-      }
-      return null;
-    }
+      WebSocketHandler get(String path, String subprotocol);
 
-    public Http2WebSocketAcceptor acceptor() {
-      return acceptor;
-    }
-
-    public ChannelHandler handler() {
-      return handler;
+      WebSocketHandler get(String path, String[] subprotocols);
     }
   }
 }
