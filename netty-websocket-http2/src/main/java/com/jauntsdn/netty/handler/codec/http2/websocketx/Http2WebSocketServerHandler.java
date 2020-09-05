@@ -20,66 +20,52 @@ import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
 import io.netty.handler.codec.http2.Http2Exception;
-import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.collection.IntObjectMap;
 import io.netty.util.concurrent.GenericFutureListener;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
-  private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerHandler.class);
-
-  private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;
-  private final boolean isEncoderMaskPayload;
+/**
+ * Provides server-side support for websocket-over-http2. Creates sub channel for http2 stream of
+ * successfully handshaked websocket. Subchannel is compatible with http1 websocket handlers.
+ */
+public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHandler {
   private final long handshakeTimeoutMillis;
-  private final TimeoutScheduler closedWebSocketTimeoutScheduler;
-  private final Map<String, AcceptorHandler> webSocketHandlers;
-  private Http2WebSocketServerHandshaker http2WebSocketHandShaker;
+  private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;
+  private final WebSocketHandler.Container webSocketHandlers;
+  private final Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler;
 
-  /*subchannel*/
+  private Http2WebSocketServerHandshaker handshaker;
+
   Http2WebSocketServerHandler(
-      @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
+      WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long handshakeTimeoutMillis,
       long closedWebSocketRemoveTimeoutMillis,
-      @Nullable TimeoutScheduler closedWebSocketTimeoutScheduler,
+      @Nullable Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler,
       @Nullable PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
-      Map<String, AcceptorHandler> webSocketHandlers) {
-    super(webSocketDecoderConfig, closedWebSocketRemoveTimeoutMillis);
-    this.isEncoderMaskPayload = isEncoderMaskPayload;
+      WebSocketHandler.Container webSocketHandlers,
+      boolean isSingleWebSocketPerConnection) {
+    super(
+        webSocketDecoderConfig,
+        isEncoderMaskPayload,
+        closedWebSocketRemoveTimeoutMillis,
+        isSingleWebSocketPerConnection);
     this.handshakeTimeoutMillis = handshakeTimeoutMillis;
     this.closedWebSocketTimeoutScheduler = closedWebSocketTimeoutScheduler;
     this.compressionHandshaker = compressionHandshaker;
     this.webSocketHandlers = webSocketHandlers;
   }
 
-  /*handshake only*/
-  Http2WebSocketServerHandler() {
-    this(null, false, 0, 0, null, null, null);
-  }
-
   public static Http2WebSocketServerBuilder builder() {
     return new Http2WebSocketServerBuilder();
-  }
-
-  public static Http2FrameCodecBuilder configureHttp2Server(Http2FrameCodecBuilder http2Builder) {
-    http2Builder
-        .initialSettings()
-        .put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
-    return http2Builder.validateHeaders(false);
   }
 
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     super.handlerAdded(ctx);
-
-    this.http2WebSocketHandShaker =
+    this.handshaker =
         new Http2WebSocketServerHandshaker(
             webSocketsParent,
             config,
@@ -128,19 +114,42 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
       IntObjectMap<Http2WebSocket> webSockets,
       ChannelFuture connectionCloseFuture,
       EventLoop eventLoop) {
-    TimeoutScheduler scheduler = closedWebSocketTimeoutScheduler;
+    Http2WebSocketTimeoutScheduler scheduler = closedWebSocketTimeoutScheduler;
     /* assume most users prefer timeouts by eventloop;
     external scheduler is handled as special case to save few allocations */
     if (scheduler != null) {
       RemoveWebSocket removeWebSocket =
           new RemoveWebSocket(streamId, webSockets, connectionCloseFuture);
-      TimeoutScheduler.Handle removeWebSocketHandle =
-          scheduler.schedule(
-              removeWebSocket,
-              closedWebSocketRemoveTimeoutMillis,
-              TimeUnit.MILLISECONDS,
-              eventLoop);
-      removeWebSocket.removeWebSocketHandle(removeWebSocketHandle);
+      Http2WebSocketTimeoutScheduler.Handle removeWebSocketHandle;
+      try {
+        removeWebSocketHandle =
+            scheduler.schedule(
+                removeWebSocket,
+                closedWebSocketRemoveTimeoutMillis,
+                TimeUnit.MILLISECONDS,
+                eventLoop);
+      } catch (Exception e) {
+        ChannelHandlerContext c = ctx;
+        c.fireExceptionCaught(
+            new IllegalStateException(
+                String.format(
+                    "http2 websocket CloseTimeoutScheduler %s schedule() error",
+                    scheduler.getClass().getName()),
+                e));
+        c.close();
+        return;
+      }
+      if (removeWebSocketHandle == null) {
+        ChannelHandlerContext c = ctx;
+        c.fireExceptionCaught(
+            new IllegalStateException(
+                String.format(
+                    "http2 websocket CloseTimeoutScheduler %s schedule() returned null handle",
+                    scheduler.getClass().getName())));
+        c.close();
+        return;
+      }
+      removeWebSocket.setRemoveWebSocketHandle(removeWebSocketHandle);
       return;
     }
     super.removeAfterTimeout(streamId, webSockets, connectionCloseFuture, eventLoop);
@@ -148,7 +157,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
 
   private boolean handshakeWebSocket(int streamId, Http2Headers headers, boolean endOfStream) {
     if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
-      return http2WebSocketHandShaker.handshake(streamId, headers, endOfStream);
+      return handshaker.handshake(streamId, headers, endOfStream);
     }
     return true;
   }
@@ -157,7 +166,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
     private final IntObjectMap<Http2WebSocket> webSockets;
     private final int streamId;
     private final ChannelFuture connectionCloseFuture;
-    private TimeoutScheduler.Handle removeWebSocketHandle;
+    private Http2WebSocketTimeoutScheduler.Handle removeWebSocketHandle;
 
     RemoveWebSocket(
         int streamId,
@@ -168,7 +177,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
       this.connectionCloseFuture = connectionCloseFuture;
     }
 
-    void removeWebSocketHandle(TimeoutScheduler.Handle removeWebSocketHandle) {
+    void setRemoveWebSocketHandle(Http2WebSocketTimeoutScheduler.Handle removeWebSocketHandle) {
       this.removeWebSocketHandle = removeWebSocketHandle;
       connectionCloseFuture.addListener(this);
     }
@@ -176,97 +185,77 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketHandler {
     /*connection close*/
     @Override
     public void operationComplete(ChannelFuture future) {
-      removeWebSocketHandle.cancel();
+      Http2WebSocketTimeoutScheduler.Handle h = removeWebSocketHandle;
+      try {
+        h.cancel();
+      } catch (Exception e) {
+        Channel ch = connectionCloseFuture.channel();
+        ch.pipeline()
+            .fireExceptionCaught(
+                new IllegalStateException(
+                    String.format(
+                        "http2 websocket CloseTimeoutScheduler handle %s cancellation error",
+                        h.getClass().getName())));
+        ch.close();
+      }
     }
 
     /*after websocket close timeout*/
     @Override
     public void run() {
-      webSockets.remove(streamId);
-      connectionCloseFuture.removeListener(this);
+      EventLoop el = connectionCloseFuture.channel().eventLoop();
+      if (el.inEventLoop()) {
+        webSockets.remove(streamId);
+        connectionCloseFuture.removeListener(this);
+      } else {
+        el.execute(this);
+      }
     }
   }
 
-  static class AcceptorHandler {
-    private final String subprotocol;
-    private Http2WebSocketAcceptor acceptor;
-    private ChannelHandler handler;
-    private Map<String, AcceptorHandler> subprotocolHandlers;
+  interface WebSocketHandler {
 
-    AcceptorHandler(Http2WebSocketAcceptor acceptor, ChannelHandler handler, String subprotocol) {
-      this(acceptor, handler, subprotocol, true);
-    }
+    Http2WebSocketAcceptor acceptor();
 
-    private AcceptorHandler(
-        Http2WebSocketAcceptor acceptor,
-        ChannelHandler handler,
-        String subprotocol,
-        boolean isPathHandler) {
-      this.subprotocol = subprotocol;
-      /*small optimization - most servers wont have protocol specific handlers, so
-       * create map for them lazily*/
-      if (!isPathHandler || subprotocol.isEmpty()) {
-        this.subprotocolHandlers = Collections.emptyMap();
+    ChannelHandler handler();
+
+    String subprotocol();
+
+    final class Impl implements WebSocketHandler {
+      private final Http2WebSocketAcceptor acceptor;
+      private final ChannelHandler handler;
+      private final String subprotocol;
+
+      public Impl(Http2WebSocketAcceptor acceptor, ChannelHandler handler, String subprotocol) {
         this.acceptor = acceptor;
         this.handler = handler;
-      } else {
-        Map<String, AcceptorHandler> handlers = subprotocolHandlers = new HashMap<>();
-        handlers.put(subprotocol, new AcceptorHandler(acceptor, handler, subprotocol, false));
+        this.subprotocol = subprotocol;
+      }
+
+      @Override
+      public Http2WebSocketAcceptor acceptor() {
+        return acceptor;
+      }
+
+      @Override
+      public ChannelHandler handler() {
+        return handler;
+      }
+
+      @Override
+      public String subprotocol() {
+        return subprotocol;
       }
     }
 
-    public String subprotocol() {
-      return subprotocol;
-    }
+    interface Container {
 
-    public boolean addHandler(
-        String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
-      if (subprotocol.isEmpty()) {
-        if (this.handler != null) {
-          return false;
-        }
-        this.acceptor = acceptor;
-        this.handler = handler;
-        return true;
-      }
-      Map<String, AcceptorHandler> handlers = subprotocolHandlers;
-      if (handlers.isEmpty()) {
-        handlers = subprotocolHandlers = new HashMap<>();
-      }
-      return handlers.put(subprotocol, new AcceptorHandler(acceptor, handler, subprotocol, false))
-          == null;
-    }
+      void put(
+          String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler);
 
-    public AcceptorHandler subprotocolHandler(String clientSubprotocols) {
-      /*default (no-subprotocol) handler*/
-      if (clientSubprotocols.isEmpty()) {
-        if (handler != null) {
-          return this;
-        }
-        return null;
-      }
-      String[] subprotocols = clientSubprotocols.split(",");
-      for (String subprotocol : subprotocols) {
-        subprotocol = subprotocol.trim();
-        AcceptorHandler subprotocolHandler = subprotocolHandlers.get(subprotocol);
-        if (subprotocolHandler != null) {
-          return subprotocolHandler;
-        }
-      }
-      /*fallback to default (no-subprotocol) handler - reasonable clients will close websocket
-       * once discover requested protocol does not match*/
-      if (handler != null) {
-        return this;
-      }
-      return null;
-    }
+      WebSocketHandler get(String path, String subprotocol);
 
-    public Http2WebSocketAcceptor acceptor() {
-      return acceptor;
-    }
-
-    public ChannelHandler handler() {
-      return handler;
+      WebSocketHandler get(String path, String[] subprotocols);
     }
   }
 }

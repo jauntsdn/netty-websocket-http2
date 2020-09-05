@@ -18,6 +18,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.server;
 
 import static io.netty.channel.ChannelHandler.*;
 
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Security;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Transport;
@@ -88,7 +89,7 @@ public class Main {
       Http2FrameCodecBuilder http2Builder = Http2FrameCodecBuilder.forServer();
       http2Builder.initialSettings().initialWindowSize(flowControlWindowSize);
       Http2FrameCodec http2FrameCodec =
-          Http2WebSocketServerHandler.configureHttp2Server(http2Builder).build();
+          Http2WebSocketServerBuilder.configureHttp2Server(http2Builder).build();
       Http2Connection connection = http2FrameCodec.connection();
       connection
           .remote()
@@ -98,6 +99,7 @@ public class Main {
 
       Http2WebSocketServerHandler http2webSocketHandler =
           Http2WebSocketServerHandler.builder()
+              .assumeSingleWebSocketPerConnection(true)
               .handler("/echo", new EchoWebSocketHandler())
               .build();
 

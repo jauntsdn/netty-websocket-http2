@@ -25,7 +25,12 @@ import io.netty.handler.ssl.SslHandler;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import javax.annotation.Nullable;
 
-public class Http2WebSocketClientHandler extends Http2WebSocketHandler {
+/**
+ * Provides client-side support for websocket-over-http2. Creates sub channel for http2 stream of
+ * successfully handshaked websocket. Subchannel is compatible with http1 websocket handlers. Should
+ * be used in tandem with {@link Http2WebSocketClientHandshaker}
+ */
+public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHandler {
   private static final AtomicReferenceFieldUpdater<
           Http2WebSocketClientHandler, Http2WebSocketClientHandshaker>
       HANDSHAKER =
@@ -34,25 +39,29 @@ public class Http2WebSocketClientHandler extends Http2WebSocketHandler {
               Http2WebSocketClientHandshaker.class,
               "handshaker");
 
-  private final boolean encoderMaskPayload;
   private final long handshakeTimeoutMillis;
   private final PerMessageDeflateClientExtensionHandshaker compressionHandshaker;
   private final short streamWeight;
+
+  private CharSequence scheme;
   private Boolean supportsWebSocket;
+  private boolean supportsWebSocketCalled;
   private volatile Http2Connection.Endpoint<Http2LocalFlowController> streamIdFactory;
   private volatile Http2WebSocketClientHandshaker handshaker;
-  private CharSequence scheme;
-  private boolean supportsWebSocketCalled;
 
   Http2WebSocketClientHandler(
       WebSocketDecoderConfig webSocketDecoderConfig,
-      boolean encoderMaskPayload,
+      boolean isEncoderMaskPayload,
       short streamWeight,
       long handshakeTimeoutMillis,
       long closedWebSocketRemoveTimeoutMillis,
-      @Nullable PerMessageDeflateClientExtensionHandshaker compressionHandshaker) {
-    super(webSocketDecoderConfig, closedWebSocketRemoveTimeoutMillis);
-    this.encoderMaskPayload = encoderMaskPayload;
+      @Nullable PerMessageDeflateClientExtensionHandshaker compressionHandshaker,
+      boolean isSingleWebSocketPerConnection) {
+    super(
+        webSocketDecoderConfig,
+        isEncoderMaskPayload,
+        closedWebSocketRemoveTimeoutMillis,
+        isSingleWebSocketPerConnection);
     this.streamWeight = streamWeight;
     this.handshakeTimeoutMillis = handshakeTimeoutMillis;
     this.compressionHandshaker = compressionHandshaker;
@@ -139,7 +148,7 @@ public class Http2WebSocketClientHandler extends Http2WebSocketHandler {
             webSocketsParent,
             streamIdFactory,
             config,
-            encoderMaskPayload,
+            isEncoderMaskPayload,
             streamWeight,
             scheme,
             handshakeTimeoutMillis,
@@ -159,7 +168,7 @@ public class Http2WebSocketClientHandler extends Http2WebSocketHandler {
 
   private boolean handshakeWebSocket(
       int streamId, Http2Headers responseHeaders, boolean endOfStream) {
-    Http2WebSocket webSocketChannel = webSockets.get(streamId);
+    Http2WebSocket webSocketChannel = webSocketRegistry.get(streamId);
     if (webSocketChannel == null) {
       return true;
     }

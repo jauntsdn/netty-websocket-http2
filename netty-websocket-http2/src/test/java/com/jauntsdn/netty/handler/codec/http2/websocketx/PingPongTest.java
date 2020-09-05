@@ -68,10 +68,16 @@ public class PingPongTest extends AbstractTest {
 
   @AfterEach
   void tearDown() throws Exception {
-    client.eventLoop().shutdownGracefully(0, 5, TimeUnit.SECONDS);
-    client.closeFuture().await(5, TimeUnit.SECONDS);
-    server.eventLoop().shutdownGracefully(0, 5, TimeUnit.SECONDS);
-    server.closeFuture().await(5, TimeUnit.SECONDS);
+    Channel c = client;
+    if (c != null) {
+      c.eventLoop().shutdownGracefully(0, 5, TimeUnit.SECONDS);
+      c.closeFuture().await(5, TimeUnit.SECONDS);
+    }
+    Channel s = server;
+    if (s != null) {
+      s.eventLoop().shutdownGracefully(0, 5, TimeUnit.SECONDS);
+      s.closeFuture().await(5, TimeUnit.SECONDS);
+    }
   }
 
   @Test
@@ -107,7 +113,7 @@ public class PingPongTest extends AbstractTest {
     protected void initChannel(SocketChannel ch) {
       SslHandler sslHandler = sslContext.newHandler(ch.alloc());
       Http2FrameCodec http2frameCodec =
-          Http2WebSocketServerHandler.configureHttp2Server(Http2FrameCodecBuilder.forServer())
+          Http2WebSocketServerBuilder.configureHttp2Server(Http2FrameCodecBuilder.forServer())
               .build();
 
       ServerWebSocketHandler serverWebSocketHandler = new ServerWebSocketHandler();

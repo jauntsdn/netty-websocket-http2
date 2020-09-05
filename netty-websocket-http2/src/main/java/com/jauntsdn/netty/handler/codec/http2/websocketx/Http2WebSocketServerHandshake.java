@@ -33,7 +33,7 @@ class Http2WebSocketServerHandshake {
   private boolean done;
   private ScheduledFuture<?> timeoutFuture;
   private Future<?> handshakeCompleteFuture;
-  private GenericFutureListener<Future<? super Void>> channelCloseListener;
+  private GenericFutureListener<ChannelFuture> channelCloseListener;
 
   public Http2WebSocketServerHandshake(
       Future<Void> channelClose, ChannelPromise handshake, long timeoutMillis) {
@@ -43,18 +43,19 @@ class Http2WebSocketServerHandshake {
   }
 
   public void startTimeout() {
-    Channel channel = handshake.channel();
+    ChannelPromise h = handshake;
+    Channel channel = h.channel();
 
     if (done) {
       return;
     }
-    channelCloseListener = future -> onConnectionClose();
-    channelClose.addListener(channelCloseListener);
+    GenericFutureListener<ChannelFuture> l = channelCloseListener = future -> onConnectionClose();
+    channelClose.addListener(l);
     /*account for possible synchronous callback execution*/
     if (done) {
       return;
     }
-    handshakeCompleteFuture = handshake.addListener(future -> onHandshakeComplete(future.cause()));
+    handshakeCompleteFuture = h.addListener(future -> onHandshakeComplete(future.cause()));
     if (done) {
       return;
     }
@@ -101,7 +102,7 @@ class Http2WebSocketServerHandshake {
 
   private void done() {
     done = true;
-    GenericFutureListener<Future<? super Void>> closeListener = channelCloseListener;
+    GenericFutureListener<ChannelFuture> closeListener = channelCloseListener;
     if (closeListener != null) {
       channelClose.removeListener(closeListener);
     }

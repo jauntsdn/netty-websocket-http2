@@ -36,10 +36,8 @@ import java.util.concurrent.TimeoutException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-@Disabled
 public class ApplicationHandshakeTest extends AbstractTest {
   private Channel server;
   private Channel client;
@@ -173,7 +171,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   Http2Settings settings = http2FrameCodecBuilder.initialSettings();
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
-                  Http2WebSocketServerHandler http2webSocketHandler =
+                  Http2WebSocketHandler http2webSocketHandler =
                       Http2WebSocketServerHandler.builder().handshakeOnly();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
                 })

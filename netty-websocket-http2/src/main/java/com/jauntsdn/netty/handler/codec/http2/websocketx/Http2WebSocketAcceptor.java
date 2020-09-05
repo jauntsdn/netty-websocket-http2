@@ -20,14 +20,27 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http2.Http2Headers;
 
+/**
+ * Accepts valid websocket-over-http2 request based on request headers; optionally modifies request
+ * and response headers
+ */
 public interface Http2WebSocketAcceptor {
 
+  /**
+   * @param context ChannelHandlerContext of connection
+   * @param request request headers
+   * @param response response headers, writeable if {@link #writesResponseHeaders()} returns true
+   * @return Succeeded future for accepted request, failed for rejected request. It is an error to
+   *     return non completed future
+   */
   ChannelFuture accept(ChannelHandlerContext context, Http2Headers request, Http2Headers response);
 
+  /** @return true if acceptor is going to modify response headers, false otherwise. */
   default boolean writesResponseHeaders() {
     return true;
   }
 
+  /** Default {@link Http2WebSocketAcceptor} implementation that accepts all requests */
   Http2WebSocketAcceptor ACCEPT_ALL =
       new Http2WebSocketAcceptor() {
 

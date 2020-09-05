@@ -20,6 +20,7 @@ import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEv
 import static io.netty.channel.ChannelHandler.*;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketAcceptor;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.example.Security;
 import io.netty.bootstrap.ServerBootstrap;
@@ -96,7 +97,7 @@ public class Main {
       Http2FrameCodecBuilder http2Builder = Http2FrameCodecBuilder.forServer();
       http2Builder.initialSettings().initialWindowSize(1_000);
       Http2FrameCodec http2frameCodec =
-          Http2WebSocketServerHandler.configureHttp2Server(http2Builder).build();
+          Http2WebSocketServerBuilder.configureHttp2Server(http2Builder).build();
 
       EchoWebSocketHandler echoWebSocketHandler = new EchoWebSocketHandler();
       UserAgentBasedAcceptor userAgentBasedAcceptor = new UserAgentBasedAcceptor();
@@ -131,33 +132,34 @@ public class Main {
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-      if (evt instanceof Http2WebSocketHandshakeEvent) {
-        Http2WebSocketHandshakeEvent handshakeEvent = (Http2WebSocketHandshakeEvent) evt;
-        String id = handshakeEvent.id();
+      if (evt instanceof Http2WebSocketLifecycleEvent) {
+        Http2WebSocketLifecycleEvent handshakeEvent = (Http2WebSocketLifecycleEvent) evt;
+        int id = handshakeEvent.id();
         String path = handshakeEvent.path();
+        String subprotocols = handshakeEvent.subprotocols();
+        String subprotocolsOrEmpty = subprotocols.isEmpty() ? "<empty>" : subprotocols;
 
         switch (handshakeEvent.type()) {
           case HANDSHAKE_START:
-            Http2WebSocketHandshakeEvent.Http2WebSocketHandshakeStartEvent startEvent =
-                handshakeEvent.cast();
+            Http2WebSocketHandshakeStartEvent startEvent = handshakeEvent.cast();
             logger.info(
-                "==> WebSocket handshake start event - id: {}, path: {}, request headers: {}",
+                "==> WebSocket handshake start event - id: {}, path: {}, subprotocols: {}, request headers: {}",
                 id,
                 path,
+                subprotocolsOrEmpty,
                 headers(startEvent.requestHeaders()));
             break;
           case HANDSHAKE_SUCCESS:
-            Http2WebSocketHandshakeEvent.Http2WebSocketHandshakeSuccessEvent successEvent =
-                handshakeEvent.cast();
+            Http2WebSocketHandshakeSuccessEvent successEvent = handshakeEvent.cast();
             logger.info(
-                "==> WebSocket handshake success event - id: {}, path: {}, response headers: {}",
+                "==> WebSocket handshake success event - id: {}, path: {}, subprotocols: {}, response headers: {}",
                 id,
                 path,
+                subprotocolsOrEmpty,
                 headers(successEvent.responseHeaders()));
             break;
           case HANDSHAKE_ERROR:
-            Http2WebSocketHandshakeEvent.Http2WebSocketHandshakeErrorEvent errorEvent =
-                handshakeEvent.cast();
+            Http2WebSocketHandshakeErrorEvent errorEvent = handshakeEvent.cast();
             String errorName;
             String errorMessage;
             Throwable cause = errorEvent.error();
@@ -169,14 +171,15 @@ public class Main {
               errorMessage = errorEvent.errorMessage();
             }
             logger.info(
-                "==> WebSocket handshake error event - id: {}, path: {}, error: {}: {}, response headers: {}",
+                "==> WebSocket handshake error event - id: {}, path: {}, subprotocols: {}, error: {}: {}, response headers: {}",
                 id,
                 path,
+                subprotocolsOrEmpty,
                 errorName,
                 errorMessage,
                 headers(errorEvent.responseHeaders()));
             break;
-          case CLOSE_REMOTE:
+          case CLOSE_REMOTE_ENDSTREAM:
             logger.info("==> WebSocket stream close remote - id: {}, path: {}", id, path);
             break;
 

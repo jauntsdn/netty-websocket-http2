@@ -16,9 +16,9 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.*;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
 
-import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.WebSocketsParent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
@@ -37,7 +37,8 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class Http2WebSocketClientHandshaker {
+/** Establishes websocket-over-http2 on provided connection channel */
+public final class Http2WebSocketClientHandshaker {
   private static final Logger logger =
       LoggerFactory.getLogger(Http2WebSocketClientHandshaker.class);
   private static final int ESTIMATED_DEFERRED_HANDSHAKES = 4;
@@ -79,24 +80,71 @@ public class Http2WebSocketClientHandshaker {
     this.compressionHandshaker = compressionHandshaker;
   }
 
+  /**
+   * Creates new {@link Http2WebSocketClientHandshaker} for given connection channel
+   *
+   * @param channel connection channel. Pipeline must contain {@link Http2WebSocketClientHandler}
+   *     and netty http2 codec (e.g. Http2ConnectionHandler or Http2FrameCodec)
+   * @return new {@link Http2WebSocketClientHandshaker} instance
+   */
   public static Http2WebSocketClientHandshaker create(Channel channel) {
     Objects.requireNonNull(channel, "channel");
     return Preconditions.requireHandler(channel, Http2WebSocketClientHandler.class).handShaker();
   }
 
+  /**
+   * Starts websocket-over-http2 handshake using given path
+   *
+   * @param path websocket path, must be non-empty
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
   public ChannelFuture handshake(String path, ChannelHandler webSocketHandler) {
     return handshake(path, "", EMPTY_HEADERS, webSocketHandler);
   }
 
+  /**
+   * Starts websocket-over-http2 handshake using given path and request headers
+   *
+   * @param path websocket path, must be non-empty
+   * @param requestHeaders request headers, must be non-null
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
   public ChannelFuture handshake(
       String path, Http2Headers requestHeaders, ChannelHandler webSocketHandler) {
     return handshake(path, "", requestHeaders, webSocketHandler);
   }
 
+  /**
+   * Starts websocket-over-http2 handshake using given path and subprotocol
+   *
+   * @param path websocket path, must be non-empty
+   * @param subprotocol websocket subprotocol, must be non-null
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
   public ChannelFuture handshake(String path, String subprotocol, ChannelHandler webSocketHandler) {
     return handshake(path, subprotocol, EMPTY_HEADERS, webSocketHandler);
   }
 
+  /**
+   * Starts websocket-over-http2 handshake using given path, subprotocol and request headers
+   *
+   * @param path websocket path, must be non-empty
+   * @param subprotocol websocket subprotocol, must be non-null
+   * @param requestHeaders request headers, must be non-null
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
   public ChannelFuture handshake(
       String path,
       String subprotocol,
@@ -137,7 +185,7 @@ public class Http2WebSocketClientHandshaker {
               Throwable cause = future.cause();
               /*error due to external event, e.g. cancellation, timeout*/
               if (cause != null && !(cause instanceof WebSocketHandshakeException)) {
-                Http2WebSocketHandshakeEvent.fireError(
+                Http2WebSocketEvent.fireHandshakeError(
                     webSocketChannel, null, System.nanoTime(), cause);
               }
             });
@@ -204,7 +252,11 @@ public class Http2WebSocketClientHandshaker {
                 : Http2WebSocketMessages.HANDSHAKE_BAD_REQUEST;
         break;
       case "404":
-        errorMessage = Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND + path;
+        errorMessage =
+            String.format(
+                Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND,
+                path,
+                webSocketChannel.subprotocol());
         break;
       default:
         errorMessage = Http2WebSocketMessages.HANDSHAKE_GENERIC_ERROR + status;
@@ -212,7 +264,7 @@ public class Http2WebSocketClientHandshaker {
     if (errorMessage != null) {
       Exception cause = new WebSocketHandshakeException(errorMessage);
       if (handshakePromise.tryFailure(cause)) {
-        Http2WebSocketHandshakeEvent.fireError(
+        Http2WebSocketEvent.fireHandshakeError(
             webSocketChannel, responseHeaders, System.nanoTime(), cause);
       }
       return;
@@ -222,7 +274,7 @@ public class Http2WebSocketClientHandshaker {
           compressionExtension.newExtensionEncoder(), compressionExtension.newExtensionDecoder());
     }
     if (handshakePromise.trySuccess()) {
-      Http2WebSocketHandshakeEvent.fireSuccess(
+      Http2WebSocketEvent.fireHandshakeSuccess(
           webSocketChannel, responseHeaders, System.nanoTime());
     }
   }
@@ -249,10 +301,11 @@ public class Http2WebSocketClientHandshaker {
       Throwable cause = registered.cause();
       Exception e =
           new WebSocketHandshakeException("websocket handshake channel registration error", cause);
-      Http2WebSocketHandshakeEvent.fireStartAndError(
+      Http2WebSocketEvent.fireHandshakeStartAndError(
           webSocketChannel.parent(),
           webSocketChannel.serial(),
           webSocketChannel.path(),
+          webSocketChannel.subprotocol(),
           requestHeaders,
           startNanos,
           System.nanoTime(),
@@ -261,7 +314,7 @@ public class Http2WebSocketClientHandshaker {
       handshake.complete(e);
       return;
     }
-    Http2WebSocketHandshakeEvent.fireStart(webSocketChannel, requestHeaders, startNanos);
+    Http2WebSocketEvent.fireHandshakeStart(webSocketChannel, requestHeaders, startNanos);
 
     Boolean supports = supportsWebSocket;
     /*websocket support is not known yet*/
@@ -304,7 +357,7 @@ public class Http2WebSocketClientHandshaker {
     if (!supportsWebSocket) {
       WebSocketHandshakeException e =
           new WebSocketHandshakeException(Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_BOOTSTRAP);
-      Http2WebSocketHandshakeEvent.fireError(webSocketChannel, null, System.nanoTime(), e);
+      Http2WebSocketEvent.fireHandshakeError(webSocketChannel, null, System.nanoTime(), e);
       handshake.complete(e);
       return;
     }
@@ -352,7 +405,6 @@ public class Http2WebSocketClientHandshaker {
               }
               webSocketChannel.setStreamWeightAttribute(weight);
             });
-    webSocketsParent.context().flush();
   }
 
   private String authority() {

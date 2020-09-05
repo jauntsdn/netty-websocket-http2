@@ -16,9 +16,12 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
+
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateClientExtensionHandshaker;
 
+/** Builder for {@link Http2WebSocketClientHandler} */
 public final class Http2WebSocketClientBuilder {
   private static final short DEFAULT_STREAM_WEIGHT = 16;
 
@@ -28,27 +31,46 @@ public final class Http2WebSocketClientBuilder {
   private long handshakeTimeoutMillis = 15_000;
   private short streamWeight;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
+  private boolean isSingleWebSocketPerConnection;
 
   Http2WebSocketClientBuilder() {}
 
+  /**
+   * @param webSocketDecoderConfig websocket decoder configuration. Must be non-null
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
   public Http2WebSocketClientBuilder decoderConfig(WebSocketDecoderConfig webSocketDecoderConfig) {
     this.webSocketDecoderConfig =
         Preconditions.requireNonNull(webSocketDecoderConfig, "webSocketDecoderConfig");
     return this;
   }
 
+  /**
+   * @param isEncoderMaskPayload enables websocket frames encoder payload masking
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
   public Http2WebSocketClientBuilder encoderMaskPayload(boolean isEncoderMaskPayload) {
     this.isEncoderMaskPayload = isEncoderMaskPayload;
     return this;
   }
 
+  /**
+   * @param handshakeTimeoutMillis websocket handshake timeout. Must be positive
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
   public Http2WebSocketClientBuilder handshakeTimeoutMillis(long handshakeTimeoutMillis) {
     this.handshakeTimeoutMillis =
         Preconditions.requirePositive(handshakeTimeoutMillis, "handshakeTimeoutMillis");
     return this;
   }
 
-  public Http2WebSocketClientBuilder closedWebSocketRemoveTimeout(
+  /**
+   * @param closedWebSocketRemoveTimeoutMillis delay until websockets handler forgets closed
+   *     websocket. Necessary to gracefully handle incoming http2 frames racing with outgoing stream
+   *     termination frame.
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
+  public Http2WebSocketClientBuilder closedWebSocketRemoveTimeoutMillis(
       long closedWebSocketRemoveTimeoutMillis) {
     this.closedWebSocketRemoveTimeoutMillis =
         Preconditions.requirePositive(
@@ -56,6 +78,10 @@ public final class Http2WebSocketClientBuilder {
     return this;
   }
 
+  /**
+   * @param isCompressionEnabled enables permessage-deflate compression with default configuration
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
   public Http2WebSocketClientBuilder compression(boolean isCompressionEnabled) {
     if (isCompressionEnabled) {
       if (perMessageDeflateClientExtensionHandshaker == null) {
@@ -68,6 +94,12 @@ public final class Http2WebSocketClientBuilder {
     return this;
   }
 
+  /**
+   * Enables permessage-deflate compression with extended configuration. Parameters are described in
+   * netty's PerMessageDeflateClientExtensionHandshaker
+   *
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
   public Http2WebSocketClientBuilder compression(
       int compressionLevel,
       boolean allowServerWindowSize,
@@ -84,11 +116,26 @@ public final class Http2WebSocketClientBuilder {
     return this;
   }
 
+  /**
+   * @param weight sets websocket http2 stream weight. Must belong to [1; 256] range
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
   public Http2WebSocketClientBuilder streamWeight(int weight) {
     this.streamWeight = Preconditions.requireRange(weight, 1, 256, "streamWeight");
     return this;
   }
 
+  /**
+   * @param isSingleWebSocketPerConnection optimize for at most 1 websocket per connection
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
+  public Http2WebSocketClientBuilder assumeSingleWebSocketPerConnection(
+      boolean isSingleWebSocketPerConnection) {
+    this.isSingleWebSocketPerConnection = isSingleWebSocketPerConnection;
+    return this;
+  }
+
+  /** @return new {@link Http2WebSocketClientHandler} instance */
   public Http2WebSocketClientHandler build() {
     PerMessageDeflateClientExtensionHandshaker compressionHandshaker =
         perMessageDeflateClientExtensionHandshaker;
@@ -107,12 +154,14 @@ public final class Http2WebSocketClientBuilder {
     if (weight == 0) {
       weight = DEFAULT_STREAM_WEIGHT;
     }
+
     return new Http2WebSocketClientHandler(
         config,
         isEncoderMaskPayload,
         weight,
         handshakeTimeoutMillis,
         closedWebSocketRemoveTimeoutMillis,
-        compressionHandshaker);
+        compressionHandshaker,
+        isSingleWebSocketPerConnection);
   }
 }
