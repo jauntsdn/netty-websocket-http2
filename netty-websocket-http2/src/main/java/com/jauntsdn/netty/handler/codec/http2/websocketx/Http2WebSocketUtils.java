@@ -16,19 +16,64 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
-
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.util.collection.IntCollections;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
 class Http2WebSocketUtils {
+
+  static class Preconditions {
+    static <T> T requireNonNull(T t, String message) {
+      if (t == null) {
+        throw new IllegalArgumentException(message + " must be non null");
+      }
+      return t;
+    }
+
+    static String requireNonEmpty(String string, String message) {
+      if (string == null || string.isEmpty()) {
+        throw new IllegalArgumentException(message + " must be non empty");
+      }
+      return string;
+    }
+
+    static <T extends ChannelHandler> T requireHandler(Channel channel, Class<T> handler) {
+      T h = channel.pipeline().get(handler);
+      if (h == null) {
+        throw new IllegalArgumentException(
+            handler.getSimpleName() + " is absent in the channel pipeline");
+      }
+      return h;
+    }
+
+    static long requirePositive(long value, String message) {
+      if (value <= 0) {
+        throw new IllegalArgumentException(message + " must be positive: " + value);
+      }
+      return value;
+    }
+
+    static int requireNonNegative(int value, String message) {
+      if (value < 0) {
+        throw new IllegalArgumentException(message + " must be non-negative: " + value);
+      }
+      return value;
+    }
+
+    static short requireRange(int value, int from, int to, String message) {
+      if (value >= from && value <= to) {
+        return (short) value;
+      }
+      throw new IllegalArgumentException(
+          String.format("%s must belong to range [%d, %d]: ", message, from, to));
+    }
+  }
 
   static final class SingleElementOptimizedMap<T> implements IntObjectMap<T> {
     /* 0: empty
@@ -193,192 +238,6 @@ class Http2WebSocketUtils {
     @Override
     public int hashCode() {
       throw new UnsupportedOperationException("Not implemented");
-    }
-  }
-
-  static class EmptyHandlerContainer implements WebSocketHandler.Container {
-    private static final EmptyHandlerContainer INSTANCE = new EmptyHandlerContainer();
-
-    private EmptyHandlerContainer() {}
-
-    public static EmptyHandlerContainer getInstance() {
-      return INSTANCE;
-    }
-
-    @Override
-    public void put(
-        String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
-      throw new UnsupportedOperationException(
-          "EmptyHandlerContainer does not support put() method");
-    }
-
-    @Override
-    public WebSocketHandler get(String path, String subprotocol) {
-      return null;
-    }
-
-    @Override
-    public WebSocketHandler get(String path, String[] subprotocols) {
-      return null;
-    }
-  }
-
-  static class SingleHandlerContainer implements WebSocketHandler.Container, WebSocketHandler {
-    private String path;
-    private String subprotocol;
-    private Http2WebSocketAcceptor acceptor;
-    private ChannelHandler handler;
-
-    public SingleHandlerContainer() {}
-
-    @Override
-    public void put(
-        String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
-      if (this.path != null) {
-        throw new IllegalStateException("only single ");
-      }
-      this.path = path;
-      this.subprotocol = subprotocol;
-      this.acceptor = acceptor;
-      this.handler = handler;
-    }
-
-    @Override
-    public WebSocketHandler get(String path, String subprotocol) {
-      if (path.equals(this.path) && subprotocol.equals(this.subprotocol)) {
-        return this;
-      }
-      return null;
-    }
-
-    @Override
-    public WebSocketHandler get(String path, String[] subprotocols) {
-      if (!path.equals(this.path)) {
-        return null;
-      }
-      for (String subprotocol : subprotocols) {
-        if (subprotocol.equals(this.subprotocol)) {
-          return this;
-        }
-      }
-      return null;
-    }
-
-    @Override
-    public Http2WebSocketAcceptor acceptor() {
-      return acceptor;
-    }
-
-    @Override
-    public ChannelHandler handler() {
-      return handler;
-    }
-
-    @Override
-    public String subprotocol() {
-      return subprotocol;
-    }
-  }
-
-  static class DefaultHandlerContainer implements WebSocketHandler.Container {
-    private final Map<Path, WebSocketHandler> webSocketHandlers;
-
-    public DefaultHandlerContainer(int handlersCount) {
-      /*todo use open addressing hashmap*/
-      this.webSocketHandlers = new HashMap<>(handlersCount);
-    }
-
-    @Override
-    public void put(
-        String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
-      webSocketHandlers.put(
-          new Path(path, subprotocol), new WebSocketHandler.Impl(acceptor, handler, subprotocol));
-    }
-
-    @Override
-    public WebSocketHandler get(String path, String subprotocol) {
-      return webSocketHandlers.get(new Path(path, subprotocol));
-    }
-
-    @Override
-    public WebSocketHandler get(String path, String[] subprotocols) {
-      Path p = null;
-      for (String subprotocol : subprotocols) {
-        if (p == null) {
-          p = new Path(path, subprotocol);
-        } else {
-          p.subprotocol(subprotocol);
-        }
-        WebSocketHandler webSocketHandler = webSocketHandlers.get(p);
-        if (webSocketHandler != null) {
-          return webSocketHandler;
-        }
-      }
-      return null;
-    }
-
-    private static class Path {
-      private final String path;
-      private String subprotocol;
-
-      public Path(String path, String subprotocol) {
-        this.path = path;
-        this.subprotocol = subprotocol;
-      }
-
-      public Path subprotocol(String subprotocol) {
-        this.subprotocol = subprotocol;
-        return this;
-      }
-
-      @Override
-      public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-
-        Path p = (Path) o;
-
-        if (!path.equals(p.path)) return false;
-        return subprotocol.equals(p.subprotocol);
-      }
-
-      @Override
-      public int hashCode() {
-        int result = path.hashCode();
-        result = 31 * result + subprotocol.hashCode();
-        return result;
-      }
-    }
-  }
-
-  static class WebSocketPathHandler {
-    private final String path;
-    private final String subprotocol;
-    private final Http2WebSocketAcceptor acceptor;
-    private final ChannelHandler handler;
-
-    public WebSocketPathHandler(
-        String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
-      this.path = path;
-      this.subprotocol = subprotocol;
-      this.acceptor = acceptor;
-      this.handler = handler;
-    }
-
-    public String path() {
-      return path;
-    }
-
-    public String subprotocol() {
-      return subprotocol;
-    }
-
-    public Http2WebSocketAcceptor acceptor() {
-      return acceptor;
-    }
-
-    public ChannelHandler handler() {
-      return handler;
     }
   }
 }

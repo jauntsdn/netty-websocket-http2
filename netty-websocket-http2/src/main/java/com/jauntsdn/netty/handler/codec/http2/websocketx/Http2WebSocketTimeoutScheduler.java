@@ -19,7 +19,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-public interface TimeoutScheduler {
+public interface Http2WebSocketTimeoutScheduler {
 
   /**
    * @param runnable scheduled action. Must be non-null

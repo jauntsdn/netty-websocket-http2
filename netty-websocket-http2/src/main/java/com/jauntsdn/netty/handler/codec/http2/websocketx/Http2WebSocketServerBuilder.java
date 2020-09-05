@@ -16,8 +16,8 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandlerContainers.*;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandshakeOnlyServerHandler.*;
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
 
 import io.netty.channel.ChannelHandler;
@@ -36,11 +36,11 @@ public final class Http2WebSocketServerBuilder {
   private long handshakeTimeoutMillis = 15_000;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
-  private TimeoutScheduler closedWebSocketTimeoutScheduler;
+  private Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler;
   private boolean isSingleWebSocketPerConnection;
   private int handlersCountHint;
   private List<WebSocketPathHandler> webSocketPathHandlers;
-  private WebSocketHandler.Container websocketHandlers;
+  private Http2WebSocketServerHandler.WebSocketHandler.Container websocketHandlers;
 
   Http2WebSocketServerBuilder() {}
 
@@ -90,7 +90,7 @@ public final class Http2WebSocketServerBuilder {
    * @return this {@link Http2WebSocketServerBuilder} instance
    */
   public Http2WebSocketServerBuilder closedWebSocketRemoveScheduler(
-      TimeoutScheduler timeoutScheduler) {
+      Http2WebSocketTimeoutScheduler timeoutScheduler) {
     this.closedWebSocketTimeoutScheduler =
         Objects.requireNonNull(timeoutScheduler, "closedWebSocketTimeoutScheduler");
     return this;
@@ -193,7 +193,7 @@ public final class Http2WebSocketServerBuilder {
       return this;
     }
     int count = handlersCountHint;
-    WebSocketHandler.Container handlers = websocketHandlers;
+    Http2WebSocketServerHandler.WebSocketHandler.Container handlers = websocketHandlers;
     if (count > 0 && handlers == null) {
       handlers = websocketHandlers = createWebSocketHandlersContainer(count);
     }
@@ -259,7 +259,7 @@ public final class Http2WebSocketServerBuilder {
             "websocket compression is enabled while extensions are disabled");
       }
     }
-    WebSocketHandler.Container handlers = websocketHandlers;
+    Http2WebSocketServerHandler.WebSocketHandler.Container handlers = websocketHandlers;
     if (handlers == null) {
       List<WebSocketPathHandler> pathHandlers = webSocketPathHandlers;
       if (pathHandlers == null) {
@@ -283,12 +283,42 @@ public final class Http2WebSocketServerBuilder {
         isSingleWebSocketPerConnection);
   }
 
-  static WebSocketHandler.Container createWebSocketHandlersContainer(int handlersCount) {
-    switch (handlersCount) {
-      case 1:
-        return new SingleHandlerContainer();
-      default:
-        return new DefaultHandlerContainer(handlersCount);
+  static Http2WebSocketServerHandler.WebSocketHandler.Container createWebSocketHandlersContainer(
+      int handlersCount) {
+    if (handlersCount == 1) {
+      return new SingleHandlerContainer();
+    }
+    return new DefaultHandlerContainer(handlersCount);
+  }
+
+  private static class WebSocketPathHandler {
+    private final String path;
+    private final String subprotocol;
+    private final Http2WebSocketAcceptor acceptor;
+    private final ChannelHandler handler;
+
+    public WebSocketPathHandler(
+        String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
+      this.path = path;
+      this.subprotocol = subprotocol;
+      this.acceptor = acceptor;
+      this.handler = handler;
+    }
+
+    public String path() {
+      return path;
+    }
+
+    public String subprotocol() {
+      return subprotocol;
+    }
+
+    public Http2WebSocketAcceptor acceptor() {
+      return acceptor;
+    }
+
+    public ChannelHandler handler() {
+      return handler;
     }
   }
 }

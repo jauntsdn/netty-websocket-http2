@@ -34,7 +34,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
   private final long handshakeTimeoutMillis;
   private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;
   private final WebSocketHandler.Container webSocketHandlers;
-  private final TimeoutScheduler closedWebSocketTimeoutScheduler;
+  private final Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler;
 
   private Http2WebSocketServerHandshaker handshaker;
 
@@ -43,7 +43,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       boolean isEncoderMaskPayload,
       long handshakeTimeoutMillis,
       long closedWebSocketRemoveTimeoutMillis,
-      @Nullable TimeoutScheduler closedWebSocketTimeoutScheduler,
+      @Nullable Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler,
       @Nullable PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
       WebSocketHandler.Container webSocketHandlers,
       boolean isSingleWebSocketPerConnection) {
@@ -114,13 +114,13 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       IntObjectMap<Http2WebSocket> webSockets,
       ChannelFuture connectionCloseFuture,
       EventLoop eventLoop) {
-    TimeoutScheduler scheduler = closedWebSocketTimeoutScheduler;
+    Http2WebSocketTimeoutScheduler scheduler = closedWebSocketTimeoutScheduler;
     /* assume most users prefer timeouts by eventloop;
     external scheduler is handled as special case to save few allocations */
     if (scheduler != null) {
       RemoveWebSocket removeWebSocket =
           new RemoveWebSocket(streamId, webSockets, connectionCloseFuture);
-      TimeoutScheduler.Handle removeWebSocketHandle;
+      Http2WebSocketTimeoutScheduler.Handle removeWebSocketHandle;
       try {
         removeWebSocketHandle =
             scheduler.schedule(
@@ -166,7 +166,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
     private final IntObjectMap<Http2WebSocket> webSockets;
     private final int streamId;
     private final ChannelFuture connectionCloseFuture;
-    private TimeoutScheduler.Handle removeWebSocketHandle;
+    private Http2WebSocketTimeoutScheduler.Handle removeWebSocketHandle;
 
     RemoveWebSocket(
         int streamId,
@@ -177,7 +177,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       this.connectionCloseFuture = connectionCloseFuture;
     }
 
-    void setRemoveWebSocketHandle(TimeoutScheduler.Handle removeWebSocketHandle) {
+    void setRemoveWebSocketHandle(Http2WebSocketTimeoutScheduler.Handle removeWebSocketHandle) {
       this.removeWebSocketHandle = removeWebSocketHandle;
       connectionCloseFuture.addListener(this);
     }
@@ -185,7 +185,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
     /*connection close*/
     @Override
     public void operationComplete(ChannelFuture future) {
-      TimeoutScheduler.Handle h = removeWebSocketHandle;
+      Http2WebSocketTimeoutScheduler.Handle h = removeWebSocketHandle;
       try {
         h.cancel();
       } catch (Exception e) {
