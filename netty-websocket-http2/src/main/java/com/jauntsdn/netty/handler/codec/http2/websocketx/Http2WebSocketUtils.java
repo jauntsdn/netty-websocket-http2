@@ -16,6 +16,8 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandler;
 import io.netty.util.collection.IntCollections;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
@@ -25,6 +27,53 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 
 class Http2WebSocketUtils {
+
+  static class Preconditions {
+    static <T> T requireNonNull(T t, String message) {
+      if (t == null) {
+        throw new IllegalArgumentException(message + " must be non null");
+      }
+      return t;
+    }
+
+    static String requireNonEmpty(String string, String message) {
+      if (string == null || string.isEmpty()) {
+        throw new IllegalArgumentException(message + " must be non empty");
+      }
+      return string;
+    }
+
+    static <T extends ChannelHandler> T requireHandler(Channel channel, Class<T> handler) {
+      T h = channel.pipeline().get(handler);
+      if (h == null) {
+        throw new IllegalArgumentException(
+            handler.getSimpleName() + " is absent in the channel pipeline");
+      }
+      return h;
+    }
+
+    static long requirePositive(long value, String message) {
+      if (value <= 0) {
+        throw new IllegalArgumentException(message + " must be positive: " + value);
+      }
+      return value;
+    }
+
+    static int requireNonNegative(int value, String message) {
+      if (value < 0) {
+        throw new IllegalArgumentException(message + " must be non-negative: " + value);
+      }
+      return value;
+    }
+
+    static short requireRange(int value, int from, int to, String message) {
+      if (value >= from && value <= to) {
+        return (short) value;
+      }
+      throw new IllegalArgumentException(
+          String.format("%s must belong to range [%d, %d]: ", message, from, to));
+    }
+  }
 
   static final class SingleElementOptimizedMap<T> implements IntObjectMap<T> {
     /* 0: empty

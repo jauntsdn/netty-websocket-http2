@@ -292,11 +292,6 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
     }
   }
 
-  interface WebSocketRegistryFactory {
-
-    IntObjectMap<Http2WebSocket> create();
-  }
-
   @SuppressWarnings("Convert2MethodRef")
   static Supplier<IntObjectMap<Http2WebSocket>> webSocketRegistryFactory(
       boolean isSingleWebSocketPerConnection) {
