@@ -14,21 +14,54 @@
 # limitations under the License.
 #
 ---
-dist: bionic
-language: java
 script: ci/travis.sh
 install: true
 
 matrix:
   include:
-    - jdk: openjdk8
-    - jdk: openjdk11
+    - os: linux
+      dist: bionic
+      language: java
+      jdk: openjdk8
+      before_cache:
+        - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+        - rm -rf $HOME/.gradle/caches/*/plugin-resolution/
+      cache:
+        directories:
+          - $HOME/.gradle/caches/
+          - $HOME/.gradle/wrapper/
 
-before_cache:
-  - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
-  - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+    - os: linux
+      dist: bionic
+      language: java
+      jdk: openjdk11
+      before_cache:
+        - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+        - rm -rf $HOME/.gradle/caches/*/plugin-resolution/
+      cache:
+        directories:
+          - $HOME/.gradle/caches/
+          - $HOME/.gradle/wrapper/
 
-cache:
-  directories:
-    - $HOME/.gradle/caches/
-    - $HOME/.gradle/wrapper/
+    - os: osx
+      osx_image: xcode11.6
+      language: java
+      jdk: openjdk11
+      before_cache:
+        - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+        - rm -rf $HOME/.gradle/caches/*/plugin-resolution/
+      cache:
+        directories:
+          - $HOME/.gradle/caches/
+          - $HOME/.gradle/wrapper/
+
+    - os: windows
+      jdk: openjdk11
+      language: cpp
+      before_install:
+        - choco install -y adoptopenjdk11 --version 11.0.8.11
+        - export PATH=$PATH:"/c/Program Files/AdoptOpenJDK/jdk-11.0.8.10-hotspot/bin"
+        - export GRADLE_OPTS=-Dorg.gradle.daemon=false
+      cache:
+        directories:
+          - $HOME/.gradle/wrapper/
