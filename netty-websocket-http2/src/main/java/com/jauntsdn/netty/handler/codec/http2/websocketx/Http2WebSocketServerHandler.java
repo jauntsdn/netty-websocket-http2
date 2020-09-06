@@ -31,7 +31,6 @@ import javax.annotation.Nullable;
  * successfully handshaked websocket. Subchannel is compatible with http1 websocket handlers.
  */
 public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHandler {
-  private final long handshakeTimeoutMillis;
   private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;
   private final WebSocketHandler.Container webSocketHandlers;
   private final Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler;
@@ -41,7 +40,6 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
   Http2WebSocketServerHandler(
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
-      long handshakeTimeoutMillis,
       long closedWebSocketRemoveTimeoutMillis,
       @Nullable Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler,
       @Nullable PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
@@ -52,7 +50,6 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
         isEncoderMaskPayload,
         closedWebSocketRemoveTimeoutMillis,
         isSingleWebSocketPerConnection);
-    this.handshakeTimeoutMillis = handshakeTimeoutMillis;
     this.closedWebSocketTimeoutScheduler = closedWebSocketTimeoutScheduler;
     this.compressionHandshaker = compressionHandshaker;
     this.webSocketHandlers = webSocketHandlers;
@@ -70,7 +67,6 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
             webSocketsParent,
             config,
             isEncoderMaskPayload,
-            handshakeTimeoutMillis,
             webSocketHandlers,
             compressionHandshaker);
   }

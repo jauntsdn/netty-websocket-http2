@@ -49,7 +49,6 @@ class Http2WebSocketServerHandshaker {
   private final WebSocketHandler.Container webSocketHandlers;
   private final WebSocketDecoderConfig webSocketDecoderConfig;
   private final boolean isEncoderMaskPayload;
-  private final long handshakeTimeoutMillis;
   private final WebSocketServerExtensionHandshaker compressionHandshaker;
   private int webSocketChannelSerial;
 
@@ -57,14 +56,12 @@ class Http2WebSocketServerHandshaker {
       WebSocketsParent webSocketsParent,
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
-      long handshakeTimeoutMillis,
       WebSocketHandler.Container webSocketHandlers,
       @Nullable WebSocketServerExtensionHandshaker compressionHandshaker) {
     this.webSocketsParent = webSocketsParent;
     this.webSocketHandlers = webSocketHandlers;
     this.webSocketDecoderConfig = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
-    this.handshakeTimeoutMillis = handshakeTimeoutMillis;
     this.compressionHandshaker = compressionHandshaker;
   }
 

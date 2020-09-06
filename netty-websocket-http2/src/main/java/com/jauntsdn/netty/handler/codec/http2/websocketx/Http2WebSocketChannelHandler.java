@@ -38,8 +38,8 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   final boolean isEncoderMaskPayload;
   final long closedWebSocketRemoveTimeoutMillis;
   final Supplier<IntObjectMap<Http2WebSocket>> webSocketRegistryFactory;
-  IntObjectMap<Http2WebSocket> webSocketRegistry = IntCollections.emptyMap();
 
+  IntObjectMap<Http2WebSocket> webSocketRegistry = IntCollections.emptyMap();
   ChannelHandlerContext ctx;
   WebSocketsParent webSocketsParent;
   boolean isAutoRead;

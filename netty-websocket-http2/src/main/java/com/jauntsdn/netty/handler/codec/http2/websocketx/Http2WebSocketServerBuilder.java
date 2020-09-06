@@ -33,7 +33,6 @@ public final class Http2WebSocketServerBuilder {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerBuilder.class);
   private WebSocketDecoderConfig webSocketDecoderConfig;
   private boolean isEncoderMaskPayload = true;
-  private long handshakeTimeoutMillis = 15_000;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
   private Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler;
@@ -289,7 +288,6 @@ public final class Http2WebSocketServerBuilder {
     return new Http2WebSocketServerHandler(
         config,
         isEncoderMaskPayload,
-        handshakeTimeoutMillis,
         closedWebSocketRemoveTimeoutMillis,
         closedWebSocketTimeoutScheduler,
         perMessageDeflateServerExtensionHandshaker,
