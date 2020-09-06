@@ -98,21 +98,30 @@ public final class Http2WebSocketClientBuilder {
    * Enables permessage-deflate compression with extended configuration. Parameters are described in
    * netty's PerMessageDeflateClientExtensionHandshaker
    *
+   * @param compressionLevel sets compression level. Range is [0; 9], default is 6
+   * @param allowClientWindowSize allows server to customize the client's inflater window size,
+   *     default is false
+   * @param requestedServerWindowSize requested server window size if server inflater is
+   *     customizable
+   * @param allowClientNoContext allows server to activate client_no_context_takeover, default is
+   *     false
+   * @param requestedServerNoContext whether client needs to activate server_no_context_takeover if
+   *     server is compatible, default is false.
    * @return this {@link Http2WebSocketClientBuilder} instance
    */
   public Http2WebSocketClientBuilder compression(
       int compressionLevel,
-      boolean allowServerWindowSize,
-      int preferredClientWindowSize,
-      boolean allowServerNoContext,
-      boolean preferredClientNoContext) {
+      boolean allowClientWindowSize,
+      int requestedServerWindowSize,
+      boolean allowClientNoContext,
+      boolean requestedServerNoContext) {
     perMessageDeflateClientExtensionHandshaker =
         new PerMessageDeflateClientExtensionHandshaker(
             compressionLevel,
-            allowServerWindowSize,
-            preferredClientWindowSize,
-            allowServerNoContext,
-            preferredClientNoContext);
+            allowClientWindowSize,
+            requestedServerWindowSize,
+            allowClientNoContext,
+            requestedServerNoContext);
     return this;
   }
 

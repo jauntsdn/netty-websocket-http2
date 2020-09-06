@@ -44,7 +44,12 @@ public final class Http2WebSocketServerBuilder {
 
   Http2WebSocketServerBuilder() {}
 
-  /** Utility method for configuring Http2FrameCodecBuilder with websocket-over-http2 support */
+  /**
+   * Utility method for configuring Http2FrameCodecBuilder with websocket-over-http2 support
+   *
+   * @param http2Builder {@link Http2WebSocketServerBuilder} instance
+   * @return same {@link Http2WebSocketServerBuilder} instance
+   */
   public static Http2FrameCodecBuilder configureHttp2Server(Http2FrameCodecBuilder http2Builder) {
     Objects.requireNonNull(http2Builder, "http2Builder")
         .initialSettings()
@@ -114,8 +119,17 @@ public final class Http2WebSocketServerBuilder {
 
   /**
    * Enables permessage-deflate compression with extended configuration. Parameters are described in
-   * netty's PerMessageDeflateClientExtensionHandshaker
+   * netty's PerMessageDeflateServerExtensionHandshaker
    *
+   * @param compressionLevel sets compression level. Range is [0; 9], default is 6
+   * @param allowServerWindowSize allows client to customize the server's inflater window size,
+   *     default is false
+   * @param preferredClientWindowSize preferred client window size if client inflater is
+   *     customizable
+   * @param allowServerNoContext allows client to activate server_no_context_takeover, default is
+   *     false
+   * @param preferredClientNoContext whether server prefers to activate client_no_context_takeover
+   *     if client is compatible, default is false
    * @return this {@link Http2WebSocketServerBuilder} instance
    */
   public Http2WebSocketServerBuilder compression(
