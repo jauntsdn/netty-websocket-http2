@@ -17,6 +17,9 @@
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketValidator.HEADER_WEBSOCKET_ENDOFSTREAM_NAME;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketValidator.endOfStreamValue;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
 import io.netty.channel.*;
@@ -65,29 +68,15 @@ class Http2WebSocketServerHandshaker {
     this.compressionHandshaker = compressionHandshaker;
   }
 
-  static boolean handshakeProtocol(final Http2Headers requestHeaders, boolean endOfStream) {
-    if (endOfStream) {
-      return false;
-    }
-    CharSequence pathSeq = requestHeaders.path();
-    if (isEmpty(pathSeq)) {
-      return false;
-    }
-    CharSequence authority = requestHeaders.authority();
-    if (isEmpty(authority)) {
-      return false;
-    }
-    CharSequence scheme = requestHeaders.scheme();
-    if (isEmpty(scheme) || !isHttp(scheme)) {
-      return false;
-    }
-    return true;
-  }
-
   boolean handshake(final int streamId, final Http2Headers requestHeaders, boolean endOfStream) {
     long startNanos = System.nanoTime();
+    ChannelHandlerContext ctx = webSocketsParent.context();
 
-    if (!handshakeProtocol(requestHeaders, endOfStream)) {
+    if (!Http2WebSocketValidator.isValidWebSocket(requestHeaders, endOfStream)) {
+      Http2WebSocketEvent.fireHandshakeValidationStartAndError(
+          ctx,
+          streamId,
+          requestHeaders.set(HEADER_WEBSOCKET_ENDOFSTREAM_NAME, endOfStreamValue(endOfStream)));
       writeRstStream(streamId);
       return false;
     }
@@ -97,9 +86,7 @@ class Http2WebSocketServerHandshaker {
     /*subprotocol*/
     CharSequence subprotocolsSeq =
         requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_SUBPROTOCOL_NAME);
-    String subprotocols = subprotocolsSeq == null ? "" : subprotocolsSeq.toString();
-
-    ChannelHandlerContext ctx = webSocketsParent.context();
+    String subprotocols = nonNullString(subprotocolsSeq);
 
     if (isUnsupportedWebSocketVersion(webSocketVersion)) {
       Http2WebSocketEvent.fireHandshakeStartAndError(
@@ -332,14 +319,5 @@ class Http2WebSocketServerHandshaker {
   private static boolean isUnsupportedWebSocketVersion(CharSequence webSocketVersion) {
     return webSocketVersion == null
         || !Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE.contentEquals(webSocketVersion);
-  }
-
-  private static boolean isEmpty(CharSequence seq) {
-    return seq == null || seq.length() == 0;
-  }
-
-  private static boolean isHttp(CharSequence scheme) {
-    return Http2WebSocketProtocol.SCHEME_HTTPS.equals(scheme)
-        || Http2WebSocketProtocol.SCHEME_HTTP.equals(scheme);
   }
 }

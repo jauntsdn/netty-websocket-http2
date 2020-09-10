@@ -25,8 +25,16 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import javax.annotation.Nullable;
 
 class Http2WebSocketUtils {
+
+  static String nonNullString(@Nullable CharSequence seq) {
+    if (seq == null) {
+      return "";
+    }
+    return seq.toString();
+  }
 
   static class Preconditions {
     static <T> T requireNonNull(T t, String message) {

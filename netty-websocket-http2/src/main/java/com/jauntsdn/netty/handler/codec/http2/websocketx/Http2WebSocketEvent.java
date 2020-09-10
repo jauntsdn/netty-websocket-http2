@@ -19,7 +19,9 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
 
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http2.Http2Headers;
 import javax.annotation.Nullable;
 
@@ -29,6 +31,21 @@ public abstract class Http2WebSocketEvent {
 
   Http2WebSocketEvent(Type type) {
     this.type = type;
+  }
+
+  static void fireHandshakeValidationStartAndError(
+      ChannelHandlerContext ctx, int streamId, Http2Headers headers) {
+    long timestamp = System.nanoTime();
+    Http2WebSocketEvent.fireHandshakeStartAndError(
+        ctx.channel(),
+        streamId,
+        nonNullString(headers.path()),
+        nonNullString(headers.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_SUBPROTOCOL_NAME)),
+        headers,
+        timestamp,
+        timestamp,
+        WebSocketHandshakeException.class.getName(),
+        "websocket-over-http2 request headers validation error");
   }
 
   static void fireHandshakeStartAndError(

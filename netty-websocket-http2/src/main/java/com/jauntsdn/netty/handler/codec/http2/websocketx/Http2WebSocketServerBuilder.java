@@ -237,21 +237,7 @@ public final class Http2WebSocketServerBuilder {
    * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
    */
   public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly() {
-    return new Http2WebSocketHandshakeOnlyServerHandler(null);
-  }
-
-  /**
-   * Builds handshake-only {@link Http2WebSocketHandshakeOnlyServerHandler}. All configuration
-   * options provided on this builder are ignored.
-   *
-   * @param rejectedWebSocketListener listener for websocket requests that were rejected due to
-   *     protocol violation
-   * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
-   */
-  public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly(
-      RejectedWebSocketListener rejectedWebSocketListener) {
-    return new Http2WebSocketHandshakeOnlyServerHandler(
-        Objects.requireNonNull(rejectedWebSocketListener, "rejectedWebSocketListener"));
+    return new Http2WebSocketHandshakeOnlyServerHandler();
   }
 
   /**
