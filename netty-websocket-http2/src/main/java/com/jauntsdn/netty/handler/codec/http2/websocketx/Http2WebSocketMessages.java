@@ -31,4 +31,5 @@ class Http2WebSocketMessages {
       "websocket handshake error: async acceptors are not supported";
   static final String HANDSHAKE_UNSUPPORTED_BOOTSTRAP =
       "websocket handshake error: bootstrapping websockets with http2 is not supported by server";
+  static final String WRITE_ERROR = "websocket frame write error";
 }

@@ -19,7 +19,6 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http2.Http2Headers;
@@ -33,11 +32,18 @@ public abstract class Http2WebSocketEvent {
     this.type = type;
   }
 
+  static void fireFrameWriteError(Channel parentChannel, Throwable e) {
+    parentChannel
+        .pipeline()
+        .fireUserEventTriggered(
+            new Http2WebSocketWriteErrorEvent(Http2WebSocketMessages.WRITE_ERROR, e));
+  }
+
   static void fireHandshakeValidationStartAndError(
-      ChannelHandlerContext ctx, int streamId, Http2Headers headers) {
+      Channel parentChannel, int streamId, Http2Headers headers) {
     long timestamp = System.nanoTime();
     Http2WebSocketEvent.fireHandshakeStartAndError(
-        ctx.channel(),
+        parentChannel,
         streamId,
         nonNullString(headers.path()),
         nonNullString(headers.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_SUBPROTOCOL_NAME)),
@@ -188,7 +194,27 @@ public abstract class Http2WebSocketEvent {
     CLOSE_REMOTE_ENDSTREAM,
     CLOSE_REMOTE_RESET,
     CLOSE_REMOTE_GOAWAY,
-    WEIGHT_UPDATE
+    WEIGHT_UPDATE,
+    WRITE_ERROR
+  }
+
+  public static class Http2WebSocketWriteErrorEvent extends Http2WebSocketEvent {
+    private final String message;
+    private final Throwable cause;
+
+    Http2WebSocketWriteErrorEvent(String message, Throwable cause) {
+      super(Type.WRITE_ERROR);
+      this.message = message;
+      this.cause = cause;
+    }
+
+    public String message() {
+      return message;
+    }
+
+    public Throwable cause() {
+      return cause;
+    }
   }
 
   /** Base type for websocket-over-http2 lifecycle events */

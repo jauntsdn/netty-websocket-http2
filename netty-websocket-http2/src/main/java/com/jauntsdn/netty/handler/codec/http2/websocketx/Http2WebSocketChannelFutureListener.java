@@ -34,12 +34,12 @@ public final class Http2WebSocketChannelFutureListener
   @Override
   public void operationComplete(ChannelFuture future) {
     Channel channel = future.channel();
-    if (future.isSuccess()) {
-      channel
-          .pipeline()
-          .fireUserEventTriggered(Http2WebSocketEvent.Http2WebSocketLocalCloseEvent.INSTANCE);
-    } else {
-      channel.close();
+    Throwable cause = future.cause();
+    if (cause != null) {
+      Http2WebSocketEvent.fireFrameWriteError(channel, cause);
     }
+    channel
+        .pipeline()
+        .fireUserEventTriggered(Http2WebSocketEvent.Http2WebSocketLocalCloseEvent.INSTANCE);
   }
 }

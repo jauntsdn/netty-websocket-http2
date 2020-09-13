@@ -18,11 +18,12 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketValidator.*;
 
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http2.Http2Error;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Headers;
+import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,7 +36,8 @@ import org.slf4j.LoggerFactory;
  * with http1 websocket handlers. http1 websocket handlers support is provided by complementary
  * {@link Http2WebSocketServerHandler}
  */
-public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHandler {
+public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHandler
+    implements GenericFutureListener<ChannelFuture> {
   private static final Logger logger =
       LoggerFactory.getLogger(Http2WebSocketHandshakeOnlyServerHandler.class);
 
@@ -56,8 +58,8 @@ public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSock
         super.onHeadersRead(ctx, streamId, handshakeOnlyWebSocket, padding, endOfStream);
       } else {
         Http2WebSocketEvent.fireHandshakeValidationStartAndError(
-            ctx, streamId, headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
-        writeRstStream(ctx, streamId);
+            ctx.channel(), streamId, headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
+        writeRstStream(ctx, streamId).addListener(this);
       }
     } else {
       super.onHeadersRead(ctx, streamId, headers, padding, endOfStream);
@@ -90,8 +92,8 @@ public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSock
             endOfStream);
       } else {
         Http2WebSocketEvent.fireHandshakeValidationStartAndError(
-            ctx, streamId, headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
-        writeRstStream(ctx, streamId);
+            ctx.channel(), streamId, headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
+        writeRstStream(ctx, streamId).addListener(this);
       }
     } else {
       super.onHeadersRead(
@@ -99,9 +101,21 @@ public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSock
     }
   }
 
-  private void writeRstStream(ChannelHandlerContext ctx, int streamId) {
-    ChannelPromise p = ctx.newPromise();
-    http2Handler.encoder().writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code(), p);
+  /*RST_STREAM frame write*/
+  @Override
+  public void operationComplete(ChannelFuture future) {
+    Throwable cause = future.cause();
+    if (cause != null) {
+      Http2WebSocketEvent.fireFrameWriteError(future.channel(), cause);
+    }
+  }
+
+  private ChannelFuture writeRstStream(ChannelHandlerContext ctx, int streamId) {
+    ChannelFuture f =
+        http2Handler
+            .encoder()
+            .writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code(), ctx.newPromise());
     ctx.flush();
+    return f;
   }
 }

@@ -52,6 +52,8 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
   private static final AttributeKey<Short> STREAM_WEIGHT_KEY =
       AttributeKey.newInstance("com.jauntsdn.netty.handler.codec.http2.websocketx.stream_weight");
+  private static final GenericFutureListener<ChannelFuture> FRAME_WRITE_LISTENER =
+      new FrameWriteListener();
   /**
    * Number of bytes to consider non-payload messages. 9 is arbitrary, but also the minimum size of
    * an HTTP/2 frame. Primarily is non-zero.
@@ -851,7 +853,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       // error.
       if (parent().isActive() && !streamClosed && streamId > 0) {
         trySetCloseInitiator(true);
-        writeRstStream();
+        writeRstStream().addListener(FRAME_WRITE_LISTENER);
       }
 
       Queue<ByteBuf> inbound = inboundBuffer;
@@ -1095,7 +1097,8 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       }
     }
 
-    void writeData(ByteBuf dataFrameContents, boolean endOfStream, final ChannelPromise promise) {
+    ChannelFuture writeData(
+        ByteBuf dataFrameContents, boolean endOfStream, final ChannelPromise promise) {
       ChannelFuture f =
           webSocketChannelParent.writeData(streamId, dataFrameContents, endOfStream, promise);
       if (f.isDone()) {
@@ -1110,9 +1113,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
             });
         writeDoneAndNoFlush = true;
       }
-      if (endOfStream) {
-        streamClosed();
-      }
+      return f;
     }
 
     private void writeComplete(ChannelFuture future) {
@@ -1325,7 +1326,11 @@ class Http2WebSocketChannel extends DefaultAttributeMap
                 "Graceful local close of websocket, streamId: {}, path: {}", streamId, path);
             trySetCloseInitiator(true);
             ChannelHandlerContext ctx = webSocketChannelParent.context();
-            unsafe.writeData(Unpooled.EMPTY_BUFFER, true, ctx.newPromise());
+            Http2ChannelUnsafe u = unsafe;
+            u.writeData(Unpooled.EMPTY_BUFFER, true, ctx.newPromise())
+                .addListener(FRAME_WRITE_LISTENER);
+            u.flush();
+            u.streamClosed();
             break;
           case WEIGHT_UPDATE:
             /*priority update is for client websocket only*/
@@ -1341,16 +1346,16 @@ class Http2WebSocketChannel extends DefaultAttributeMap
               pendingStreamWeight = weight;
               return;
             }
-            logger.info(
-                "Priority frames are ignored until https://github.com/netty/netty/issues/10416 is resolved");
-            /*writePriority(weight)
+            writePriority(weight)
                 .addListener(
-                    future -> {
-                      if (future.isSuccess()) {
+                    (ChannelFuture future) -> {
+                      Throwable cause = future.cause();
+                      if (cause != null) {
+                        Http2WebSocketEvent.fireFrameWriteError(future.channel(), cause);
+                      } else {
                         setStreamWeightAttribute(weight);
                       }
                     });
-            */
             break;
           default:
             /*noop*/
@@ -1358,6 +1363,16 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         return;
       }
       super.onUnhandledInboundUserEventTriggered(evt);
+    }
+  }
+
+  static class FrameWriteListener implements GenericFutureListener<ChannelFuture> {
+    @Override
+    public void operationComplete(ChannelFuture future) {
+      Throwable cause = future.cause();
+      if (cause != null) {
+        Http2WebSocketEvent.fireFrameWriteError(future.channel(), cause);
+      }
     }
   }
 
