@@ -23,6 +23,7 @@ import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUt
 import io.netty.channel.ChannelHandler;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
+import io.netty.handler.codec.http2.Http2ConnectionHandlerBuilder;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import java.util.*;
 import org.slf4j.Logger;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 /** Builder for {@link Http2WebSocketServerHandler} */
 public final class Http2WebSocketServerBuilder {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerBuilder.class);
+
   private WebSocketDecoderConfig webSocketDecoderConfig;
   private boolean isEncoderMaskPayload = true;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
@@ -46,10 +48,24 @@ public final class Http2WebSocketServerBuilder {
   /**
    * Utility method for configuring Http2FrameCodecBuilder with websocket-over-http2 support
    *
-   * @param http2Builder {@link Http2WebSocketServerBuilder} instance
-   * @return same {@link Http2WebSocketServerBuilder} instance
+   * @param http2Builder {@link Http2FrameCodecBuilder} instance
+   * @return same {@link Http2FrameCodecBuilder} instance
    */
   public static Http2FrameCodecBuilder configureHttp2Server(Http2FrameCodecBuilder http2Builder) {
+    Objects.requireNonNull(http2Builder, "http2Builder")
+        .initialSettings()
+        .put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
+    return http2Builder.validateHeaders(false);
+  }
+
+  /**
+   * Utility method for configuring Http2ConnectionHandlerBuilder with websocket-over-http2 support
+   *
+   * @param http2Builder {@link Http2ConnectionHandlerBuilder} instance
+   * @return same {@link Http2ConnectionHandlerBuilder} instance
+   */
+  public static Http2ConnectionHandlerBuilder configureHttp2Server(
+      Http2ConnectionHandlerBuilder http2Builder) {
     Objects.requireNonNull(http2Builder, "http2Builder")
         .initialSettings()
         .put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
