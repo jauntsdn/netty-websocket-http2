@@ -54,7 +54,6 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
   private final WebSocketDecoderConfig webSocketDecoderConfig;
   private final boolean isEncoderMaskPayload;
   private final WebSocketServerExtensionHandshaker compressionHandshaker;
-  private int webSocketChannelSerial;
 
   Http2WebSocketServerHandshaker(
       WebSocketsParent webSocketsParent,
@@ -215,7 +214,7 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
                 Http2WebSocketEvent.fireFrameWriteError(ch, future.cause());
                 Http2WebSocketEvent.fireHandshakeStartAndError(
                     ch,
-                    webSocketChannelSerial++,
+                    streamId,
                     path,
                     subprotocols,
                     requestHeaders,
@@ -230,7 +229,7 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
               Http2WebSocketChannel webSocket =
                   new Http2WebSocketChannel(
                           webSocketsParent,
-                          webSocketChannelSerial++,
+                          streamId,
                           path,
                           subprotocol,
                           webSocketDecoderConfig,
