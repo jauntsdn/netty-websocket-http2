@@ -181,6 +181,7 @@ public class Main {
             break;
           case CLOSE_REMOTE_ENDSTREAM:
             logger.info("==> WebSocket stream close remote - id: {}, path: {}", id, path);
+            ctx.pipeline().fireUserEventTriggered(Http2WebSocketLocalCloseEvent.INSTANCE);
             break;
 
           default:
