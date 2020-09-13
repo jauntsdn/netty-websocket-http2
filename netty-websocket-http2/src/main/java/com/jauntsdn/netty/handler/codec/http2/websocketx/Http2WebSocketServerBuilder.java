@@ -37,7 +37,6 @@ public final class Http2WebSocketServerBuilder {
   private boolean isEncoderMaskPayload = true;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
-  private Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler;
   private boolean isSingleWebSocketPerConnection;
   private int handlersCountHint;
   private List<WebSocketPathHandler> webSocketPathHandlers;
@@ -101,18 +100,6 @@ public final class Http2WebSocketServerBuilder {
     this.closedWebSocketRemoveTimeoutMillis =
         Preconditions.requirePositive(
             closedWebSocketRemoveTimeoutMillis, "closedWebSocketRemoveTimeoutMillis");
-    return this;
-  }
-
-  /**
-   * @param timeoutScheduler scheduler used for closed websocket remove timeouts as described in
-   *     {@link #closedWebSocketRemoveTimeout(long)}. Must be non-null
-   * @return this {@link Http2WebSocketServerBuilder} instance
-   */
-  public Http2WebSocketServerBuilder closedWebSocketRemoveScheduler(
-      Http2WebSocketTimeoutScheduler timeoutScheduler) {
-    this.closedWebSocketTimeoutScheduler =
-        Objects.requireNonNull(timeoutScheduler, "closedWebSocketTimeoutScheduler");
     return this;
   }
 
@@ -291,7 +278,6 @@ public final class Http2WebSocketServerBuilder {
         config,
         isEncoderMaskPayload,
         closedWebSocketRemoveTimeoutMillis,
-        closedWebSocketTimeoutScheduler,
         perMessageDeflateServerExtensionHandshaker,
         handlers,
         isSingleWebSocketPerConnection);
