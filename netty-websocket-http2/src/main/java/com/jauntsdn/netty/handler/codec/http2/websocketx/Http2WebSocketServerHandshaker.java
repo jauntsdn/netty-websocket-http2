@@ -28,8 +28,12 @@ import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http.websocketx.extensions.*;
 import io.netty.handler.codec.http2.*;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.ScheduledFuture;
 import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
 class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFuture> {
@@ -332,5 +336,95 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
   private static boolean isUnsupportedWebSocketVersion(CharSequence webSocketVersion) {
     return webSocketVersion == null
         || !Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE.contentEquals(webSocketVersion);
+  }
+
+  static class Handshake {
+    private final Future<Void> channelClose;
+    private final ChannelPromise handshake;
+    private final long timeoutMillis;
+    private boolean done;
+    private ScheduledFuture<?> timeoutFuture;
+    private Future<?> handshakeCompleteFuture;
+    private GenericFutureListener<ChannelFuture> channelCloseListener;
+
+    public Handshake(Future<Void> channelClose, ChannelPromise handshake, long timeoutMillis) {
+      this.channelClose = channelClose;
+      this.handshake = handshake;
+      this.timeoutMillis = timeoutMillis;
+    }
+
+    public void startTimeout() {
+      ChannelPromise h = handshake;
+      Channel channel = h.channel();
+
+      if (done) {
+        return;
+      }
+      GenericFutureListener<ChannelFuture> l = channelCloseListener = future -> onConnectionClose();
+      channelClose.addListener(l);
+      /*account for possible synchronous callback execution*/
+      if (done) {
+        return;
+      }
+      handshakeCompleteFuture = h.addListener(future -> onHandshakeComplete(future.cause()));
+      if (done) {
+        return;
+      }
+      timeoutFuture =
+          channel.eventLoop().schedule(this::onTimeout, timeoutMillis, TimeUnit.MILLISECONDS);
+    }
+
+    public void complete(Throwable e) {
+      onHandshakeComplete(e);
+    }
+
+    public boolean isDone() {
+      return done;
+    }
+
+    public ChannelFuture future() {
+      return handshake;
+    }
+
+    private void onConnectionClose() {
+      if (!done) {
+        handshake.tryFailure(new ClosedChannelException());
+        done();
+      }
+    }
+
+    private void onHandshakeComplete(Throwable cause) {
+      if (!done) {
+        if (cause != null) {
+          handshake.tryFailure(cause);
+        } else {
+          handshake.trySuccess();
+        }
+        done();
+      }
+    }
+
+    private void onTimeout() {
+      if (!done) {
+        handshake.tryFailure(new TimeoutException());
+        done();
+      }
+    }
+
+    private void done() {
+      done = true;
+      GenericFutureListener<ChannelFuture> closeListener = channelCloseListener;
+      if (closeListener != null) {
+        channelClose.removeListener(closeListener);
+      }
+      cancel(handshakeCompleteFuture);
+      cancel(timeoutFuture);
+    }
+
+    private void cancel(Future<?> future) {
+      if (future != null) {
+        future.cancel(true);
+      }
+    }
   }
 }
