@@ -32,11 +32,14 @@ public abstract class Http2WebSocketEvent {
     this.type = type;
   }
 
-  static void fireFrameWriteError(Channel parentChannel, Throwable e) {
-    parentChannel
-        .pipeline()
-        .fireUserEventTriggered(
-            new Http2WebSocketWriteErrorEvent(Http2WebSocketMessages.WRITE_ERROR, e));
+  static void fireFrameWriteError(Channel parentChannel, Throwable t) {
+    ChannelPipeline parentPipeline = parentChannel.pipeline();
+    if (t instanceof Exception) {
+      parentPipeline.fireUserEventTriggered(
+          new Http2WebSocketWriteErrorEvent(Http2WebSocketMessages.WRITE_ERROR, t));
+      return;
+    }
+    parentPipeline.fireExceptionCaught(t);
   }
 
   static void fireHandshakeValidationStartAndError(
@@ -64,13 +67,16 @@ public abstract class Http2WebSocketEvent {
       long errorNanos,
       Throwable t) {
     ChannelPipeline parentPipeline = parentChannel.pipeline();
+    if (t instanceof Exception) {
+      parentPipeline.fireUserEventTriggered(
+          new Http2WebSocketHandshakeStartEvent(
+              serial, path, subprotocols, startNanos, requestHeaders));
 
-    parentPipeline.fireUserEventTriggered(
-        new Http2WebSocketHandshakeStartEvent(
-            serial, path, subprotocols, startNanos, requestHeaders));
-
-    parentPipeline.fireUserEventTriggered(
-        new Http2WebSocketHandshakeErrorEvent(serial, path, subprotocols, errorNanos, null, t));
+      parentPipeline.fireUserEventTriggered(
+          new Http2WebSocketHandshakeErrorEvent(serial, path, subprotocols, errorNanos, null, t));
+      return;
+    }
+    parentPipeline.fireExceptionCaught(t);
   }
 
   static void fireHandshakeStartAndError(
@@ -141,22 +147,27 @@ public abstract class Http2WebSocketEvent {
       Http2WebSocketChannel webSocketChannel,
       Http2Headers responseHeaders,
       long timestampNanos,
-      Throwable cause) {
-    String path = webSocketChannel.path();
+      Throwable t) {
     ChannelPipeline parentPipeline = webSocketChannel.parent().pipeline();
-    ChannelPipeline webSocketPipeline = webSocketChannel.pipeline();
 
-    Http2WebSocketHandshakeErrorEvent errorEvent =
-        new Http2WebSocketHandshakeErrorEvent(
-            webSocketChannel.serial(),
-            path,
-            webSocketChannel.subprotocol(),
-            timestampNanos,
-            responseHeaders,
-            cause);
+    if (t instanceof Exception) {
+      String path = webSocketChannel.path();
+      ChannelPipeline webSocketPipeline = webSocketChannel.pipeline();
 
-    parentPipeline.fireUserEventTriggered(errorEvent);
-    webSocketPipeline.fireUserEventTriggered(errorEvent);
+      Http2WebSocketHandshakeErrorEvent errorEvent =
+          new Http2WebSocketHandshakeErrorEvent(
+              webSocketChannel.serial(),
+              path,
+              webSocketChannel.subprotocol(),
+              timestampNanos,
+              responseHeaders,
+              t);
+
+      parentPipeline.fireUserEventTriggered(errorEvent);
+      webSocketPipeline.fireUserEventTriggered(errorEvent);
+      return;
+    }
+    parentPipeline.fireExceptionCaught(t);
   }
 
   static void fireHandshakeSuccess(
@@ -198,6 +209,11 @@ public abstract class Http2WebSocketEvent {
     WRITE_ERROR
   }
 
+  /**
+   * Represents write error of frames that are not exposed to user code: HEADERS and RST_STREAM
+   * frames sent by server on handshake, DATA frames with END_STREAM flag for graceful shutdown,
+   * PRIORITY frames etc.
+   */
   public static class Http2WebSocketWriteErrorEvent extends Http2WebSocketEvent {
     private final String message;
     private final Throwable cause;
@@ -208,11 +224,13 @@ public abstract class Http2WebSocketEvent {
       this.cause = cause;
     }
 
-    public String message() {
+    /** @return frame write error message */
+    public String errorMessage() {
       return message;
     }
 
-    public Throwable cause() {
+    /** @return frame write error */
+    public Throwable error() {
       return cause;
     }
   }
