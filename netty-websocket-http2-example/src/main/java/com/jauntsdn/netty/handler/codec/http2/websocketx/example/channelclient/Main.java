@@ -111,8 +111,10 @@ public class Main {
         new StreamWeightUpdate() {
           @Override
           public void run() {
-            short nextWeight = nextWeight(echoWebSocketChannel);
-            logger.info("==> Sent websocket weight update: {}", nextWeight);
+            Short curStreamWeight =
+                Http2WebSocketStreamWeightUpdateEvent.streamWeight(echoWebSocketChannel);
+            short nextWeight = nextWeight(curStreamWeight);
+            logger.info("==> Sent websocket stream weight update: {}", nextWeight);
             echoWebSocketChannel
                 .pipeline()
                 .fireUserEventTriggered(Http2WebSocketStreamWeightUpdateEvent.create(nextWeight));
@@ -246,8 +248,7 @@ public class Main {
     private final short firstWeight = 24;
     private final short secondWeight = 42;
 
-    short nextWeight(Channel webSocketChannel) {
-      Short streamWeight = Http2WebSocketStreamWeightUpdateEvent.streamWeight(webSocketChannel);
+    short nextWeight(Short streamWeight) {
       if (streamWeight == null || streamWeight == secondWeight) {
         streamWeight = firstWeight;
       } else {
