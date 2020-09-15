@@ -34,6 +34,11 @@ public abstract class Http2WebSocketEvent {
 
   static void fireFrameWriteError(Channel parentChannel, Throwable t) {
     ChannelPipeline parentPipeline = parentChannel.pipeline();
+    if (parentChannel.config().isAutoClose()) {
+      parentPipeline.fireExceptionCaught(t);
+      parentChannel.close();
+      return;
+    }
     if (t instanceof Exception) {
       parentPipeline.fireUserEventTriggered(
           new Http2WebSocketWriteErrorEvent(Http2WebSocketMessages.WRITE_ERROR, t));
