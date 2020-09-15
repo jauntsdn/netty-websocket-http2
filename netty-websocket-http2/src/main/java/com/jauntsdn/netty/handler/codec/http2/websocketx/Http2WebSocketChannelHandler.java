@@ -16,7 +16,7 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.SingleElementOptimizedMap;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandlerContainers.SingleElementOptimizedMap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;

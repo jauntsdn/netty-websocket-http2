@@ -16,8 +16,6 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
-
 import io.netty.util.collection.IntCollections;
 import io.netty.util.collection.IntObjectHashMap;
 import java.util.ArrayList;
@@ -34,7 +32,8 @@ public class SingleElementOptimizedMapTest {
     int expectedKey = 42;
     String expectedValue = "first";
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     map.put(expectedKey, expectedValue);
 
     Assertions.assertThat(map.get(expectedKey)).isEqualTo(expectedValue);
@@ -61,7 +60,8 @@ public class SingleElementOptimizedMapTest {
   void removeWhileEmpty() {
     int key = 42;
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     String removed = map.remove(key);
 
     Assertions.assertThat(removed).isNull();
@@ -79,7 +79,8 @@ public class SingleElementOptimizedMapTest {
     int expectedKey = 42;
     String expectedValue = "first";
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     map.put(expectedKey, expectedValue);
     String removed = map.remove(expectedKey);
 
@@ -110,7 +111,8 @@ public class SingleElementOptimizedMapTest {
     int expectedKey = 42;
     String expectedValue = "first";
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     map.put(expectedKey, expectedValue);
     String removed = map.remove(0);
 
@@ -140,7 +142,8 @@ public class SingleElementOptimizedMapTest {
     int expectedKey = 42;
     String expectedValue = "first";
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     map.put(expectedKey, expectedValue);
     map.remove(expectedKey);
     String prevValue = map.put(expectedKey, expectedValue);
@@ -172,7 +175,8 @@ public class SingleElementOptimizedMapTest {
     String originalValue = "first";
     String replaceValue = "second";
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     map.put(expectedKey, originalValue);
     String replaced = map.put(expectedKey, replaceValue);
 
@@ -204,7 +208,8 @@ public class SingleElementOptimizedMapTest {
     int secondKey = 7;
     String secondValue = "second";
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     map.put(firstKey, firstValue);
     map.put(secondKey, secondValue);
 
@@ -238,7 +243,8 @@ public class SingleElementOptimizedMapTest {
     int secondKey = 7;
     String secondValue = "second";
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     map.put(firstKey, firstValue);
     map.put(secondKey, secondValue);
     String removed = map.remove(firstKey);
@@ -275,7 +281,8 @@ public class SingleElementOptimizedMapTest {
     int secondKey = 7;
     String secondValue = "second";
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     map.put(firstKey, firstValue);
     map.put(secondKey, secondValue);
     String removedFirst = map.remove(firstKey);
@@ -314,7 +321,8 @@ public class SingleElementOptimizedMapTest {
     int secondKey = 7;
     String secondValue = "second";
 
-    SingleElementOptimizedMap<String> map = new SingleElementOptimizedMap<>();
+    Http2WebSocketHandlerContainers.SingleElementOptimizedMap<String> map =
+        new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     map.put(firstKey, firstValue);
     map.put(secondKey, secondValue);
     map.clear();

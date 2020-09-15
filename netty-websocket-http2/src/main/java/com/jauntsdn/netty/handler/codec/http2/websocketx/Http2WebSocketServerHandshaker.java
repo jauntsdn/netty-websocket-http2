@@ -17,7 +17,6 @@
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketValidator.HEADER_WEBSOCKET_ENDOFSTREAM_NAME;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketValidator.endOfStreamValue;
 
@@ -324,6 +323,13 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
       sp[i] = sp[i].trim();
     }
     return sp;
+  }
+
+  private static String nonNullString(@Nullable CharSequence seq) {
+    if (seq == null) {
+      return "";
+    }
+    return seq.toString();
   }
 
   private static Http2Headers successHeaders(Http2Headers responseHeaders) {
