@@ -16,7 +16,6 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandlerContainers.SingleElementOptimizedMap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
@@ -296,7 +295,7 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   static Supplier<IntObjectMap<Http2WebSocket>> webSocketRegistryFactory(
       boolean isSingleWebSocketPerConnection) {
     if (isSingleWebSocketPerConnection) {
-      return () -> new SingleElementOptimizedMap<>();
+      return () -> new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     } else {
       return () -> new IntObjectHashMap<>(4);
     }
