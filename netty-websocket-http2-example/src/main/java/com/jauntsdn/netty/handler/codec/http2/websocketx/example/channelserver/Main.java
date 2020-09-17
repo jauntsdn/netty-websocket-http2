@@ -180,9 +180,22 @@ public class Main {
                 headers(errorEvent.responseHeaders()));
             break;
           case CLOSE_REMOTE_ENDSTREAM:
-            logger.info("==> WebSocket stream close remote - id: {}, path: {}", id, path);
+            logger.info(
+                "==> WebSocket stream close remote END_STREAM - id: {}, path: {}, subprotocols: {}",
+                id,
+                path,
+                subprotocolsOrEmpty);
+            if (ctx.channel().isOpen()) {
+              ctx.pipeline().fireUserEventTriggered(Http2WebSocketLocalCloseEvent.INSTANCE);
+            }
             break;
-
+          case CLOSE_REMOTE_RESET:
+            logger.info(
+                "==> WebSocket stream close remote RST_STREAM - id: {}, path: {}, subprotocols: {}",
+                id,
+                path,
+                subprotocolsOrEmpty);
+            break;
           default:
             logger.info(
                 "==> WebSocket handshake unexpected event - type: {}", handshakeEvent.type());

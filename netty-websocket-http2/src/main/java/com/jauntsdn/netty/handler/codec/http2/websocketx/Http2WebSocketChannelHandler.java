@@ -16,7 +16,6 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.SingleElementOptimizedMap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
@@ -38,8 +37,8 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   final boolean isEncoderMaskPayload;
   final long closedWebSocketRemoveTimeoutMillis;
   final Supplier<IntObjectMap<Http2WebSocket>> webSocketRegistryFactory;
-  IntObjectMap<Http2WebSocket> webSocketRegistry = IntCollections.emptyMap();
 
+  IntObjectMap<Http2WebSocket> webSocketRegistry = IntCollections.emptyMap();
   ChannelHandlerContext ctx;
   WebSocketsParent webSocketsParent;
   boolean isAutoRead;
@@ -296,7 +295,7 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   static Supplier<IntObjectMap<Http2WebSocket>> webSocketRegistryFactory(
       boolean isSingleWebSocketPerConnection) {
     if (isSingleWebSocketPerConnection) {
-      return () -> new SingleElementOptimizedMap<>();
+      return () -> new Http2WebSocketHandlerContainers.SingleElementOptimizedMap<>();
     } else {
       return () -> new IntObjectHashMap<>(4);
     }

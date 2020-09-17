@@ -17,12 +17,11 @@
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandlerContainers.*;
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandshakeOnlyServerHandler.*;
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
 
 import io.netty.channel.ChannelHandler;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
+import io.netty.handler.codec.http2.Http2ConnectionHandlerBuilder;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import java.util.*;
 import org.slf4j.Logger;
@@ -31,12 +30,11 @@ import org.slf4j.LoggerFactory;
 /** Builder for {@link Http2WebSocketServerHandler} */
 public final class Http2WebSocketServerBuilder {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerBuilder.class);
+
   private WebSocketDecoderConfig webSocketDecoderConfig;
   private boolean isEncoderMaskPayload = true;
-  private long handshakeTimeoutMillis = 15_000;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
-  private Http2WebSocketTimeoutScheduler closedWebSocketTimeoutScheduler;
   private boolean isSingleWebSocketPerConnection;
   private int handlersCountHint;
   private List<WebSocketPathHandler> webSocketPathHandlers;
@@ -44,8 +42,27 @@ public final class Http2WebSocketServerBuilder {
 
   Http2WebSocketServerBuilder() {}
 
-  /** Utility method for configuring Http2FrameCodecBuilder with websocket-over-http2 support */
+  /**
+   * Utility method for configuring Http2FrameCodecBuilder with websocket-over-http2 support
+   *
+   * @param http2Builder {@link Http2FrameCodecBuilder} instance
+   * @return same {@link Http2FrameCodecBuilder} instance
+   */
   public static Http2FrameCodecBuilder configureHttp2Server(Http2FrameCodecBuilder http2Builder) {
+    Objects.requireNonNull(http2Builder, "http2Builder")
+        .initialSettings()
+        .put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
+    return http2Builder.validateHeaders(false);
+  }
+
+  /**
+   * Utility method for configuring Http2ConnectionHandlerBuilder with websocket-over-http2 support
+   *
+   * @param http2Builder {@link Http2ConnectionHandlerBuilder} instance
+   * @return same {@link Http2ConnectionHandlerBuilder} instance
+   */
+  public static Http2ConnectionHandlerBuilder configureHttp2Server(
+      Http2ConnectionHandlerBuilder http2Builder) {
     Objects.requireNonNull(http2Builder, "http2Builder")
         .initialSettings()
         .put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
@@ -85,18 +102,6 @@ public final class Http2WebSocketServerBuilder {
   }
 
   /**
-   * @param timeoutScheduler scheduler used for closed websocket remove timeouts as described in
-   *     {@link #closedWebSocketRemoveTimeout(long)}. Must be non-null
-   * @return this {@link Http2WebSocketServerBuilder} instance
-   */
-  public Http2WebSocketServerBuilder closedWebSocketRemoveScheduler(
-      Http2WebSocketTimeoutScheduler timeoutScheduler) {
-    this.closedWebSocketTimeoutScheduler =
-        Objects.requireNonNull(timeoutScheduler, "closedWebSocketTimeoutScheduler");
-    return this;
-  }
-
-  /**
    * @param isCompressionEnabled enables permessage-deflate compression with default configuration
    * @return this {@link Http2WebSocketServerBuilder} instance
    */
@@ -114,8 +119,17 @@ public final class Http2WebSocketServerBuilder {
 
   /**
    * Enables permessage-deflate compression with extended configuration. Parameters are described in
-   * netty's PerMessageDeflateClientExtensionHandshaker
+   * netty's PerMessageDeflateServerExtensionHandshaker
    *
+   * @param compressionLevel sets compression level. Range is [0; 9], default is 6
+   * @param allowServerWindowSize allows client to customize the server's inflater window size,
+   *     default is false
+   * @param preferredClientWindowSize preferred client window size if client inflater is
+   *     customizable
+   * @param allowServerNoContext allows client to activate server_no_context_takeover, default is
+   *     false
+   * @param preferredClientNoContext whether server prefers to activate client_no_context_takeover
+   *     if client is compatible, default is false
    * @return this {@link Http2WebSocketServerBuilder} instance
    */
   public Http2WebSocketServerBuilder compression(
@@ -224,21 +238,7 @@ public final class Http2WebSocketServerBuilder {
    * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
    */
   public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly() {
-    return new Http2WebSocketHandshakeOnlyServerHandler(null);
-  }
-
-  /**
-   * Builds handshake-only {@link Http2WebSocketHandshakeOnlyServerHandler}. All configuration
-   * options provided on this builder are ignored.
-   *
-   * @param rejectedWebSocketListener listener for websocket requests that were rejected due to
-   *     protocol violation
-   * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
-   */
-  public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly(
-      RejectedWebSocketListener rejectedWebSocketListener) {
-    return new Http2WebSocketHandshakeOnlyServerHandler(
-        Objects.requireNonNull(rejectedWebSocketListener, "rejectedWebSocketListener"));
+    return new Http2WebSocketHandshakeOnlyServerHandler();
   }
 
   /**
@@ -275,9 +275,7 @@ public final class Http2WebSocketServerBuilder {
     return new Http2WebSocketServerHandler(
         config,
         isEncoderMaskPayload,
-        handshakeTimeoutMillis,
         closedWebSocketRemoveTimeoutMillis,
-        closedWebSocketTimeoutScheduler,
         perMessageDeflateServerExtensionHandshaker,
         handlers,
         isSingleWebSocketPerConnection);

@@ -72,7 +72,7 @@ interface Http2WebSocketAcceptor {
 Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
 Http2Headers headers =
-   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/0.0.2");
+   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/0.0.3");
 ChannelFuture handshakeFuture =
    /*http1 websocket handler*/
    handShaker.handshake("/echo", headers, new EchoWebSocketHandler());
@@ -207,7 +207,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.jauntsdn.netty:netty-websocket-http2:0.0.2'
+    implementation 'com.jauntsdn.netty:netty-websocket-http2:0.0.3'
 }
 ```
 

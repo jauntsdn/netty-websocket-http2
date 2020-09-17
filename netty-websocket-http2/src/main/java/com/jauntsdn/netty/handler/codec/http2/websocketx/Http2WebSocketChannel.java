@@ -18,7 +18,6 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketRemoteCloseEvent;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketStreamWeightUpdateEvent;
-import static java.lang.Math.min;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
 import io.netty.buffer.ByteBuf;
@@ -52,11 +51,10 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
   private static final AttributeKey<Short> STREAM_WEIGHT_KEY =
       AttributeKey.newInstance("com.jauntsdn.netty.handler.codec.http2.websocketx.stream_weight");
-  /**
-   * Number of bytes to consider non-payload messages. 9 is arbitrary, but also the minimum size of
-   * an HTTP/2 frame. Primarily is non-zero.
-   */
-  private static final int MIN_HTTP2_FRAME_SIZE = 9;
+  private static final GenericFutureListener<ChannelFuture> FRAME_WRITE_LISTENER =
+      new FrameWriteListener();
+  private static final MessageSizeEstimator.Handle MESSAGE_SIZE_ESTIMATOR_INSTANCE =
+      DefaultMessageSizeEstimator.DEFAULT.newHandle();
 
   private static final AtomicLongFieldUpdater<Http2WebSocketChannel> TOTAL_PENDING_SIZE_UPDATER =
       AtomicLongFieldUpdater.newUpdater(Http2WebSocketChannel.class, "totalPendingSize");
@@ -851,7 +849,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       // error.
       if (parent().isActive() && !streamClosed && streamId > 0) {
         trySetCloseInitiator(true);
-        writeRstStream();
+        writeRstStream().addListener(FRAME_WRITE_LISTENER);
       }
 
       Queue<ByteBuf> inbound = inboundBuffer;
@@ -1095,13 +1093,14 @@ class Http2WebSocketChannel extends DefaultAttributeMap
       }
     }
 
-    void writeData(ByteBuf dataFrameContents, boolean endOfStream, final ChannelPromise promise) {
+    ChannelFuture writeData(
+        ByteBuf dataFrameContents, boolean endOfStream, final ChannelPromise promise) {
       ChannelFuture f =
           webSocketChannelParent.writeData(streamId, dataFrameContents, endOfStream, promise);
       if (f.isDone()) {
         writeComplete(f);
       } else {
-        final long bytes = FlowControlledFrameSizeEstimator.HANDLE_INSTANCE.size(dataFrameContents);
+        final long bytes = MESSAGE_SIZE_ESTIMATOR_INSTANCE.size(dataFrameContents);
         incrementPendingOutboundBytes(bytes, false);
         f.addListener(
             (ChannelFuture future) -> {
@@ -1110,9 +1109,7 @@ class Http2WebSocketChannel extends DefaultAttributeMap
             });
         writeDoneAndNoFlush = true;
       }
-      if (endOfStream) {
-        streamClosed();
-      }
+      return f;
     }
 
     private void writeComplete(ChannelFuture future) {
@@ -1181,11 +1178,6 @@ class Http2WebSocketChannel extends DefaultAttributeMap
   private static final class Http2StreamChannelConfig extends DefaultChannelConfig {
     Http2StreamChannelConfig(Channel channel) {
       super(channel);
-    }
-
-    @Override
-    public MessageSizeEstimator getMessageSizeEstimator() {
-      return FlowControlledFrameSizeEstimator.INSTANCE;
     }
 
     @Override
@@ -1325,7 +1317,11 @@ class Http2WebSocketChannel extends DefaultAttributeMap
                 "Graceful local close of websocket, streamId: {}, path: {}", streamId, path);
             trySetCloseInitiator(true);
             ChannelHandlerContext ctx = webSocketChannelParent.context();
-            unsafe.writeData(Unpooled.EMPTY_BUFFER, true, ctx.newPromise());
+            Http2ChannelUnsafe u = unsafe;
+            u.writeData(Unpooled.EMPTY_BUFFER, true, ctx.newPromise())
+                .addListener(FRAME_WRITE_LISTENER);
+            u.flush();
+            u.streamClosed();
             break;
           case WEIGHT_UPDATE:
             /*priority update is for client websocket only*/
@@ -1341,16 +1337,16 @@ class Http2WebSocketChannel extends DefaultAttributeMap
               pendingStreamWeight = weight;
               return;
             }
-            logger.info(
-                "Priority frames are ignored until https://github.com/netty/netty/issues/10416 is resolved");
-            /*writePriority(weight)
+            writePriority(weight)
                 .addListener(
-                    future -> {
-                      if (future.isSuccess()) {
+                    (ChannelFuture future) -> {
+                      Throwable cause = future.cause();
+                      if (cause != null) {
+                        Http2WebSocketEvent.fireFrameWriteError(future.channel(), cause);
+                      } else {
                         setStreamWeightAttribute(weight);
                       }
                     });
-            */
             break;
           default:
             /*noop*/
@@ -1358,6 +1354,16 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         return;
       }
       super.onUnhandledInboundUserEventTriggered(evt);
+    }
+  }
+
+  static class FrameWriteListener implements GenericFutureListener<ChannelFuture> {
+    @Override
+    public void operationComplete(ChannelFuture future) {
+      Throwable cause = future.cause();
+      if (cause != null) {
+        Http2WebSocketEvent.fireFrameWriteError(future.channel(), cause);
+      }
     }
   }
 
@@ -1489,30 +1495,6 @@ class Http2WebSocketChannel extends DefaultAttributeMap
         this.webSocketFrame = webSocketFrame;
         this.completePromise = completePromise;
       }
-    }
-  }
-
-  /**
-   * Returns the flow-control size for DATA frames, and {@value MIN_HTTP2_FRAME_SIZE} for all other
-   * frames.
-   */
-  private static final class FlowControlledFrameSizeEstimator implements MessageSizeEstimator {
-    static final FlowControlledFrameSizeEstimator INSTANCE = new FlowControlledFrameSizeEstimator();
-    static final Handle HANDLE_INSTANCE =
-        msg ->
-            msg instanceof Http2DataFrame
-                ?
-                // Guard against overflow.
-                (int)
-                    min(
-                        Integer.MAX_VALUE,
-                        ((Http2DataFrame) msg).initialFlowControlledBytes()
-                            + (long) MIN_HTTP2_FRAME_SIZE)
-                : MIN_HTTP2_FRAME_SIZE;
-
-    @Override
-    public Handle newHandle() {
-      return HANDLE_INSTANCE;
     }
   }
 

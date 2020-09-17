@@ -16,6 +16,8 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.endOfStreamName;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.endOfStreamValue;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
@@ -25,10 +27,15 @@ import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http.websocketx.extensions.*;
 import io.netty.handler.codec.http2.*;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.ScheduledFuture;
 import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
-class Http2WebSocketServerHandshaker {
+class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFuture> {
   private static final AsciiString HEADERS_STATUS_200 = AsciiString.of("200");
   private static final ReadOnlyHttp2Headers HEADERS_OK =
       ReadOnlyHttp2Headers.serverHeaders(true, HEADERS_STATUS_200);
@@ -49,60 +56,40 @@ class Http2WebSocketServerHandshaker {
   private final WebSocketHandler.Container webSocketHandlers;
   private final WebSocketDecoderConfig webSocketDecoderConfig;
   private final boolean isEncoderMaskPayload;
-  private final long handshakeTimeoutMillis;
   private final WebSocketServerExtensionHandshaker compressionHandshaker;
-  private int webSocketChannelSerial;
 
   Http2WebSocketServerHandshaker(
       WebSocketsParent webSocketsParent,
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
-      long handshakeTimeoutMillis,
       WebSocketHandler.Container webSocketHandlers,
       @Nullable WebSocketServerExtensionHandshaker compressionHandshaker) {
     this.webSocketsParent = webSocketsParent;
     this.webSocketHandlers = webSocketHandlers;
     this.webSocketDecoderConfig = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
-    this.handshakeTimeoutMillis = handshakeTimeoutMillis;
     this.compressionHandshaker = compressionHandshaker;
   }
 
-  static boolean handshakeProtocol(final Http2Headers requestHeaders, boolean endOfStream) {
-    if (endOfStream) {
-      return false;
-    }
-    CharSequence pathSeq = requestHeaders.path();
-    if (isEmpty(pathSeq)) {
-      return false;
-    }
-    CharSequence authority = requestHeaders.authority();
-    if (isEmpty(authority)) {
-      return false;
-    }
-    CharSequence scheme = requestHeaders.scheme();
-    if (isEmpty(scheme) || !isHttp(scheme)) {
-      return false;
-    }
-    return true;
+  void reject(final int streamId, final Http2Headers requestHeaders, boolean endOfStream) {
+    Http2WebSocketEvent.fireHandshakeValidationStartAndError(
+        webSocketsParent.context().channel(),
+        streamId,
+        requestHeaders.set(endOfStreamName(), endOfStreamValue(endOfStream)));
+    writeRstStream(streamId).addListener(this);
   }
 
-  boolean handshake(final int streamId, final Http2Headers requestHeaders, boolean endOfStream) {
+  void handshake(final int streamId, final Http2Headers requestHeaders, boolean endOfStream) {
     long startNanos = System.nanoTime();
+    ChannelHandlerContext ctx = webSocketsParent.context();
 
-    if (!handshakeProtocol(requestHeaders, endOfStream)) {
-      writeRstStream(streamId);
-      return false;
-    }
     String path = requestHeaders.path().toString();
     CharSequence webSocketVersion =
         requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME);
     /*subprotocol*/
     CharSequence subprotocolsSeq =
         requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_SUBPROTOCOL_NAME);
-    String subprotocols = subprotocolsSeq == null ? "" : subprotocolsSeq.toString();
-
-    ChannelHandlerContext ctx = webSocketsParent.context();
+    String subprotocols = nonNullString(subprotocolsSeq);
 
     if (isUnsupportedWebSocketVersion(webSocketVersion)) {
       Http2WebSocketEvent.fireHandshakeStartAndError(
@@ -116,8 +103,8 @@ class Http2WebSocketServerHandshaker {
           WebSocketHandshakeException.class.getName(),
           Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion);
 
-      writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true);
-      return false;
+      writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true).addListener(this);
+      return;
     }
     /* http2 websocket handshake is successful  */
     WebSocketHandler handler =
@@ -138,8 +125,8 @@ class Http2WebSocketServerHandshaker {
           WebSocketHandshakeException.class.getName(),
           String.format(Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND, path, subprotocols));
 
-      writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true);
-      return false;
+      writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true).addListener(this);
+      return;
     }
 
     /*compression*/
@@ -197,8 +184,8 @@ class Http2WebSocketServerHandshaker {
           WebSocketHandshakeException.class.getName(),
           Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE);
 
-      writeHeaders(ctx, streamId, HEADERS_INTERNAL_ERROR, true);
-      return false;
+      writeHeaders(ctx, streamId, HEADERS_INTERNAL_ERROR, true).addListener(this);
+      return;
     }
 
     /*rejected request*/
@@ -213,8 +200,8 @@ class Http2WebSocketServerHandshaker {
           System.nanoTime(),
           accepted.cause());
 
-      writeHeaders(ctx, streamId, HEADERS_REJECTED_REQUEST, true);
-      return false;
+      writeHeaders(ctx, streamId, HEADERS_REJECTED_REQUEST, true).addListener(this);
+      return;
     }
 
     WebSocketExtensionEncoder finalCompressionEncoder = compressionEncoder;
@@ -223,79 +210,91 @@ class Http2WebSocketServerHandshaker {
     writeHeaders(ctx, streamId, successHeaders, false)
         .addListener(
             future -> {
-              if (future.isSuccess()) {
-                /* synchronous acceptor, no need for timeout - just register webSocket*/
-                ChannelHandler webSocketHandler = handler.handler();
-                Http2WebSocketChannel webSocket =
-                    new Http2WebSocketChannel(
-                            webSocketsParent,
-                            webSocketChannelSerial++,
-                            path,
-                            subprotocol,
-                            webSocketDecoderConfig,
-                            isEncoderMaskPayload,
-                            finalCompressionEncoder,
-                            finalCompressionDecoder,
-                            webSocketHandler)
-                        .setStreamId(streamId);
-                /*synchronous on eventLoop*/
-                ChannelFuture registered = ctx.channel().eventLoop().register(webSocket);
-
-                /*event loop registration error*/
-                if (!registered.isSuccess()) {
-                  Http2WebSocketEvent.fireHandshakeStartAndError(
-                      ctx.channel(),
-                      streamId,
-                      path,
-                      subprotocols,
-                      requestHeaders,
-                      startNanos,
-                      System.nanoTime(),
-                      registered.cause());
-                  writeRstStream(streamId);
-                  webSocket.streamClosed();
-                  return;
-                }
-
-                /*websocket channel closed synchronously*/
-                if (webSocket.closeFuture().isDone()) {
-                  Http2WebSocketEvent.fireHandshakeStartAndError(
-                      ctx.channel(),
-                      streamId,
-                      path,
-                      subprotocols,
-                      requestHeaders,
-                      startNanos,
-                      System.nanoTime(),
-                      ClosedChannelException.class.getName(),
-                      "websocket channel closed immediately after eventloop registration");
-                  writeRstStream(streamId);
-                  return;
-                }
-                webSocketsParent.register(streamId, webSocket);
-
-                Http2WebSocketEvent.fireHandshakeStartAndSuccess(
-                    webSocket,
+              Throwable cause = future.cause();
+              /* headers write error*/
+              if (cause != null) {
+                Channel ch = ctx.channel();
+                Http2WebSocketEvent.fireFrameWriteError(ch, future.cause());
+                Http2WebSocketEvent.fireHandshakeStartAndError(
+                    ch,
                     streamId,
                     path,
                     subprotocols,
                     requestHeaders,
-                    successHeaders,
                     startNanos,
-                    System.nanoTime());
+                    System.nanoTime(),
+                    cause);
                 return;
               }
-              Http2WebSocketEvent.fireHandshakeStartAndError(
-                  ctx.channel(),
+
+              /* synchronous acceptor, no need for timeout - just register webSocket*/
+              ChannelHandler webSocketHandler = handler.handler();
+              Http2WebSocketChannel webSocket =
+                  new Http2WebSocketChannel(
+                          webSocketsParent,
+                          streamId,
+                          path,
+                          subprotocol,
+                          webSocketDecoderConfig,
+                          isEncoderMaskPayload,
+                          finalCompressionEncoder,
+                          finalCompressionDecoder,
+                          webSocketHandler)
+                      .setStreamId(streamId);
+              /*synchronous on eventLoop*/
+              ChannelFuture registered = ctx.channel().eventLoop().register(webSocket);
+
+              /*event loop registration error*/
+              if (!registered.isSuccess()) {
+                Http2WebSocketEvent.fireHandshakeStartAndError(
+                    ctx.channel(),
+                    streamId,
+                    path,
+                    subprotocols,
+                    requestHeaders,
+                    startNanos,
+                    System.nanoTime(),
+                    registered.cause());
+                writeRstStream(streamId).addListener(this);
+                webSocket.streamClosed();
+                return;
+              }
+
+              /*websocket channel closed synchronously*/
+              if (!webSocket.isOpen()) {
+                Http2WebSocketEvent.fireHandshakeStartAndError(
+                    ctx.channel(),
+                    streamId,
+                    path,
+                    subprotocols,
+                    requestHeaders,
+                    startNanos,
+                    System.nanoTime(),
+                    ClosedChannelException.class.getName(),
+                    "websocket channel closed immediately after eventloop registration");
+                return;
+              }
+              webSocketsParent.register(streamId, webSocket);
+
+              Http2WebSocketEvent.fireHandshakeStartAndSuccess(
+                  webSocket,
                   streamId,
                   path,
                   subprotocols,
                   requestHeaders,
+                  successHeaders,
                   startNanos,
-                  System.nanoTime(),
-                  future.cause());
+                  System.nanoTime());
             });
-    return false;
+  }
+
+  /*HEADERS, RST_STREAM frame write*/
+  @Override
+  public void operationComplete(ChannelFuture future) {
+    Throwable cause = future.cause();
+    if (cause != null) {
+      Http2WebSocketEvent.fireFrameWriteError(future.channel(), cause);
+    }
   }
 
   private ChannelFuture writeHeaders(
@@ -305,8 +304,8 @@ class Http2WebSocketServerHandshaker {
     return channelFuture;
   }
 
-  private void writeRstStream(int streamId) {
-    webSocketsParent.writeRstStream(streamId, Http2Error.PROTOCOL_ERROR.code());
+  private ChannelFuture writeRstStream(int streamId) {
+    return webSocketsParent.writeRstStream(streamId, Http2Error.PROTOCOL_ERROR.code());
   }
 
   static Http2Headers handshakeOnlyWebSocket(Http2Headers headers) {
@@ -325,6 +324,13 @@ class Http2WebSocketServerHandshaker {
     return sp;
   }
 
+  private static String nonNullString(@Nullable CharSequence seq) {
+    if (seq == null) {
+      return "";
+    }
+    return seq.toString();
+  }
+
   private static Http2Headers successHeaders(Http2Headers responseHeaders) {
     if (responseHeaders.isEmpty()) {
       return HEADERS_OK;
@@ -337,12 +343,93 @@ class Http2WebSocketServerHandshaker {
         || !Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE.contentEquals(webSocketVersion);
   }
 
-  private static boolean isEmpty(CharSequence seq) {
-    return seq == null || seq.length() == 0;
-  }
+  static class Handshake {
+    private final Future<Void> channelClose;
+    private final ChannelPromise handshake;
+    private final long timeoutMillis;
+    private boolean done;
+    private ScheduledFuture<?> timeoutFuture;
+    private Future<?> handshakeCompleteFuture;
+    private GenericFutureListener<ChannelFuture> channelCloseListener;
 
-  private static boolean isHttp(CharSequence scheme) {
-    return Http2WebSocketProtocol.SCHEME_HTTPS.equals(scheme)
-        || Http2WebSocketProtocol.SCHEME_HTTP.equals(scheme);
+    public Handshake(Future<Void> channelClose, ChannelPromise handshake, long timeoutMillis) {
+      this.channelClose = channelClose;
+      this.handshake = handshake;
+      this.timeoutMillis = timeoutMillis;
+    }
+
+    public void startTimeout() {
+      ChannelPromise h = handshake;
+      Channel channel = h.channel();
+
+      if (done) {
+        return;
+      }
+      GenericFutureListener<ChannelFuture> l = channelCloseListener = future -> onConnectionClose();
+      channelClose.addListener(l);
+      /*account for possible synchronous callback execution*/
+      if (done) {
+        return;
+      }
+      handshakeCompleteFuture = h.addListener(future -> onHandshakeComplete(future.cause()));
+      if (done) {
+        return;
+      }
+      timeoutFuture =
+          channel.eventLoop().schedule(this::onTimeout, timeoutMillis, TimeUnit.MILLISECONDS);
+    }
+
+    public void complete(Throwable e) {
+      onHandshakeComplete(e);
+    }
+
+    public boolean isDone() {
+      return done;
+    }
+
+    public ChannelFuture future() {
+      return handshake;
+    }
+
+    private void onConnectionClose() {
+      if (!done) {
+        handshake.tryFailure(new ClosedChannelException());
+        done();
+      }
+    }
+
+    private void onHandshakeComplete(Throwable cause) {
+      if (!done) {
+        if (cause != null) {
+          handshake.tryFailure(cause);
+        } else {
+          handshake.trySuccess();
+        }
+        done();
+      }
+    }
+
+    private void onTimeout() {
+      if (!done) {
+        handshake.tryFailure(new TimeoutException());
+        done();
+      }
+    }
+
+    private void done() {
+      done = true;
+      GenericFutureListener<ChannelFuture> closeListener = channelCloseListener;
+      if (closeListener != null) {
+        channelClose.removeListener(closeListener);
+      }
+      cancel(handshakeCompleteFuture);
+      cancel(timeoutFuture);
+    }
+
+    private void cancel(Future<?> future) {
+      if (future != null) {
+        future.cancel(true);
+      }
+    }
   }
 }

@@ -266,8 +266,9 @@ public class Main {
         Http2WebSocketLifecycleEvent handshakeEvent = (Http2WebSocketLifecycleEvent) evt;
         Type eventType = handshakeEvent.type();
         switch (eventType) {
-          case CLOSE_REMOTE_ENDSTREAM:
           case HANDSHAKE_START:
+          case CLOSE_REMOTE_ENDSTREAM:
+          case CLOSE_REMOTE_RESET:
             break;
           case HANDSHAKE_SUCCESS:
             logger.info("==> WebSocket handshake success");

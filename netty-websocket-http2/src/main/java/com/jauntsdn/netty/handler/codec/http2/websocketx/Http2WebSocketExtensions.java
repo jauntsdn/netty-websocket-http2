@@ -17,6 +17,7 @@
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import io.netty.handler.codec.http.websocketx.extensions.WebSocketExtensionData;
+import io.netty.util.AsciiString;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,6 +27,8 @@ import javax.annotation.Nullable;
 
 class Http2WebSocketExtensions {
   static final String HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE = "permessage-deflate";
+  static final AsciiString HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE_ASCII =
+      AsciiString.of(HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE);
   static final Pattern HEADER_WEBSOCKET_EXTENSIONS_PARAMETER_PATTERN =
       Pattern.compile("^([^=]+)(=[\\\"]?([^\\\"]+)[\\\"]?)?$");
 
@@ -34,47 +37,68 @@ class Http2WebSocketExtensions {
     if (extensionHeader == null || extensionHeader.length() == 0) {
       return null;
     }
-    for (String extension : extensionHeader.toString().split(",")) {
-      String[] extensionParameters = extension.split(";");
-      String name = extensionParameters[0].trim();
-      if (HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE.equals(name)) {
+    AsciiString asciiExtensionHeader = (AsciiString) extensionHeader;
+
+    for (AsciiString extension : asciiExtensionHeader.split(',')) {
+      AsciiString[] extensionParameters = extension.split(';');
+      AsciiString name = extensionParameters[0].trim();
+      if (HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE_ASCII.equals(name)) {
         Map<String, String> parameters;
         if (extensionParameters.length > 1) {
           parameters = new HashMap<>(extensionParameters.length - 1);
           for (int i = 1; i < extensionParameters.length; i++) {
-            String parameter = extensionParameters[i].trim();
+            AsciiString parameter = extensionParameters[i].trim();
             Matcher parameterMatcher =
                 HEADER_WEBSOCKET_EXTENSIONS_PARAMETER_PATTERN.matcher(parameter);
-            if (parameterMatcher.matches() && parameterMatcher.group(1) != null) {
-              parameters.put(parameterMatcher.group(1), parameterMatcher.group(3));
+            if (parameterMatcher.matches()) {
+              String key = parameterMatcher.group(1);
+              if (key != null) {
+                String value = parameterMatcher.group(3);
+                parameters.put(key, value);
+              }
             }
           }
         } else {
           parameters = Collections.emptyMap();
         }
-        return new WebSocketExtensionData(name, parameters);
+        return new WebSocketExtensionData(
+            HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE, parameters);
       }
     }
     return null;
   }
 
   static String encode(WebSocketExtensionData extensionData) {
-    String extensionName = extensionData.name();
-    Map<String, String> extensionParameters = extensionData.parameters();
-    if (extensionParameters.isEmpty()) {
-      return extensionName;
+    String name = extensionData.name();
+    Map<String, String> params = extensionData.parameters();
+    if (params.isEmpty()) {
+      return name;
     }
-    StringBuilder sb = new StringBuilder(extensionName.length() + extensionParameters.size() * 80);
-    sb.append(extensionName);
-    for (Map.Entry<String, String> extensionParameter : extensionParameters.entrySet()) {
+    /*at most 4 parameters*/
+    StringBuilder sb = new StringBuilder(sizeOf(name, params));
+    sb.append(name);
+    for (Map.Entry<String, String> param : params.entrySet()) {
       sb.append(";");
-      sb.append(extensionParameter.getKey());
-      String value = extensionParameter.getValue();
+      sb.append(param.getKey());
+      String value = param.getValue();
       if (value != null) {
         sb.append("=");
         sb.append(value);
       }
     }
     return sb.toString();
+  }
+
+  static int sizeOf(String extensionName, Map<String, String> extensionParameters) {
+    int size = extensionName.length();
+    for (Map.Entry<String, String> param : extensionParameters.entrySet()) {
+      /* key and ; */
+      size += param.getKey().length() + 1;
+      String value = param.getValue();
+      if (value != null) {
+        /* value and = */ size += value.length() + 1;
+      }
+    }
+    return size;
   }
 }

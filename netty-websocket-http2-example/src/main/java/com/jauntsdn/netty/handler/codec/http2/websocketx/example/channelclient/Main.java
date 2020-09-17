@@ -65,6 +65,7 @@ public class Main {
 
                     Http2WebSocketClientHandler http2WebSocketClientHandler =
                         Http2WebSocketClientHandler.builder()
+                            .streamWeight(16)
                             .decoderConfig(
                                 WebSocketDecoderConfig.newBuilder().allowExtensions(true).build())
                             .handshakeTimeoutMillis(15_000)
@@ -98,10 +99,29 @@ public class Main {
 
     EventLoopGroup eventLoop = echoWebSocketChannel.eventLoop();
 
+    /*send websocket frames*/
     eventLoop.scheduleAtFixedRate(
         () -> echoWebSocketChannel.writeAndFlush(new TextWebSocketFrame("hello http2 websocket")),
         0,
         1_000,
+        TimeUnit.MILLISECONDS);
+
+    /*update websocket stream weight*/
+    eventLoop.scheduleAtFixedRate(
+        new StreamWeightUpdate() {
+          @Override
+          public void run() {
+            Short curStreamWeight =
+                Http2WebSocketStreamWeightUpdateEvent.streamWeight(echoWebSocketChannel);
+            short nextWeight = nextWeight(curStreamWeight);
+            logger.info("==> Sent websocket stream weight update: {}", nextWeight);
+            echoWebSocketChannel
+                .pipeline()
+                .fireUserEventTriggered(Http2WebSocketStreamWeightUpdateEvent.create(nextWeight));
+          }
+        },
+        5_000,
+        5_000,
         TimeUnit.MILLISECONDS);
 
     echoWebSocketChannel.closeFuture().sync();
@@ -177,12 +197,21 @@ public class Main {
             break;
           case CLOSE_REMOTE_ENDSTREAM:
             logger.info(
-                "==> WebSocket stream close remote - id: {}, path: {}, subprotocols: {}",
+                "==> WebSocket stream close remote END_STREAM - id: {}, path: {}, subprotocols: {}",
+                id,
+                path,
+                subprotocolsOrEmpty);
+            if (ctx.channel().isOpen()) {
+              ctx.pipeline().fireUserEventTriggered(Http2WebSocketLocalCloseEvent.INSTANCE);
+            }
+            break;
+          case CLOSE_REMOTE_RESET:
+            logger.info(
+                "==> WebSocket stream close remote RST_STREAM - id: {}, path: {}, subprotocols: {}",
                 id,
                 path,
                 subprotocolsOrEmpty);
             break;
-
           default:
             logger.info(
                 "==> WebSocket handshake unexpected event - type: {}", handshakeEvent.type());
@@ -212,6 +241,20 @@ public class Main {
         return repr.substring(index + prefix.length());
       }
       return repr;
+    }
+  }
+
+  private abstract static class StreamWeightUpdate implements Runnable {
+    private final short firstWeight = 24;
+    private final short secondWeight = 42;
+
+    short nextWeight(Short streamWeight) {
+      if (streamWeight == null || streamWeight == secondWeight) {
+        streamWeight = firstWeight;
+      } else {
+        streamWeight = secondWeight;
+      }
+      return streamWeight;
     }
   }
 

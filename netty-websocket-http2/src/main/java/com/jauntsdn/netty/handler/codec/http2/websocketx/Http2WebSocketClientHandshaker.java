@@ -16,7 +16,7 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.*;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
 import io.netty.channel.*;
@@ -56,7 +56,7 @@ public final class Http2WebSocketClientHandshaker {
   private final PerMessageDeflateClientExtensionHandshaker compressionHandshaker;
   private final boolean isEncoderMaskPayload;
   private final long timeoutMillis;
-  private Queue<Http2WebSocketClientHandshake> deferred;
+  private Queue<Handshake> deferred;
   private Boolean supportsWebSocket;
   private volatile int webSocketChannelSerial;
   private CharSequence compressionExtensionHeader;
@@ -174,9 +174,8 @@ public final class Http2WebSocketClientHandshaker {
                 webSocketHandler)
             .initialize();
 
-    Http2WebSocketClientHandshake handshake =
-        new Http2WebSocketClientHandshake(
-            webSocketChannel, requestHeaders, timeoutMillis, startNanos);
+    Handshake handshake =
+        new Handshake(webSocketChannel, requestHeaders, timeoutMillis, startNanos);
 
     handshake
         .future()
@@ -204,7 +203,6 @@ public final class Http2WebSocketClientHandshaker {
       return;
     }
     Http2WebSocketChannel webSocketChannel = (Http2WebSocketChannel) webSocket;
-    String path = webSocketChannel.path();
     ChannelPromise handshakePromise = webSocketChannel.handshakePromise();
 
     if (handshakePromise.isDone()) {
@@ -255,7 +253,7 @@ public final class Http2WebSocketClientHandshaker {
         errorMessage =
             String.format(
                 Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND,
-                path,
+                webSocketChannel.path(),
                 webSocketChannel.subprotocol());
         break;
       default:
@@ -279,6 +277,27 @@ public final class Http2WebSocketClientHandshaker {
     }
   }
 
+  void reject(int streamId, Http2WebSocket webSocket, Http2Headers headers, boolean endOfStream) {
+    Http2WebSocketEvent.fireHandshakeValidationStartAndError(
+        webSocketsParent.context().channel(),
+        streamId,
+        headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
+
+    if (webSocket == Http2WebSocket.CLOSED) {
+      return;
+    }
+    Http2WebSocketChannel webSocketChannel = (Http2WebSocketChannel) webSocket;
+    ChannelPromise handshakePromise = webSocketChannel.handshakePromise();
+    if (handshakePromise.isDone()) {
+      return;
+    }
+    Exception cause =
+        new WebSocketHandshakeException(Http2WebSocketMessages.HANDSHAKE_INVALID_RESPONSE_HEADERS);
+    if (handshakePromise.tryFailure(cause)) {
+      Http2WebSocketEvent.fireHandshakeError(webSocketChannel, headers, System.nanoTime(), cause);
+    }
+  }
+
   void onSupportsWebSocket(boolean supportsWebSocket) {
     if (!supportsWebSocket) {
       logger.error(Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_BOOTSTRAP);
@@ -287,7 +306,7 @@ public final class Http2WebSocketClientHandshaker {
     handshakeDeferred(supportsWebSocket);
   }
 
-  private void handshakeOrDefer(Http2WebSocketClientHandshake handshake, EventLoop eventLoop) {
+  private void handshakeOrDefer(Handshake handshake, EventLoop eventLoop) {
     if (handshake.isDone()) {
       return;
     }
@@ -319,7 +338,7 @@ public final class Http2WebSocketClientHandshaker {
     Boolean supports = supportsWebSocket;
     /*websocket support is not known yet*/
     if (supports == null) {
-      Queue<Http2WebSocketClientHandshake> d = deferred;
+      Queue<Handshake> d = deferred;
       if (d == null) {
         d = deferred = new ArrayDeque<>(ESTIMATED_DEFERRED_HANDSHAKES);
       }
@@ -334,20 +353,19 @@ public final class Http2WebSocketClientHandshaker {
   }
 
   private void handshakeDeferred(boolean supportsWebSocket) {
-    Queue<Http2WebSocketClientHandshake> d = deferred;
+    Queue<Handshake> d = deferred;
     if (d == null) {
       return;
     }
     deferred = null;
-    Http2WebSocketClientHandshake handshake = d.poll();
+    Handshake handshake = d.poll();
     while (handshake != null) {
       handshakeImmediate(handshake, supportsWebSocket);
       handshake = d.poll();
     }
   }
 
-  private void handshakeImmediate(
-      Http2WebSocketClientHandshake handshake, boolean supportsWebSocket) {
+  private void handshakeImmediate(Handshake handshake, boolean supportsWebSocket) {
     Http2WebSocketChannel webSocketChannel = handshake.webSocketChannel();
     Http2Headers customHeaders = handshake.requestHeaders();
     if (handshake.isDone()) {
@@ -433,5 +451,34 @@ public final class Http2WebSocketClientHandshaker {
       return false;
     }
     return str.contentEquals(seq);
+  }
+
+  static class Handshake extends Http2WebSocketServerHandshaker.Handshake {
+    private final Http2WebSocketChannel webSocketChannel;
+    private final Http2Headers requestHeaders;
+    private final long handshakeStartNanos;
+
+    public Handshake(
+        Http2WebSocketChannel webSocketChannel,
+        Http2Headers requestHeaders,
+        long timeoutMillis,
+        long handshakeStartNanos) {
+      super(webSocketChannel.closeFuture(), webSocketChannel.handshakePromise(), timeoutMillis);
+      this.webSocketChannel = webSocketChannel;
+      this.requestHeaders = requestHeaders;
+      this.handshakeStartNanos = handshakeStartNanos;
+    }
+
+    public Http2WebSocketChannel webSocketChannel() {
+      return webSocketChannel;
+    }
+
+    public Http2Headers requestHeaders() {
+      return requestHeaders;
+    }
+
+    public long startNanos() {
+      return handshakeStartNanos;
+    }
   }
 }

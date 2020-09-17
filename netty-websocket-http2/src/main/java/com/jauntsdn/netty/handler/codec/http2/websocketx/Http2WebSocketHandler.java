@@ -16,16 +16,20 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketUtils.*;
-
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http2.*;
+import io.netty.util.AsciiString;
 
 /** Base type for client and server websocket-over-http2 handlers */
 public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
     implements Http2FrameListener {
+  static final AsciiString HEADER_WEBSOCKET_ENDOFSTREAM_NAME =
+      AsciiString.of("x-websocket-endofstream");
+  static final AsciiString HEADER_WEBSOCKET_ENDOFSTREAM_VALUE_TRUE = AsciiString.of("true");
+  static final AsciiString HEADER_WEBSOCKET_ENDOFSTREAM_VALUE_FALSE = AsciiString.of("false");
+
   Http2ConnectionHandler http2Handler;
   Http2FrameListener next;
 
@@ -147,5 +151,15 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
 
   final Http2FrameListener next() {
     return next;
+  }
+
+  static AsciiString endOfStreamName() {
+    return HEADER_WEBSOCKET_ENDOFSTREAM_NAME;
+  }
+
+  static AsciiString endOfStreamValue(boolean endOfStream) {
+    return endOfStream
+        ? HEADER_WEBSOCKET_ENDOFSTREAM_VALUE_TRUE
+        : HEADER_WEBSOCKET_ENDOFSTREAM_VALUE_FALSE;
   }
 }

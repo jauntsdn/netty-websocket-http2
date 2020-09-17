@@ -16,12 +16,12 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http2.Http2Error;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Headers;
-import javax.annotation.Nullable;
+import io.netty.util.concurrent.GenericFutureListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,16 +34,12 @@ import org.slf4j.LoggerFactory;
  * with http1 websocket handlers. http1 websocket handlers support is provided by complementary
  * {@link Http2WebSocketServerHandler}
  */
-public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHandler {
+public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSocketHandler
+    implements GenericFutureListener<ChannelFuture> {
   private static final Logger logger =
       LoggerFactory.getLogger(Http2WebSocketHandshakeOnlyServerHandler.class);
 
-  private final RejectedWebSocketListener rejectedWebSocketListener;
-
-  Http2WebSocketHandshakeOnlyServerHandler(
-      @Nullable RejectedWebSocketListener rejectedWebSocketListener) {
-    this.rejectedWebSocketListener = rejectedWebSocketListener;
-  }
+  Http2WebSocketHandshakeOnlyServerHandler() {}
 
   @Override
   public void onHeadersRead(
@@ -53,17 +49,10 @@ public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSock
       int padding,
       boolean endOfStream)
       throws Http2Exception {
-    if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
-      if (Http2WebSocketServerHandshaker.handshakeProtocol(headers, endOfStream)) {
-        Http2Headers handshakeOnlyWebSocket =
-            Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
-        super.onHeadersRead(ctx, streamId, handshakeOnlyWebSocket, padding, endOfStream);
-      } else {
-        onWebSocketRejected(ctx, streamId, headers, endOfStream);
-        writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code());
-      }
-    } else {
+    if (handshake(headers, endOfStream)) {
       super.onHeadersRead(ctx, streamId, headers, padding, endOfStream);
+    } else {
+      reject(ctx, streamId, headers, endOfStream);
     }
   }
 
@@ -78,50 +67,42 @@ public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSock
       int padding,
       boolean endOfStream)
       throws Http2Exception {
-    if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
-      if (Http2WebSocketServerHandshaker.handshakeProtocol(headers, endOfStream)) {
-        Http2Headers handshakeOnlyWebSocket =
-            Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
-        super.onHeadersRead(
-            ctx,
-            streamId,
-            handshakeOnlyWebSocket,
-            streamDependency,
-            weight,
-            exclusive,
-            padding,
-            endOfStream);
-      } else {
-        onWebSocketRejected(ctx, streamId, headers, endOfStream);
-        writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code());
-      }
-    } else {
+    if (handshake(headers, endOfStream)) {
       super.onHeadersRead(
           ctx, streamId, headers, streamDependency, weight, exclusive, padding, endOfStream);
+    } else {
+      reject(ctx, streamId, headers, endOfStream);
     }
   }
 
-  private void writeRstStream(ChannelHandlerContext ctx, int streamId, long errorCode) {
-    ChannelPromise p = ctx.newPromise();
-    http2Handler.encoder().writeRstStream(ctx, streamId, errorCode, p);
-    ctx.flush();
+  /*RST_STREAM frame write*/
+  @Override
+  public void operationComplete(ChannelFuture future) {
+    Throwable cause = future.cause();
+    if (cause != null) {
+      Http2WebSocketEvent.fireFrameWriteError(future.channel(), cause);
+    }
   }
 
-  private void onWebSocketRejected(
-      ChannelHandlerContext ctx, int streamId, Http2Headers headers, boolean endOfStream) {
-    RejectedWebSocketListener l = rejectedWebSocketListener;
-    if (l != null) {
-      try {
-        l.onWebSocketRejected(ctx, streamId, headers, endOfStream);
-      } catch (Exception e) {
-        logger.error("Rejected http2 websocket listener error", e);
+  private boolean handshake(Http2Headers headers, boolean endOfStream) {
+    if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
+      boolean isValid = Http2WebSocketValidator.WebSocket.isValid(headers, endOfStream);
+      if (isValid) {
+        Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
       }
+      return isValid;
     }
+    return Http2WebSocketValidator.Http.isValid(headers, endOfStream);
   }
 
-  public interface RejectedWebSocketListener {
-
-    void onWebSocketRejected(
-        ChannelHandlerContext ctx, int streamId, Http2Headers headers, boolean endOfStream);
+  private void reject(
+      ChannelHandlerContext ctx, int streamId, Http2Headers headers, boolean endOfStream) {
+    Http2WebSocketEvent.fireHandshakeValidationStartAndError(
+        ctx.channel(), streamId, headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
+    http2Handler
+        .encoder()
+        .writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code(), ctx.newPromise())
+        .addListener(this);
+    ctx.flush();
   }
 }
