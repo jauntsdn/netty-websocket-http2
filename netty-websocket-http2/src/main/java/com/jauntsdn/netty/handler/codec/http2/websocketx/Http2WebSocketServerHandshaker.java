@@ -16,9 +16,9 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.endOfStreamName;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.endOfStreamValue;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketValidator.HEADER_WEBSOCKET_ENDOFSTREAM_NAME;
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketValidator.endOfStreamValue;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
 import io.netty.channel.*;
@@ -71,18 +71,18 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
     this.compressionHandshaker = compressionHandshaker;
   }
 
-  boolean handshake(final int streamId, final Http2Headers requestHeaders, boolean endOfStream) {
+  void reject(final int streamId, final Http2Headers requestHeaders, boolean endOfStream) {
+    Http2WebSocketEvent.fireHandshakeValidationStartAndError(
+        webSocketsParent.context().channel(),
+        streamId,
+        requestHeaders.set(endOfStreamName(), endOfStreamValue(endOfStream)));
+    writeRstStream(streamId).addListener(this);
+  }
+
+  void handshake(final int streamId, final Http2Headers requestHeaders, boolean endOfStream) {
     long startNanos = System.nanoTime();
     ChannelHandlerContext ctx = webSocketsParent.context();
 
-    if (!Http2WebSocketValidator.isValidWebSocket(requestHeaders, endOfStream)) {
-      Http2WebSocketEvent.fireHandshakeValidationStartAndError(
-          ctx.channel(),
-          streamId,
-          requestHeaders.set(HEADER_WEBSOCKET_ENDOFSTREAM_NAME, endOfStreamValue(endOfStream)));
-      writeRstStream(streamId).addListener(this);
-      return false;
-    }
     String path = requestHeaders.path().toString();
     CharSequence webSocketVersion =
         requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME);
@@ -104,7 +104,7 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
           Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion);
 
       writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true).addListener(this);
-      return false;
+      return;
     }
     /* http2 websocket handshake is successful  */
     WebSocketHandler handler =
@@ -126,7 +126,7 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
           String.format(Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND, path, subprotocols));
 
       writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true).addListener(this);
-      return false;
+      return;
     }
 
     /*compression*/
@@ -185,7 +185,7 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
           Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE);
 
       writeHeaders(ctx, streamId, HEADERS_INTERNAL_ERROR, true).addListener(this);
-      return false;
+      return;
     }
 
     /*rejected request*/
@@ -201,7 +201,7 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
           accepted.cause());
 
       writeHeaders(ctx, streamId, HEADERS_REJECTED_REQUEST, true).addListener(this);
-      return false;
+      return;
     }
 
     WebSocketExtensionEncoder finalCompressionEncoder = compressionEncoder;
@@ -286,7 +286,6 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
                   startNanos,
                   System.nanoTime());
             });
-    return false;
   }
 
   /*HEADERS, RST_STREAM frame write*/

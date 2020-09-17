@@ -57,7 +57,7 @@ public abstract class Http2WebSocketEvent {
         timestamp,
         timestamp,
         WebSocketHandshakeException.class.getName(),
-        "websocket-over-http2 request headers validation error");
+        Http2WebSocketMessages.HANDSHAKE_INVALID_REQUEST_HEADERS);
   }
 
   static void fireHandshakeStartAndError(

@@ -16,6 +16,8 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.*;
+
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
@@ -201,7 +203,6 @@ public final class Http2WebSocketClientHandshaker {
       return;
     }
     Http2WebSocketChannel webSocketChannel = (Http2WebSocketChannel) webSocket;
-    String path = webSocketChannel.path();
     ChannelPromise handshakePromise = webSocketChannel.handshakePromise();
 
     if (handshakePromise.isDone()) {
@@ -252,7 +253,7 @@ public final class Http2WebSocketClientHandshaker {
         errorMessage =
             String.format(
                 Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND,
-                path,
+                webSocketChannel.path(),
                 webSocketChannel.subprotocol());
         break;
       default:
@@ -273,6 +274,27 @@ public final class Http2WebSocketClientHandshaker {
     if (handshakePromise.trySuccess()) {
       Http2WebSocketEvent.fireHandshakeSuccess(
           webSocketChannel, responseHeaders, System.nanoTime());
+    }
+  }
+
+  void reject(int streamId, Http2WebSocket webSocket, Http2Headers headers, boolean endOfStream) {
+    Http2WebSocketEvent.fireHandshakeValidationStartAndError(
+        webSocketsParent.context().channel(),
+        streamId,
+        headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
+
+    if (webSocket == Http2WebSocket.CLOSED) {
+      return;
+    }
+    Http2WebSocketChannel webSocketChannel = (Http2WebSocketChannel) webSocket;
+    ChannelPromise handshakePromise = webSocketChannel.handshakePromise();
+    if (handshakePromise.isDone()) {
+      return;
+    }
+    Exception cause =
+        new WebSocketHandshakeException(Http2WebSocketMessages.HANDSHAKE_INVALID_RESPONSE_HEADERS);
+    if (handshakePromise.tryFailure(cause)) {
+      Http2WebSocketEvent.fireHandshakeError(webSocketChannel, headers, System.nanoTime(), cause);
     }
   }
 

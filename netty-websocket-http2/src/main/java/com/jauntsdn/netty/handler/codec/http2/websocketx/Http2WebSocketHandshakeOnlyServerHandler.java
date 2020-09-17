@@ -16,8 +16,6 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketValidator.*;
-
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http2.Http2Error;
@@ -51,18 +49,10 @@ public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSock
       int padding,
       boolean endOfStream)
       throws Http2Exception {
-    if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
-      if (Http2WebSocketValidator.isValidWebSocket(headers, endOfStream)) {
-        Http2Headers handshakeOnlyWebSocket =
-            Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
-        super.onHeadersRead(ctx, streamId, handshakeOnlyWebSocket, padding, endOfStream);
-      } else {
-        Http2WebSocketEvent.fireHandshakeValidationStartAndError(
-            ctx.channel(), streamId, headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
-        writeRstStream(ctx, streamId).addListener(this);
-      }
-    } else {
+    if (handshake(headers, endOfStream)) {
       super.onHeadersRead(ctx, streamId, headers, padding, endOfStream);
+    } else {
+      reject(ctx, streamId, headers, endOfStream);
     }
   }
 
@@ -77,27 +67,11 @@ public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSock
       int padding,
       boolean endOfStream)
       throws Http2Exception {
-    if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
-      if (Http2WebSocketValidator.isValidWebSocket(headers, endOfStream)) {
-        Http2Headers handshakeOnlyWebSocket =
-            Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
-        super.onHeadersRead(
-            ctx,
-            streamId,
-            handshakeOnlyWebSocket,
-            streamDependency,
-            weight,
-            exclusive,
-            padding,
-            endOfStream);
-      } else {
-        Http2WebSocketEvent.fireHandshakeValidationStartAndError(
-            ctx.channel(), streamId, headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
-        writeRstStream(ctx, streamId).addListener(this);
-      }
-    } else {
+    if (handshake(headers, endOfStream)) {
       super.onHeadersRead(
           ctx, streamId, headers, streamDependency, weight, exclusive, padding, endOfStream);
+    } else {
+      reject(ctx, streamId, headers, endOfStream);
     }
   }
 
@@ -110,12 +84,25 @@ public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSock
     }
   }
 
-  private ChannelFuture writeRstStream(ChannelHandlerContext ctx, int streamId) {
-    ChannelFuture f =
-        http2Handler
-            .encoder()
-            .writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code(), ctx.newPromise());
+  private boolean handshake(Http2Headers headers, boolean endOfStream) {
+    if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
+      boolean isValid = Http2WebSocketValidator.WebSocket.isValid(headers, endOfStream);
+      if (isValid) {
+        Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
+      }
+      return isValid;
+    }
+    return Http2WebSocketValidator.Http.isValid(headers, endOfStream);
+  }
+
+  private void reject(
+      ChannelHandlerContext ctx, int streamId, Http2Headers headers, boolean endOfStream) {
+    Http2WebSocketEvent.fireHandshakeValidationStartAndError(
+        ctx.channel(), streamId, headers.set(endOfStreamName(), endOfStreamValue(endOfStream)));
+    http2Handler
+        .encoder()
+        .writeRstStream(ctx, streamId, Http2Error.PROTOCOL_ERROR.code(), ctx.newPromise())
+        .addListener(this);
     ctx.flush();
-    return f;
   }
 }

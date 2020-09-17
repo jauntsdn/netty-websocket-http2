@@ -100,7 +100,16 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
 
   private boolean handshakeWebSocket(int streamId, Http2Headers headers, boolean endOfStream) {
     if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
-      return handshaker.handshake(streamId, headers, endOfStream);
+      if (!Http2WebSocketValidator.WebSocket.isValid(headers, endOfStream)) {
+        handshaker.reject(streamId, headers, endOfStream);
+      } else {
+        handshaker.handshake(streamId, headers, endOfStream);
+      }
+      return false;
+    }
+    if (!Http2WebSocketValidator.Http.isValid(headers, endOfStream)) {
+      handshaker.reject(streamId, headers, endOfStream);
+      return false;
     }
     return true;
   }

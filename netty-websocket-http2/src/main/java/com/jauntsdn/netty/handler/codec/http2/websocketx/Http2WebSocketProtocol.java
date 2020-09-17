@@ -28,14 +28,15 @@ final class Http2WebSocketProtocol {
   static final AsciiString SCHEME_HTTP = AsciiString.of("http");
   static final AsciiString SCHEME_HTTPS = AsciiString.of("https");
 
-  static final AsciiString HEADER_PROTOCOL_NAME_HANDSHAKED = AsciiString.of("x-protocol");
-  static final AsciiString HEADER_METHOD_CONNECT_HANDSHAKED = AsciiString.of("POST");
   static final AsciiString HEADER_WEBSOCKET_VERSION_NAME = AsciiString.of("sec-websocket-version");
   static final AsciiString HEADER_WEBSOCKET_VERSION_VALUE = AsciiString.of("13");
   static final AsciiString HEADER_WEBSOCKET_SUBPROTOCOL_NAME =
       AsciiString.of("sec-websocket-protocol");
   static final AsciiString HEADER_WEBSOCKET_EXTENSIONS_NAME =
       AsciiString.of("sec-websocket-extensions");
+
+  static final AsciiString HEADER_PROTOCOL_NAME_HANDSHAKED = AsciiString.of("x-protocol");
+  static final AsciiString HEADER_METHOD_CONNECT_HANDSHAKED = AsciiString.of("POST");
 
   static Http2Headers extendedConnect() {
     return new DefaultHttp2Headers()
