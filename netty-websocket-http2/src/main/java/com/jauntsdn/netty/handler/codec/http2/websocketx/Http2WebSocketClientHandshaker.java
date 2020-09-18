@@ -382,17 +382,18 @@ public final class Http2WebSocketClientHandshaker {
     int streamId = streamIdFactory.incrementAndGetNextStreamId();
     webSocketsParent.register(streamId, webSocketChannel.setStreamId(streamId));
 
-    String path = webSocketChannel.path();
     String authority = authority();
+    String path = webSocketChannel.path();
     Http2Headers headers =
-        Http2WebSocketProtocol.extendedConnect()
-            .scheme(scheme)
-            .authority(authority)
-            .path(path)
-            /* sec-websocket-version=13 only */
-            .set(
-                Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME,
-                Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE);
+        Http2WebSocketProtocol.extendedConnect(
+            new DefaultHttp2Headers()
+                .scheme(scheme)
+                .authority(authority)
+                .path(path)
+                /* sec-websocket-version=13 only */
+                .set(
+                    Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME,
+                    Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE));
 
     /*compression*/
     PerMessageDeflateClientExtensionHandshaker handshaker = compressionHandshaker;
