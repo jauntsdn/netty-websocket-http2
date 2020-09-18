@@ -66,7 +66,7 @@ public class Main {
                     SslHandler sslHandler = sslContext.newHandler(ch.alloc());
                     Http2FrameCodecBuilder http2FrameCodecBuilder =
                         Http2FrameCodecBuilder.forClient();
-                    http2FrameCodecBuilder.initialSettings().initialWindowSize(1_000);
+                    http2FrameCodecBuilder.initialSettings().initialWindowSize(10_000);
                     Http2FrameCodec http2FrameCodec = http2FrameCodecBuilder.build();
                     Http2WebSocketClientHandler http2WebSocketClientHandler =
                         Http2WebSocketClientHandler.builder()
