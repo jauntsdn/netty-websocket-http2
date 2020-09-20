@@ -103,8 +103,6 @@ Only verifies whether http2 stream is valid websocket, then passes it down the p
 
 Works with both callbacks-style `Http2ConnectionHandler` and frames based `Http2FrameCodec`.      
 
-Websocket requests rejected due to protocol violation are reported to `RejectedWebSocketListener`
-
 ```
 Http2WebSocketServerHandler.builder().handshakeOnly(rejectedWebSocketListener);
 ```
@@ -112,6 +110,24 @@ Http2WebSocketServerHandler.builder().handshakeOnly(rejectedWebSocketListener);
 Runnable demo is available in `netty-websocket-http2-example` module - 
 [handshakeserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/handshakeserver/Main.java), 
 [channelclient](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelclient/Main.java).
+
+### configuration
+Initial settings of server http2 codecs (`Http2ConnectionHandler` or `Http2FrameCodec`)  should contain [SETTINGS_ENABLE_CONNECT_PROTOCOL=1](https://tools.ietf.org/html/rfc8441#section-9.1)
+parameter to advertise websocket-over-http2 support.
+
+Also server http2 codecs must disable built-in headers validation because It is not compatible
+with rfc8441 due to newly introduced `:protocol` pseudo-header. All websocket handlers provided by this library
+do headers validation on their own - both for websocket and non-websocket requests.
+
+Above configuration may be done with utility methods of `Http2WebSocketServerBuilder`
+
+```
+public static Http2FrameCodecBuilder configureHttp2Server(
+                                          Http2FrameCodecBuilder http2Builder);
+
+public static Http2ConnectionHandlerBuilder configureHttp2Server(
+                                          Http2ConnectionHandlerBuilder http2Builder)
+```    
 
 ### compression & subprotocols
 Client and server `permessage-deflate` compression configuration is shared by all streams
@@ -135,7 +151,7 @@ ChannelFuture handshake =
 ```groovy
 Http2WebSocketServerHandler.builder()
               .handler("/echo", "subprotocol", http1WebSocketHandler)
-              .handler("/echo", "wamp", http1WebSocketWampHandler)
+              .handler("/echo", "wamp", http1WebSocketWampHandler);
 ```
 
 ### lifecycle 
@@ -189,7 +205,8 @@ Currently blocked by [netty bug](https://github.com/netty/netty/issues/10416).
 with this library/browser as clients. 
 * `channelserver, channelclient` packages for websocket subchannel API demos. 
 * `handshakeserver, channelclient` packages for handshake only API demo.
-
+* `lwsclient` package for client demo that runs against [https://libwebsockets.org/testserver/](https://libwebsockets.org/testserver/) which hosts websocket-over-http2
+server implemented with [libwebsockets](https://github.com/warmcat/libwebsockets) - popular C-based networking library. 
 ### browser example
 Both example servers have web page at `https://localhost:8099` that sends pings to
 `/echo` endpoint.   
