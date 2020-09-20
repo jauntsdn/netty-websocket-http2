@@ -16,7 +16,7 @@
 
 description = "Netty based implementation of rfc8441 - bootstrapping websockets with http/2. Performance test project"
 
-def nettyNativeTransportVersion = "4.1.51.Final"
+def nettyNativeTransportVersion = "4.1.52.Final"
 
 dependencies {
     implementation project(":netty-websocket-http2")

@@ -16,15 +16,15 @@
 
 pluginManagement {
     plugins {
-        id 'com.github.sherter.google-java-format' version "${googleJavaFormatPluginVersion}"
-        id 'io.spring.dependency-management' version "${dependencyManagementPluginVersion}"
+        id "com.github.sherter.google-java-format" version "${googleJavaFormatPluginVersion}"
+        id "io.spring.dependency-management" version "${dependencyManagementPluginVersion}"
         id "com.palantir.git-version" version "${gitPluginVersion}"
-        id 'com.google.osdetector' version "${osDetectorPluginVersion}"
+        id "com.google.osdetector" version "${osDetectorPluginVersion}"
     }
 }
 
-rootProject.name = 'netty-websocket-http2-parent'
-include 'netty-websocket-http2'
-include 'netty-websocket-http2-example'
-include 'netty-websocket-http2-perftest'
+rootProject.name = "netty-websocket-http2-parent"
+include "netty-websocket-http2"
+include "netty-websocket-http2-example"
+include "netty-websocket-http2-perftest"
 
