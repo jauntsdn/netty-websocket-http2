@@ -89,7 +89,7 @@ public class Main {
     Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
     Http2Headers headers =
-        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/0.1.0");
+        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.0.0");
     ChannelFuture handshake =
         handShaker.handshake(
             "/", "dumb-increment-protocol", headers, new WebSocketDumbIncrementHandler());
