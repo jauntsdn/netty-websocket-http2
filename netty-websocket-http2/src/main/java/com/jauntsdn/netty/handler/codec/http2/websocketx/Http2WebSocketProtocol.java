@@ -16,7 +16,6 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
 
@@ -38,8 +37,8 @@ final class Http2WebSocketProtocol {
   static final AsciiString HEADER_PROTOCOL_NAME_HANDSHAKED = AsciiString.of("x-protocol");
   static final AsciiString HEADER_METHOD_CONNECT_HANDSHAKED = AsciiString.of("POST");
 
-  static Http2Headers extendedConnect() {
-    return new DefaultHttp2Headers()
+  static Http2Headers extendedConnect(Http2Headers headers) {
+    return headers
         .method(Http2WebSocketProtocol.HEADER_METHOD_CONNECT)
         .set(
             Http2WebSocketProtocol.HEADER_PROTOCOL_NAME,

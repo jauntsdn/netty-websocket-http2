@@ -196,7 +196,7 @@ public class ProtocolHandshakeTest extends AbstractTest {
 
   static Stream<Http2Headers> invalidWebSocketRequests() {
     Http2Headers emptyPath =
-        Http2WebSocketProtocol.extendedConnect()
+        Http2WebSocketProtocol.extendedConnect(new DefaultHttp2Headers())
             .scheme("https")
             .authority("localhost")
             .path("")
@@ -206,7 +206,7 @@ public class ProtocolHandshakeTest extends AbstractTest {
                 Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE);
 
     Http2Headers emptyAuthority =
-        Http2WebSocketProtocol.extendedConnect()
+        Http2WebSocketProtocol.extendedConnect(new DefaultHttp2Headers())
             .scheme("https")
             .authority("")
             .path("path")
@@ -216,7 +216,7 @@ public class ProtocolHandshakeTest extends AbstractTest {
                 Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE);
 
     Http2Headers emptyScheme =
-        Http2WebSocketProtocol.extendedConnect()
+        Http2WebSocketProtocol.extendedConnect(new DefaultHttp2Headers())
             .scheme("")
             .authority("localhost")
             .path("path")
@@ -226,7 +226,7 @@ public class ProtocolHandshakeTest extends AbstractTest {
                 Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE);
 
     Http2Headers nonHttpScheme =
-        Http2WebSocketProtocol.extendedConnect()
+        Http2WebSocketProtocol.extendedConnect(new DefaultHttp2Headers())
             .scheme("ftp")
             .authority("localhost")
             .path("path")
