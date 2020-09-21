@@ -181,6 +181,12 @@ on websocket channel pipeline.
 
 Closing websocket channel terminates its http2 stream by sending `RST` frame.
 
+#### validation & write error events
+
+Both API style handlers send `Http2WebSocketHandshakeErrorEvent` for invalid websocket-over-http2 and http requests.
+For http2 frame write errors `Http2WebSocketWriteErrorEvent` is sent on parent channel if auto-close is not enabled;
+otherwise exception is delivered with `ChannelPipeline.fireExceptionCaught` followed by immediate close.
+
 ### flow control
 
 Inbound flow control is done automatically as soon as `DATA` frames are received. 
@@ -197,8 +203,36 @@ Initial stream weight is configured with
 Http2WebSocketClientBuilder.streamWeight(weight);
 ```
 it can be updated by firing `Http2WebSocketStreamWeightUpdateEvent` on websocket channel pipeline.
-Currently blocked by [netty bug](https://github.com/netty/netty/issues/10416). 
- 
+
+### performance
+
+Library relies on capabilities provided by netty's `Http2ConnectionHandler` so performance characteristics should be similar.
+[netty-websocket-http2-perftest](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-perftest/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest) 
+module contains application that gives rough throughput/latency estimate. The application is started with `perf_server.sh`, `perf_client.sh`. 
+
+On modern box one can expect following results for single websocket:
+
+```properties
+19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main p50 => 435 micros
+19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main p95 => 662 micros
+19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main p99 => 841 micros
+19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main throughput => 205874 messages
+19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main throughput => 201048.83 kbytes
+
+```
+
+To evaluate performance with multiple connections we compose an application comprised with simple echo server, and client
+sending batches of messages periodically over single websocket per connection (approximately models chat application)  
+
+With 25k active connections each sending batches of 5-10 messages of 0.2-0.5 KBytes over single websocket every 15-30seconds,
+the results are as follows (measured over time spans of 5 seconds): 
+```properties
+11:32:44.080 pool-2-thread-1 com.jauntsdn.netty.handler.codec.http2.websocketx.stresstest.client.Main connection success   ==> 25000
+11:32:44.080 pool-2-thread-1 com.jauntsdn.netty.handler.codec.http2.websocketx.stresstest.client.Main handshake success    ==> 25000
+11:32:44.080 pool-2-thread-1 com.jauntsdn.netty.handler.codec.http2.websocketx.stresstest.client.Main messages p99, micros ==> 177
+11:32:44.080 pool-2-thread-1 com.jauntsdn.netty.handler.codec.http2.websocketx.stresstest.client.Main messages p50, micros ==> 91
+```
+
 ### examples
 
 `netty-websocket-http2-example` module contains demos showcasing both API styles, 
@@ -207,6 +241,7 @@ with this library/browser as clients.
 * `handshakeserver, channelclient` packages for handshake only API demo.
 * `lwsclient` package for client demo that runs against [https://libwebsockets.org/testserver/](https://libwebsockets.org/testserver/) which hosts websocket-over-http2
 server implemented with [libwebsockets](https://github.com/warmcat/libwebsockets) - popular C-based networking library. 
+
 ### browser example
 Both example servers have web page at `https://localhost:8099` that sends pings to
 `/echo` endpoint.   
