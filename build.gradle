@@ -16,6 +16,8 @@
 
 plugins {
     id "com.palantir.git-version"
+    id "com.github.ben-manes.versions"
+
     id "com.github.sherter.google-java-format" apply false
     id "io.spring.dependency-management" apply false
     id "com.google.osdetector" apply false
