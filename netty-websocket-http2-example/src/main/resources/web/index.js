@@ -37,7 +37,17 @@ websocket.onerror = error => {
    }
    stateView.style.textDecoration = 'underline';
    stateView.style.textDecorationColor = 'red';
-   stateView.innerHTML = `state: disconnected, websocket error ${address}`;
+   stateView.innerHTML = `state: disconnected, websocket error, message=${error.message}`;
+};
+
+websocket.onclose = event => {
+   pingButton.disabled = true;
+   if (pingHandle) {
+       clearInterval(pingHandle);
+   }
+   stateView.style.textDecoration = 'underline';
+   stateView.style.textDecorationColor = 'red';
+   stateView.innerHTML = `state: disconnected, websocket close, code=${event.code}`;
 };
 
 pingButton.onclick = () => {
