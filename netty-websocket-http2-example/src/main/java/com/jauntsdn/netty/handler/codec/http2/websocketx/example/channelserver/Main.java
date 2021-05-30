@@ -33,6 +33,7 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
@@ -43,7 +44,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -84,6 +85,8 @@ public class Main {
   }
 
   private static class ConnectionAcceptor extends ChannelInitializer<SocketChannel> {
+    private static final List<String> SUPPORTED_USER_AGENTS =
+        Arrays.asList("Firefox/", "jauntsdn-websocket-http2-client/");
     private final SslContext sslContext;
 
     ConnectionAcceptor(SslContext sslContext) {
@@ -94,24 +97,64 @@ public class Main {
     protected void initChannel(SocketChannel ch) {
       SslHandler sslHandler = sslContext.newHandler(ch.alloc());
 
-      Http2FrameCodecBuilder http2Builder = Http2FrameCodecBuilder.forServer();
+      Http2FrameCodecBuilder http2Builder =
+          Http2WebSocketServerBuilder.configureHttp2Server(Http2FrameCodecBuilder.forServer());
       http2Builder.initialSettings().initialWindowSize(1_000);
-      Http2FrameCodec http2frameCodec =
-          Http2WebSocketServerBuilder.configureHttp2Server(http2Builder).build();
+      Http2FrameCodec http2frameCodec = http2Builder.build();
 
-      EchoWebSocketHandler echoWebSocketHandler = new EchoWebSocketHandler();
-      UserAgentBasedAcceptor userAgentBasedAcceptor = new UserAgentBasedAcceptor();
+      ChannelHandler echoWebSocketHandler = new EchoWebSocketHandler();
       Http2WebSocketServerHandler http2webSocketHandler =
           Http2WebSocketServerHandler.builder()
               .compression(true)
-              .handler("/echo", userAgentBasedAcceptor, echoWebSocketHandler)
-              .handler("/echo", "com.jauntsdn.echo", userAgentBasedAcceptor, echoWebSocketHandler)
-              .handler("/echo_all", echoWebSocketHandler)
+              .acceptor(
+                  (ctx, path, subprotocols, request, response) -> {
+                    switch (path) {
+                      case "/echo":
+                        if (subprotocols.contains("echo.jauntsdn.com")
+                            && acceptUserAgent(request, response)) {
+                          Http2WebSocketAcceptor.Subprotocol.accept("echo.jauntsdn.com", response);
+                          return ctx.executor().newSucceededFuture(echoWebSocketHandler);
+                        }
+                        break;
+                      case "/echo_all":
+                        if (subprotocols.isEmpty() && acceptUserAgent(request, response)) {
+                          return ctx.executor().newSucceededFuture(echoWebSocketHandler);
+                        }
+                        break;
+                    }
+                    return ctx.executor()
+                        .newFailedFuture(
+                            new WebSocketHandshakeException(
+                                String.format(
+                                    "websocket rejected, path: %s, subprotocols: %s, user-agent: %s",
+                                    path, subprotocols, request.get("user-agent"))));
+                  })
               .build();
 
       HttpHandler httpHandler = new HttpHandler();
 
       ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler, httpHandler);
+    }
+
+    private boolean acceptUserAgent(Http2Headers request, Http2Headers response) {
+      CharSequence userAgentSeq = request.get("user-agent");
+      if (userAgentSeq == null || userAgentSeq.length() == 0) {
+        return false;
+      }
+      String userAgent = userAgentSeq.toString();
+      for (String supportedUserAgent : SUPPORTED_USER_AGENTS) {
+        int index = userAgent.indexOf(supportedUserAgent);
+        if (index >= 0) {
+          int length = supportedUserAgent.length();
+          String version = userAgent.substring(index + length);
+          String clientId = supportedUserAgent.substring(0, length - 1);
+          request.set("x-client-id", clientId);
+          request.set("x-client-version", version);
+          response.set("x-request-id", UUID.randomUUID().toString());
+          return true;
+        }
+      }
+      return false;
     }
   }
 
@@ -225,36 +268,6 @@ public class Main {
         return repr.substring(index + prefix.length());
       }
       return repr;
-    }
-  }
-
-  private static class UserAgentBasedAcceptor implements Http2WebSocketAcceptor {
-    private static final Collection<String> SUPPORTED_USER_AGENTS =
-        Arrays.asList("Firefox/", "jauntsdn-websocket-http2-client/");
-
-    @Override
-    public ChannelFuture accept(
-        ChannelHandlerContext context, Http2Headers request, Http2Headers response) {
-      CharSequence userAgentSeq = request.get("user-agent");
-      if (userAgentSeq == null || userAgentSeq.length() == 0) {
-        return context.newFailedFuture(
-            new IllegalArgumentException("user-agent header is missing"));
-      }
-      String userAgent = userAgentSeq.toString();
-      for (String supported : SUPPORTED_USER_AGENTS) {
-        int index = userAgent.indexOf(supported);
-        if (index >= 0) {
-          int length = supported.length();
-          String version = userAgent.substring(index + length);
-          String clientId = supported.substring(0, length - 1);
-          request.set("x-client-id", clientId);
-          request.set("x-client-version", version);
-          response.set("x-request-id", UUID.randomUUID().toString());
-          return context.newSucceededFuture();
-        }
-      }
-      return context.newFailedFuture(
-          new IllegalArgumentException("unsupported user-agent: " + userAgentSeq));
     }
   }
 

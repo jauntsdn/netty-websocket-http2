@@ -91,7 +91,7 @@ public class Main {
     Http2Headers headers =
         new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.0.1");
     ChannelFuture handshake =
-        handShaker.handshake("/echo", "com.jauntsdn.echo", headers, new EchoWebSocketHandler());
+        handShaker.handshake("/echo", "echo.jauntsdn.com", headers, new EchoWebSocketHandler());
 
     handshake.addListener(new WebSocketFutureListener());
 

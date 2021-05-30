@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
  */
 public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHandler {
   private final PerMessageDeflateServerExtensionHandshaker compressionHandshaker;
-  private final WebSocketHandler.Container webSocketHandlers;
+  private final Http2WebSocketAcceptor http2WebSocketAcceptor;
 
   private Http2WebSocketServerHandshaker handshaker;
 
@@ -38,7 +38,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       boolean isEncoderMaskPayload,
       long closedWebSocketRemoveTimeoutMillis,
       @Nullable PerMessageDeflateServerExtensionHandshaker compressionHandshaker,
-      WebSocketHandler.Container webSocketHandlers,
+      Http2WebSocketAcceptor http2WebSocketAcceptor,
       boolean isSingleWebSocketPerConnection) {
     super(
         webSocketDecoderConfig,
@@ -46,7 +46,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
         closedWebSocketRemoveTimeoutMillis,
         isSingleWebSocketPerConnection);
     this.compressionHandshaker = compressionHandshaker;
-    this.webSocketHandlers = webSocketHandlers;
+    this.http2WebSocketAcceptor = http2WebSocketAcceptor;
   }
 
   public static Http2WebSocketServerBuilder builder() {
@@ -61,7 +61,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
             webSocketsParent,
             config,
             isEncoderMaskPayload,
-            webSocketHandlers,
+            http2WebSocketAcceptor,
             compressionHandshaker);
   }
 
@@ -112,51 +112,5 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       return false;
     }
     return true;
-  }
-
-  interface WebSocketHandler {
-
-    Http2WebSocketAcceptor acceptor();
-
-    ChannelHandler handler();
-
-    String subprotocol();
-
-    final class Impl implements WebSocketHandler {
-      private final Http2WebSocketAcceptor acceptor;
-      private final ChannelHandler handler;
-      private final String subprotocol;
-
-      public Impl(Http2WebSocketAcceptor acceptor, ChannelHandler handler, String subprotocol) {
-        this.acceptor = acceptor;
-        this.handler = handler;
-        this.subprotocol = subprotocol;
-      }
-
-      @Override
-      public Http2WebSocketAcceptor acceptor() {
-        return acceptor;
-      }
-
-      @Override
-      public ChannelHandler handler() {
-        return handler;
-      }
-
-      @Override
-      public String subprotocol() {
-        return subprotocol;
-      }
-    }
-
-    interface Container {
-
-      void put(
-          String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler);
-
-      WebSocketHandler get(String path, String subprotocol);
-
-      WebSocketHandler get(String path, String[] subprotocols);
-    }
   }
 }
