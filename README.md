@@ -64,7 +64,7 @@ EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
                   protected void initChannel(SocketChannel ch) {
 
                     Http2WebSocketClientHandler http2WebSocketClientHandler =
-                        Http2WebSocketClientHandler.builder()
+                        Http2WebSocketClientBuilder.create()
                             .handshakeTimeoutMillis(15_000)
                             .build();
 
