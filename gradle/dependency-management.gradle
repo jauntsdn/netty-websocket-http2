@@ -14,5 +14,9 @@ subprojects {
             dependency "com.google.code.findbugs:jsr305:${jsr305Version}"
             dependency "org.assertj:assertj-core:${assertjVersion}"
         }
+
+        generatedPomCustomization {
+            enabled = false
+        }
     }
 }

@@ -15,6 +15,7 @@
  */
 
 plugins {
+    id "java-library"
     id "maven-publish"
     id "signing"
 }
@@ -23,6 +24,14 @@ description = "Netty based implementation of rfc8441 - bootstrapping websockets 
 
 dependencies {
     api "io.netty:netty-codec-http2"
+    implementation "org.slf4j:slf4j-api"
     compileOnly "com.google.code.findbugs:jsr305"
+
+    testImplementation "org.assertj:assertj-core"
+    testImplementation "org.junit.jupiter:junit-jupiter-api"
+    testImplementation "org.junit.jupiter:junit-jupiter-params"
+
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+    testRuntimeOnly "ch.qos.logback:logback-classic"
     testRuntimeOnly "io.netty:netty-tcnative-boringssl-static"
 }
