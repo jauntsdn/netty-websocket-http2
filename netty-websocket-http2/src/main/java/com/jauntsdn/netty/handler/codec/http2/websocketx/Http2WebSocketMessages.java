@@ -16,7 +16,7 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-class Http2WebSocketMessages {
+final class Http2WebSocketMessages {
   static final String HANDSHAKE_UNEXPECTED_RESULT =
       "websocket handshake error: unexpected result - status=200, end_of_stream=true";
   static final String HANDSHAKE_UNSUPPORTED_VERSION =

@@ -57,9 +57,7 @@ public final class Http2WebSocketServerBuilder {
     return new Http2WebSocketHandshakeOnlyServerHandler();
   }
 
-  /**
-   * @return new {@link Http2WebSocketServerBuilder} instance
-   */
+  /** @return new {@link Http2WebSocketServerBuilder} instance */
   public static Http2WebSocketServerBuilder create() {
     return new Http2WebSocketServerBuilder();
   }

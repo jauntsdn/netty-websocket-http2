@@ -22,7 +22,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-class Http2WebSocketValidator {
+final class Http2WebSocketValidator {
   static final AsciiString PSEUDO_HEADER_METHOD = AsciiString.of(":method");
   static final AsciiString PSEUDO_HEADER_SCHEME = AsciiString.of(":scheme");
   static final AsciiString PSEUDO_HEADER_AUTHORITY = AsciiString.of(":authority");

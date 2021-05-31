@@ -54,7 +54,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", new ChannelInboundHandlerAdapter()))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
@@ -111,7 +111,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create().build();
+                      Http2WebSocketServerBuilder.create().build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
                 })
             .sync()
@@ -169,7 +169,8 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   Http2Settings settings = http2FrameCodecBuilder.initialSettings();
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
-                  Http2WebSocketHandler http2webSocketHandler = Http2WebSocketServerBuilder.buildHandshakeOnly();
+                  Http2WebSocketHandler http2webSocketHandler =
+                      Http2WebSocketServerBuilder.buildHandshakeOnly();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
                 })
             .sync()
@@ -229,7 +230,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(
                               new HeadersBasedAcceptor("/test", new ChannelInboundHandlerAdapter()))
                           .build();
@@ -293,7 +294,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(
                               new HeadersBasedAcceptor("/test", new ChannelInboundHandlerAdapter()))
                           .build();
@@ -356,7 +357,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(
                               new PathSubprotocolAcceptor(
                                   "/test", "com.jauntsdn.test", new ChannelInboundHandlerAdapter()))
@@ -417,7 +418,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(
                               new PathSubprotocolAcceptor(
                                   "/test", "com.jauntsdn.test", new ChannelInboundHandlerAdapter()))
@@ -482,7 +483,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(
                               new PathSubprotocolAcceptor(
                                   "/test",
@@ -550,7 +551,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .decoderConfig(
                               WebSocketDecoderConfig.newBuilder().allowExtensions(true).build())
                           .compression(true)
@@ -619,7 +620,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
                   settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", new ChannelInboundHandlerAdapter()))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);

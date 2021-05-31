@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
 
-class Http2WebSocketHandlerContainers {
+final class Http2WebSocketHandlerContainers {
 
   static final class SingleElementOptimizedMap<T> implements IntObjectMap<T> {
     /* 0: empty

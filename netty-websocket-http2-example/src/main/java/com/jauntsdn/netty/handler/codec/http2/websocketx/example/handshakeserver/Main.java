@@ -89,7 +89,8 @@ public class Main {
       http2Builder.initialSettings().initialWindowSize(FLOW_CONTROL_WINDOW_SIZE);
       Http2FrameCodec frameCodec = http2Builder.build();
 
-      Http2WebSocketHandler http2webSocketHandler = Http2WebSocketServerBuilder.buildHandshakeOnly();
+      Http2WebSocketHandler http2webSocketHandler =
+          Http2WebSocketServerBuilder.buildHandshakeOnly();
 
       Http2StreamsHandler http2StreamsHandler = new Http2StreamsHandler(FLOW_CONTROL_WINDOW_SIZE);
       ch.pipeline().addLast(sslHandler, frameCodec, http2webSocketHandler, http2StreamsHandler);

@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
-class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFuture> {
+final class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFuture> {
   private static final AsciiString HEADERS_STATUS_200 = AsciiString.of("200");
   private static final ReadOnlyHttp2Headers HEADERS_OK =
       ReadOnlyHttp2Headers.serverHeaders(true, HEADERS_STATUS_200);

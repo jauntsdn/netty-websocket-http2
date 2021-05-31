@@ -33,9 +33,7 @@ public final class Http2WebSocketClientBuilder {
 
   Http2WebSocketClientBuilder() {}
 
-  /**
-   * @return new {@link Http2WebSocketClientBuilder} instance
-   */
+  /** @return new {@link Http2WebSocketClientBuilder} instance */
   public static Http2WebSocketClientBuilder create() {
     return new Http2WebSocketClientBuilder();
   }

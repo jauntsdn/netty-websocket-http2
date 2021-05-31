@@ -55,7 +55,7 @@ public class TerminationTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
 
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", serverWebsocketCloseHandler))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
@@ -117,7 +117,7 @@ public class TerminationTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
 
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", serverWebsocketCloseListenerHandler))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
@@ -184,7 +184,7 @@ public class TerminationTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
 
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", serverWebsocketCloseListenerHandler))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
@@ -243,7 +243,7 @@ public class TerminationTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
 
                   Http2WebSocketServerHandler http2webSocketHandler =
-                          Http2WebSocketServerBuilder.create()
+                      Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", serverCloseHandler))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);

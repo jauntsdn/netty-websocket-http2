@@ -118,7 +118,7 @@ public class PingPongTest extends AbstractTest {
 
       ServerWebSocketHandler serverWebSocketHandler = new ServerWebSocketHandler();
       Http2WebSocketServerHandler http2webSocketHandler =
-              Http2WebSocketServerBuilder.create()
+          Http2WebSocketServerBuilder.create()
               .decoderConfig(WebSocketDecoderConfig.newBuilder().allowExtensions(true).build())
               .compression(true)
               .acceptor(new PathAcceptor("/test", serverWebSocketHandler))
