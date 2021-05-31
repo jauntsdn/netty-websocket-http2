@@ -61,7 +61,7 @@ class WebSocketTest extends AbstractTest {
                       webSocketsConfigurer
                           .server()
                           .apply(Http2WebSocketServerHandler.builder())
-                          .handler("/test", new ServerWebSocketHandler())
+                          .acceptor(new PathAcceptor("/test", new ServerWebSocketHandler()))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
                 })

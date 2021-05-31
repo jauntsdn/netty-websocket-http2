@@ -23,10 +23,13 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
+import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
 import io.netty.handler.ssl.*;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
+import io.netty.util.concurrent.Future;
 import java.io.InputStream;
 import java.net.SocketAddress;
 import java.security.KeyStore;
@@ -155,6 +158,75 @@ abstract class AbstractTest {
 
     public List<Http2WebSocketEvent> events() {
       return events;
+    }
+  }
+
+  static final class PathAcceptor implements Http2WebSocketAcceptor {
+    private final String path;
+    private final ChannelHandler webSocketHandler;
+
+    PathAcceptor(String path, ChannelHandler webSocketHandler) {
+      this.path = path;
+      this.webSocketHandler = webSocketHandler;
+    }
+
+    @Override
+    public Future<ChannelHandler> accept(
+        ChannelHandlerContext ctx,
+        String path,
+        List<String> subprotocols,
+        Http2Headers request,
+        Http2Headers response) {
+      if (subprotocols.isEmpty() && path.equals(this.path)) {
+        return ctx.executor().newSucceededFuture(webSocketHandler);
+      }
+      return ctx.executor()
+          .newFailedFuture(
+              new WebSocketHandshakeException(
+                  String.format("Path not found: %s , subprotocols: %s", path, subprotocols)));
+    }
+  }
+
+  static final class PathSubprotocolAcceptor implements Http2WebSocketAcceptor {
+    private final ChannelHandler webSocketHandler;
+    private final String path;
+    private final String subprotocol;
+    private final boolean acceptSubprotocol;
+
+    public PathSubprotocolAcceptor(
+        String path, String subprotocol, ChannelHandler webSocketHandler) {
+      this(path, subprotocol, webSocketHandler, true);
+    }
+
+    public PathSubprotocolAcceptor(
+        String path,
+        String subprotocol,
+        ChannelHandler webSocketHandler,
+        boolean acceptSubprotocol) {
+      this.path = path;
+      this.subprotocol = subprotocol;
+      this.webSocketHandler = webSocketHandler;
+      this.acceptSubprotocol = acceptSubprotocol;
+    }
+
+    @Override
+    public Future<ChannelHandler> accept(
+        ChannelHandlerContext ctx,
+        String path,
+        List<String> subprotocols,
+        Http2Headers request,
+        Http2Headers response) {
+      String subprotocol = this.subprotocol;
+      if (path.equals(this.path) && subprotocols.contains(subprotocol)) {
+        if (acceptSubprotocol) {
+          Subprotocol.accept(subprotocol, response);
+        }
+        return ctx.executor().newSucceededFuture(webSocketHandler);
+      }
+      return ctx.executor()
+          .newFailedFuture(
+              new Http2WebSocketPathNotFoundException(
+                  String.format("Path not found: %s , subprotocols: %s", path, subprotocols)));
     }
   }
 }

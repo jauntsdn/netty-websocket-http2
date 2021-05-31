@@ -85,11 +85,10 @@ public class Main {
     @Override
     protected void initChannel(SocketChannel ch) {
       SslHandler sslHandler = sslContext.newHandler(ch.alloc());
-
-      Http2FrameCodecBuilder http2Builder = Http2FrameCodecBuilder.forServer();
+      Http2FrameCodecBuilder http2Builder =
+          Http2WebSocketServerBuilder.configureHttp2Server(Http2FrameCodecBuilder.forServer());
       http2Builder.initialSettings().initialWindowSize(FLOW_CONTROL_WINDOW_SIZE);
-      Http2FrameCodec frameCodec =
-          Http2WebSocketServerBuilder.configureHttp2Server(http2Builder).build();
+      Http2FrameCodec frameCodec = http2Builder.build();
 
       Http2WebSocketHandler http2webSocketHandler =
           Http2WebSocketServerHandler.builder().handshakeOnly();
@@ -111,7 +110,7 @@ public class Main {
             true,
             AsciiString.of("200"),
             AsciiString.of("sec-websocket-protocol"),
-            AsciiString.of("com.jauntsdn.echo"));
+            AsciiString.of("echo.jauntsdn.com"));
 
     private final IntObjectMap<Http2FrameStream> echos = new IntObjectHashMap<>();
     private final ExecutorService executorService = Executors.newCachedThreadPool();
@@ -157,7 +156,7 @@ public class Main {
               echos.put(stream.id(), stream);
               CharSequence subprotocol = requestHeaders.get("sec-websocket-protocol");
               Http2Headers responseHeaders =
-                  subprotocol != null && "com.jauntsdn.echo".contentEquals(subprotocol)
+                  subprotocol != null && "echo.jauntsdn.com".contentEquals(subprotocol)
                       ? HEADERS_200_ECHO_PROTOCOL
                       : HEADERS_200;
               ctx.write(new DefaultHttp2HeadersFrame(responseHeaders, false).stream(stream));

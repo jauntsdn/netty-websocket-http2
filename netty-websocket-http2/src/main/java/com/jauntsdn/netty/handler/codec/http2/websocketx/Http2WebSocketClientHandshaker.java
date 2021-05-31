@@ -224,7 +224,7 @@ public final class Http2WebSocketClientHandshaker {
               responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_SUBPROTOCOL_NAME);
           if (!isEqual(clientSubprotocol, serverSubprotocol)) {
             errorMessage =
-                Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_SUBPROTOCOL + clientSubprotocol;
+                Http2WebSocketMessages.HANDSHAKE_UNEXPECTED_SUBPROTOCOL + clientSubprotocol;
           }
           /*compression*/
           if (errorMessage == null) {
@@ -251,10 +251,10 @@ public final class Http2WebSocketClientHandshaker {
         break;
       case "404":
         errorMessage =
-            String.format(
-                Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND,
-                webSocketChannel.path(),
-                webSocketChannel.subprotocol());
+            Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND
+                + webSocketChannel.path()
+                + Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND_SUBPROTOCOLS
+                + webSocketChannel.subprotocol();
         break;
       default:
         errorMessage = Http2WebSocketMessages.HANDSHAKE_GENERIC_ERROR + status;

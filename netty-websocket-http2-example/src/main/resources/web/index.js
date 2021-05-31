@@ -1,4 +1,5 @@
 const address = 'wss://localhost:8099/echo';
+const subprotocol = 'echo.jauntsdn.com';
 
 const startMessage = 'start';
 const stopMessage = 'stop';
@@ -15,7 +16,7 @@ let isStarted = false;
 let pingHandle;
 pingButton.innerHTML = startMessage;
 
-const websocket = new WebSocket(address);
+const websocket = new WebSocket(address, [subprotocol]);
 
 websocket.onopen = () => {
    pingButton.disabled = false;

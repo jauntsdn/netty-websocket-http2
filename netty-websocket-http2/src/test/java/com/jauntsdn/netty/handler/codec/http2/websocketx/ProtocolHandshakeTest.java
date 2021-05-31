@@ -55,7 +55,7 @@ public class ProtocolHandshakeTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
                       Http2WebSocketServerHandler.builder()
-                          .handler("/test", new ChannelInboundHandlerAdapter())
+                          .acceptor(new PathAcceptor("/test", new ChannelInboundHandlerAdapter()))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
                 })
@@ -166,7 +166,7 @@ public class ProtocolHandshakeTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
                   Http2WebSocketServerHandler http2webSocketHandler =
                       Http2WebSocketServerHandler.builder()
-                          .handler("/test", new ChannelInboundHandlerAdapter())
+                          .acceptor(new PathAcceptor("/test", new ChannelInboundHandlerAdapter()))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
                 })
