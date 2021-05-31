@@ -20,7 +20,6 @@ plugins {
 
     id "com.github.sherter.google-java-format" apply false
     id "io.spring.dependency-management" apply false
-    id "com.google.osdetector" apply false
 }
 
 description = "Netty based implementation of rfc8441 - bootstrapping websockets with http/2. Parent project"
@@ -35,22 +34,11 @@ allprojects {
 }
 
 subprojects {
-    apply plugin: "java-library"
     apply plugin: "com.github.sherter.google-java-format"
-    apply plugin: "com.google.osdetector"
 
     version = projectVersion(project)
 
     println "Building module ${name}:${version}"
-
-    dependencies {
-        api "org.slf4j:slf4j-api"
-        testImplementation "org.assertj:assertj-core"
-        testImplementation "org.junit.jupiter:junit-jupiter-api"
-        testImplementation "org.junit.jupiter:junit-jupiter-params"
-        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
-        testRuntimeOnly "ch.qos.logback:logback-classic"
-    }
 
     repositories {
         mavenCentral()

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+plugins {
+    id "java"
+}
+
 description = "Netty based implementation of rfc8441 - bootstrapping websockets with http/2. Example project"
 
 dependencies {
