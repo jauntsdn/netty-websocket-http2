@@ -16,14 +16,11 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandlerContainers.*;
-
-import io.netty.channel.ChannelHandler;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
 import io.netty.handler.codec.http2.Http2ConnectionHandlerBuilder;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
-import java.util.*;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,16 +28,39 @@ import org.slf4j.LoggerFactory;
 public final class Http2WebSocketServerBuilder {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerBuilder.class);
 
+  private static final Http2WebSocketAcceptor REJECT_REQUESTS_ACCEPTOR =
+      (context, path, subprotocols, request, response) ->
+          context
+              .executor()
+              .newFailedFuture(
+                  new Http2WebSocketPathNotFoundException(
+                      Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND
+                          + path
+                          + Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND_SUBPROTOCOLS
+                          + subprotocols));
+
   private WebSocketDecoderConfig webSocketDecoderConfig;
   private boolean isEncoderMaskPayload = true;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
   private boolean isSingleWebSocketPerConnection;
-  private int handlersCountHint;
-  private List<WebSocketPathHandler> webSocketPathHandlers;
-  private Http2WebSocketServerHandler.WebSocketHandler.Container websocketHandlers;
+  private Http2WebSocketAcceptor acceptor = REJECT_REQUESTS_ACCEPTOR;
 
   Http2WebSocketServerBuilder() {}
+
+  /**
+   * Builds handshake-only {@link Http2WebSocketHandshakeOnlyServerHandler}.
+   *
+   * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
+   */
+  public static Http2WebSocketHandshakeOnlyServerHandler buildHandshakeOnly() {
+    return new Http2WebSocketHandshakeOnlyServerHandler();
+  }
+
+  /** @return new {@link Http2WebSocketServerBuilder} instance */
+  public static Http2WebSocketServerBuilder create() {
+    return new Http2WebSocketServerBuilder();
+  }
 
   /**
    * Utility method for configuring Http2FrameCodecBuilder with websocket-over-http2 support
@@ -149,75 +169,13 @@ public final class Http2WebSocketServerBuilder {
   }
 
   /**
-   * @param handlersCountHint number of handlers. Optional, enables minor optimizations.
-   * @return this {@link Http2WebSocketServerBuilder} instance
-   */
-  public Http2WebSocketServerBuilder handlersCount(int handlersCountHint) {
-    this.handlersCountHint =
-        Preconditions.requireNonNegative(handlersCountHint, "handlersCountHint");
-    return this;
-  }
-
-  /**
-   * Adds http1 websocket handler for given path
+   * Sets http1 websocket request acceptor
    *
-   * @param path websocket path. Must be non-empty
-   * @param handler websocket handler for given path. Must be non-null
+   * @param acceptor websocket request acceptor. Must be non-null.
    * @return this {@link Http2WebSocketServerBuilder} instance
    */
-  public Http2WebSocketServerBuilder handler(String path, ChannelHandler handler) {
-    return handler(path, "", Http2WebSocketAcceptor.ACCEPT_ALL, handler);
-  }
-
-  /**
-   * Adds http1 websocket handler with request acceptor for given path
-   *
-   * @param path websocket path. Must be non-empty
-   * @param acceptor websocket request acceptor. Must be non-null. Default acceptor {@link
-   *     Http2WebSocketAcceptor#ACCEPT_ALL} accepts all requests
-   * @param handler websocket handler for given path. Must be non-null
-   * @return this {@link Http2WebSocketServerBuilder} instance
-   */
-  public Http2WebSocketServerBuilder handler(
-      String path, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
-    return handler(path, "", acceptor, handler);
-  }
-
-  /**
-   * Adds http1 websocket handler with request acceptor for given path and subprotocol
-   *
-   * @param path websocket path. Must be non-empty
-   * @param subprotocol websocket subprotocol. Must be non-null
-   * @param acceptor websocket request acceptor. Must be non-null. Default acceptor {@link
-   *     Http2WebSocketAcceptor#ACCEPT_ALL} accepts all requests
-   * @param handler websocket handler for given path and subprotocol. Must be non-null
-   * @return this {@link Http2WebSocketServerBuilder} instance
-   */
-  public Http2WebSocketServerBuilder handler(
-      String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
-    Preconditions.requireNonNull(path, "path");
-    Preconditions.requireNonNull(subprotocol, "subprotocol");
-    Preconditions.requireNonNull(acceptor, "acceptor");
-    Preconditions.requireNonNull(handler, "handler");
-
-    List<WebSocketPathHandler> pathHandlers = webSocketPathHandlers;
-    /*handlers list created first as there was no size hint*/
-    if (pathHandlers != null) {
-      pathHandlers.add(new WebSocketPathHandler(path, subprotocol, acceptor, handler));
-      return this;
-    }
-    int count = handlersCountHint;
-    Http2WebSocketServerHandler.WebSocketHandler.Container handlers = websocketHandlers;
-    if (count > 0 && handlers == null) {
-      handlers = websocketHandlers = createWebSocketHandlersContainer(count);
-    }
-    /*handlers container created first as there was size hint*/
-    if (handlers != null) {
-      handlers.put(path, subprotocol, acceptor, handler);
-      return this;
-    }
-    pathHandlers = webSocketPathHandlers = new ArrayList<>(4);
-    pathHandlers.add(new WebSocketPathHandler(path, subprotocol, acceptor, handler));
+  public Http2WebSocketServerBuilder acceptor(Http2WebSocketAcceptor acceptor) {
+    this.acceptor = acceptor;
     return this;
   }
 
@@ -229,16 +187,6 @@ public final class Http2WebSocketServerBuilder {
       boolean isSingleWebSocketPerConnection) {
     this.isSingleWebSocketPerConnection = isSingleWebSocketPerConnection;
     return this;
-  }
-
-  /**
-   * Builds handshake-only {@link Http2WebSocketHandshakeOnlyServerHandler}. All configuration
-   * options provided on this builder are ignored.
-   *
-   * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
-   */
-  public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly() {
-    return new Http2WebSocketHandshakeOnlyServerHandler();
   }
 
   /**
@@ -259,64 +207,12 @@ public final class Http2WebSocketServerBuilder {
             "websocket compression is enabled while extensions are disabled");
       }
     }
-    Http2WebSocketServerHandler.WebSocketHandler.Container handlers = websocketHandlers;
-    if (handlers == null) {
-      List<WebSocketPathHandler> pathHandlers = webSocketPathHandlers;
-      if (pathHandlers == null) {
-        handlers = EmptyHandlerContainer.getInstance();
-      } else {
-        handlers = createWebSocketHandlersContainer(pathHandlers.size());
-        for (WebSocketPathHandler handler : pathHandlers) {
-          handlers.put(
-              handler.path(), handler.subprotocol(), handler.acceptor(), handler.handler());
-        }
-      }
-    }
     return new Http2WebSocketServerHandler(
         config,
         isEncoderMaskPayload,
         closedWebSocketRemoveTimeoutMillis,
         perMessageDeflateServerExtensionHandshaker,
-        handlers,
+        acceptor,
         isSingleWebSocketPerConnection);
-  }
-
-  static Http2WebSocketServerHandler.WebSocketHandler.Container createWebSocketHandlersContainer(
-      int handlersCount) {
-    if (handlersCount == 1) {
-      return new SingleHandlerContainer();
-    }
-    return new DefaultHandlerContainer(handlersCount);
-  }
-
-  private static class WebSocketPathHandler {
-    private final String path;
-    private final String subprotocol;
-    private final Http2WebSocketAcceptor acceptor;
-    private final ChannelHandler handler;
-
-    public WebSocketPathHandler(
-        String path, String subprotocol, Http2WebSocketAcceptor acceptor, ChannelHandler handler) {
-      this.path = path;
-      this.subprotocol = subprotocol;
-      this.acceptor = acceptor;
-      this.handler = handler;
-    }
-
-    public String path() {
-      return path;
-    }
-
-    public String subprotocol() {
-      return subprotocol;
-    }
-
-    public Http2WebSocketAcceptor acceptor() {
-      return acceptor;
-    }
-
-    public ChannelHandler handler() {
-      return handler;
-    }
   }
 }

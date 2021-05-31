@@ -18,6 +18,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client;
 
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.*;
 
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandshaker;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Security;
@@ -89,7 +90,7 @@ public class Main {
                     frameCodecBuilder.initialSettings().initialWindowSize(flowControlWindowSize);
                     Http2FrameCodec http2FrameCodec = frameCodecBuilder.build();
                     Http2WebSocketClientHandler http2WebSocketClientHandler =
-                        Http2WebSocketClientHandler.builder()
+                        Http2WebSocketClientBuilder.create()
                             .handshakeTimeoutMillis(15_000)
                             .assumeSingleWebSocketPerConnection(true)
                             .build();

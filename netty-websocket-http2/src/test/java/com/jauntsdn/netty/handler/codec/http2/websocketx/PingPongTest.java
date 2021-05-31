@@ -118,10 +118,10 @@ public class PingPongTest extends AbstractTest {
 
       ServerWebSocketHandler serverWebSocketHandler = new ServerWebSocketHandler();
       Http2WebSocketServerHandler http2webSocketHandler =
-          Http2WebSocketServerHandler.builder()
+          Http2WebSocketServerBuilder.create()
               .decoderConfig(WebSocketDecoderConfig.newBuilder().allowExtensions(true).build())
               .compression(true)
-              .handler("/test", serverWebSocketHandler)
+              .acceptor(new PathAcceptor("/test", serverWebSocketHandler))
               .build();
 
       ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
@@ -150,7 +150,7 @@ public class PingPongTest extends AbstractTest {
       SslHandler sslHandler = sslContext.newHandler(ch.alloc());
       Http2FrameCodec http2FrameCodec = Http2FrameCodecBuilder.forClient().build();
       Http2WebSocketClientHandler http2WebSocketClientHandler =
-          Http2WebSocketClientHandler.builder().handshakeTimeoutMillis(5_000).build();
+          Http2WebSocketClientBuilder.create().handshakeTimeoutMillis(5_000).build();
       ch.pipeline().addLast(sslHandler, http2FrameCodec, http2WebSocketClientHandler);
     }
   }

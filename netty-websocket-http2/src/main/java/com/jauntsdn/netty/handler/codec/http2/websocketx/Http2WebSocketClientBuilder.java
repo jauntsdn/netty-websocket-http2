@@ -22,16 +22,21 @@ import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageD
 /** Builder for {@link Http2WebSocketClientHandler} */
 public final class Http2WebSocketClientBuilder {
   private static final short DEFAULT_STREAM_WEIGHT = 16;
+  private static final boolean MASK_PAYLOAD = true;
 
   private WebSocketDecoderConfig webSocketDecoderConfig;
   private PerMessageDeflateClientExtensionHandshaker perMessageDeflateClientExtensionHandshaker;
-  private boolean isEncoderMaskPayload = true;
   private long handshakeTimeoutMillis = 15_000;
   private short streamWeight;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
   private boolean isSingleWebSocketPerConnection;
 
   Http2WebSocketClientBuilder() {}
+
+  /** @return new {@link Http2WebSocketClientBuilder} instance */
+  public static Http2WebSocketClientBuilder create() {
+    return new Http2WebSocketClientBuilder();
+  }
 
   /**
    * @param webSocketDecoderConfig websocket decoder configuration. Must be non-null
@@ -40,15 +45,6 @@ public final class Http2WebSocketClientBuilder {
   public Http2WebSocketClientBuilder decoderConfig(WebSocketDecoderConfig webSocketDecoderConfig) {
     this.webSocketDecoderConfig =
         Preconditions.requireNonNull(webSocketDecoderConfig, "webSocketDecoderConfig");
-    return this;
-  }
-
-  /**
-   * @param isEncoderMaskPayload enables websocket frames encoder payload masking
-   * @return this {@link Http2WebSocketClientBuilder} instance
-   */
-  public Http2WebSocketClientBuilder encoderMaskPayload(boolean isEncoderMaskPayload) {
-    this.isEncoderMaskPayload = isEncoderMaskPayload;
     return this;
   }
 
@@ -164,7 +160,7 @@ public final class Http2WebSocketClientBuilder {
 
     return new Http2WebSocketClientHandler(
         config,
-        isEncoderMaskPayload,
+        MASK_PAYLOAD,
         weight,
         handshakeTimeoutMillis,
         closedWebSocketRemoveTimeoutMillis,

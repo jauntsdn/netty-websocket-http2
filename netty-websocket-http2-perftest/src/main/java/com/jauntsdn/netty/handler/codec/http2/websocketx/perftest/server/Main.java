@@ -26,6 +26,7 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
@@ -86,10 +87,10 @@ public class Main {
     protected void initChannel(SocketChannel ch) {
       SslHandler sslHandler = sslContext.newHandler(ch.alloc());
 
-      Http2FrameCodecBuilder http2Builder = Http2FrameCodecBuilder.forServer();
+      Http2FrameCodecBuilder http2Builder =
+          Http2WebSocketServerBuilder.configureHttp2Server(Http2FrameCodecBuilder.forServer());
       http2Builder.initialSettings().initialWindowSize(flowControlWindowSize);
-      Http2FrameCodec http2FrameCodec =
-          Http2WebSocketServerBuilder.configureHttp2Server(http2Builder).build();
+      Http2FrameCodec http2FrameCodec = http2Builder.build();
       Http2Connection connection = http2FrameCodec.connection();
       connection
           .remote()
@@ -97,10 +98,21 @@ public class Main {
               new DefaultHttp2RemoteFlowController(
                   connection, new UniformStreamByteDistributor(connection)));
 
+      EchoWebSocketHandler echoWebSocketHandler = new EchoWebSocketHandler();
       Http2WebSocketServerHandler http2webSocketHandler =
-          Http2WebSocketServerHandler.builder()
+          Http2WebSocketServerBuilder.create()
               .assumeSingleWebSocketPerConnection(true)
-              .handler("/echo", new EchoWebSocketHandler())
+              .acceptor(
+                  (ctx, path, subprotocols, request, response) -> {
+                    if ("/echo".equals(path) && subprotocols.isEmpty()) {
+                      return ctx.executor().newSucceededFuture(echoWebSocketHandler);
+                    }
+                    return ctx.executor()
+                        .newFailedFuture(
+                            new WebSocketHandshakeException(
+                                String.format(
+                                    "path not found: %s, subprotocols: %s", path, subprotocols)));
+                  })
               .build();
 
       ExceptionHandler exceptionHandler = new ExceptionHandler();

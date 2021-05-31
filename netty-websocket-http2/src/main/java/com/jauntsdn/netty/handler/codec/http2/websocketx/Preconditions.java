@@ -19,7 +19,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 
-class Preconditions {
+final class Preconditions {
   static <T> T requireNonNull(T t, String message) {
     if (t == null) {
       throw new IllegalArgumentException(message + " must be non null");

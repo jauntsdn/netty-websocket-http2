@@ -1,11 +1,10 @@
-[![Build Status](https://travis-ci.org/jauntsdn/netty-websocket-http2.svg?branch=develop)](https://travis-ci.org/jauntsdn/netty-websocket-http2)
 ![Maven Central](https://img.shields.io/maven-central/v/com.jauntsdn.netty/netty-websocket-http2)
 
 # netty-websocket-http2
 
 Netty based implementation of [rfc8441](https://tools.ietf.org/html/rfc8441) - bootstrapping websockets with http/2
 
-Library is addressing 2 use cases: for application servers and clients, 
+Library addresses 2 use cases: for application servers and clients, 
 It is transparent use of existing http1 websocket handlers on top of http2 streams; for gateways/proxies, 
 It is websockets-over-http2 support with no http1 dependencies and minimal overhead.
 
@@ -20,8 +19,33 @@ Allows transparent application of existing http1 websocket handlers on top of ht
 EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
 
  Http2WebSocketServerHandler http2webSocketHandler =
-       Http2WebSocketServerHandler.builder()
-              .handler("/echo", http1WebSocketHandler)
+       Http2WebSocketServerBuilder.create()
+              .acceptor(
+                   (ctx, path, subprotocols, request, response) -> {
+                     switch (path) {
+                       case "/echo":
+                         if (subprotocols.contains("echo.jauntsdn.com")
+                             && acceptUserAgent(request, response)) {
+                           /*selecting subprotocol for accepted requests is mandatory*/
+                           Http2WebSocketAcceptor.Subprotocol
+                                  .accept("echo.jauntsdn.com", response);
+                           return ctx.executor()
+                                  .newSucceededFuture(echoWebSocketHandler);
+                         }
+                         break;
+                       case "/echo_all":
+                         if (subprotocols.isEmpty() 
+                                  && acceptUserAgent(request, response)) {
+                           return ctx.executor()
+                                  .newSucceededFuture(echoWebSocketHandler);
+                         }
+                         break;
+                     }
+                     return ctx.executor()
+                         .newFailedFuture(
+                             new WebSocketHandshakeException(
+                                  "websocket rejected, path: " + path));
+                   })
               .build();
 
       ch.pipeline()
@@ -29,20 +53,6 @@ EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
                     http2frameCodec, 
                     http2webSocketHandler);
 ```  
-
-Server websocket handler can be accompanied by `Http2WebSocketAcceptor`
-```groovy
-Http2WebSocketServerHandler.builder()
-   .handler("/echo", new EchoWebsocketAcceptor(), http1WebSocketHandler);
-```
-```groovy
-interface Http2WebSocketAcceptor {
-
-  ChannelFuture accept(ChannelHandlerContext context,
-                       Http2Headers request, 
-                       Http2Headers response);
-}
-```
 
 * Client
 ```groovy
@@ -54,7 +64,7 @@ interface Http2WebSocketAcceptor {
                   protected void initChannel(SocketChannel ch) {
 
                     Http2WebSocketClientHandler http2WebSocketClientHandler =
-                        Http2WebSocketClientHandler.builder()
+                        Http2WebSocketClientBuilder.create()
                             .handshakeTimeoutMillis(15_000)
                             .build();
 
@@ -91,7 +101,7 @@ Intended for intermediaries/proxies.
 Only verifies whether http2 stream is valid websocket, then passes it down the pipeline. 
 ```groovy
       Http2WebSocketServerHandler http2webSocketHandler =
-          Http2WebSocketServerHandler.builder().handshakeOnly();
+          Http2WebSocketServerBuilder.buildHandshakeOnly();
 
       Http2StreamsHandler http2StreamsHandler = new Http2StreamsHandler();
       ch.pipeline()
@@ -104,7 +114,7 @@ Only verifies whether http2 stream is valid websocket, then passes it down the p
 Works with both callbacks-style `Http2ConnectionHandler` and frames based `Http2FrameCodec`.      
 
 ```
-Http2WebSocketServerHandler.builder().handshakeOnly(rejectedWebSocketListener);
+Http2WebSocketServerBuilder.buildHandshakeOnly();
 ```
  
 Runnable demo is available in `netty-websocket-http2-example` module - 
@@ -143,17 +153,16 @@ Http2WebSocketServerBuilder.compression(
       allowServerNoContext,
       preferredClientNoContext);
 ``` 
-Server/client subprotocols are configured on per-path basis
+Client subprotocols are configured on per-path basis
 ```groovy
+EchoWebSocketHandler http1WebsocketHandler = new EchoWebSocketHandler();
 ChannelFuture handshake =
-        handShaker.handshake("/echo", "subprotocol", headers, new EchoWebSocketHandler());
+        handShaker.handshake("/echo", "subprotocol", headers, http1WebsocketHandler);
 ``` 
+On a server It is responsibility of `Http2WebSocketAcceptor` to select supported protocol with
 ```groovy
-Http2WebSocketServerHandler.builder()
-              .handler("/echo", "subprotocol", http1WebSocketHandler)
-              .handler("/echo", "wamp", http1WebSocketWampHandler);
+Http2WebSocketAcceptor.Subprotocol.accept(subprotocol, response);
 ```
-
 ### lifecycle 
 
 Handshake events and several shutdown options are available when 
@@ -259,7 +268,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.0.1'
+    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.0.2'
 }
 ```
 

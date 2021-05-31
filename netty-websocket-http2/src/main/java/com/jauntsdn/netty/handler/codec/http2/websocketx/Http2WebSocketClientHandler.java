@@ -67,10 +67,6 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
     this.compressionHandshaker = compressionHandshaker;
   }
 
-  public static Http2WebSocketClientBuilder builder() {
-    return new Http2WebSocketClientBuilder();
-  }
-
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     super.handlerAdded(ctx);

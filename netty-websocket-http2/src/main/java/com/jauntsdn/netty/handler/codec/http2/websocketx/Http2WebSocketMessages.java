@@ -16,16 +16,16 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-class Http2WebSocketMessages {
+final class Http2WebSocketMessages {
   static final String HANDSHAKE_UNEXPECTED_RESULT =
       "websocket handshake error: unexpected result - status=200, end_of_stream=true";
   static final String HANDSHAKE_UNSUPPORTED_VERSION =
       "websocket handshake error: unsupported version; supported versions - ";
   static final String HANDSHAKE_BAD_REQUEST = "websocket handshake error: bad request";
-  static final String HANDSHAKE_PATH_NOT_FOUND =
-      "websocket handshake error: path not found - %s, subprotocols - %s";
-  static final String HANDSHAKE_UNSUPPORTED_SUBPROTOCOL =
-      "websocket handshake error: unsupported subprotocol - ";
+  static final String HANDSHAKE_PATH_NOT_FOUND = "websocket handshake error: path not found - ";
+  static final String HANDSHAKE_PATH_NOT_FOUND_SUBPROTOCOLS = ", subprotocols - ";
+  static final String HANDSHAKE_UNEXPECTED_SUBPROTOCOL =
+      "websocket handshake error: unexpected subprotocol - ";
   static final String HANDSHAKE_GENERIC_ERROR = "websocket handshake error: ";
   static final String HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE =
       "websocket handshake error: async acceptors are not supported";

@@ -45,7 +45,7 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class Http2WebSocketChannel extends DefaultAttributeMap
+final class Http2WebSocketChannel extends DefaultAttributeMap
     implements Channel, Http2WebSocket, GenericFutureListener<ChannelFuture> {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketChannel.class);
   private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);

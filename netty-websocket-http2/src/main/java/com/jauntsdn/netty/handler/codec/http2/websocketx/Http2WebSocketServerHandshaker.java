@@ -18,7 +18,6 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.endOfStreamName;
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.endOfStreamValue;
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler.*;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
 import io.netty.channel.*;
@@ -31,11 +30,14 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.ScheduledFuture;
 import java.nio.channels.ClosedChannelException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.Nullable;
 
-class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFuture> {
+final class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFuture> {
   private static final AsciiString HEADERS_STATUS_200 = AsciiString.of("200");
   private static final ReadOnlyHttp2Headers HEADERS_OK =
       ReadOnlyHttp2Headers.serverHeaders(true, HEADERS_STATUS_200);
@@ -45,7 +47,7 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
           AsciiString.of("400"),
           AsciiString.of(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME),
           AsciiString.of(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE));
-  private static final ReadOnlyHttp2Headers HEADERS_REJECTED_REQUEST =
+  private static final ReadOnlyHttp2Headers HEADERS_REJECTED =
       ReadOnlyHttp2Headers.serverHeaders(true, AsciiString.of("400"));
   private static final ReadOnlyHttp2Headers HEADERS_NOT_FOUND =
       ReadOnlyHttp2Headers.serverHeaders(true, AsciiString.of("404"));
@@ -53,21 +55,21 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
       ReadOnlyHttp2Headers.serverHeaders(true, AsciiString.of("500"));
 
   private final WebSocketsParent webSocketsParent;
-  private final WebSocketHandler.Container webSocketHandlers;
   private final WebSocketDecoderConfig webSocketDecoderConfig;
   private final boolean isEncoderMaskPayload;
+  private final Http2WebSocketAcceptor http2WebSocketAcceptor;
   private final WebSocketServerExtensionHandshaker compressionHandshaker;
 
   Http2WebSocketServerHandshaker(
       WebSocketsParent webSocketsParent,
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
-      WebSocketHandler.Container webSocketHandlers,
+      Http2WebSocketAcceptor http2WebSocketAcceptor,
       @Nullable WebSocketServerExtensionHandshaker compressionHandshaker) {
     this.webSocketsParent = webSocketsParent;
-    this.webSocketHandlers = webSocketHandlers;
     this.webSocketDecoderConfig = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
+    this.http2WebSocketAcceptor = http2WebSocketAcceptor;
     this.compressionHandshaker = compressionHandshaker;
   }
 
@@ -106,28 +108,8 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
       writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true).addListener(this);
       return;
     }
-    /* http2 websocket handshake is successful  */
-    WebSocketHandler handler =
-        subprotocols.isEmpty()
-            ? webSocketHandlers.get(path, subprotocols)
-            : webSocketHandlers.get(path, parseSubprotocols(subprotocols));
 
-    /*no handlers for path*/
-    if (handler == null) {
-      Http2WebSocketEvent.fireHandshakeStartAndError(
-          ctx.channel(),
-          streamId,
-          path,
-          subprotocols,
-          requestHeaders,
-          startNanos,
-          System.nanoTime(),
-          WebSocketHandshakeException.class.getName(),
-          String.format(Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND, path, subprotocols));
-
-      writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true).addListener(this);
-      return;
-    }
+    List<String> requestedSubprotocols = parseSubprotocols(subprotocols);
 
     /*compression*/
     WebSocketServerExtension compressionExtension = null;
@@ -141,38 +123,31 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
       }
     }
     boolean hasCompression = compressionExtension != null;
-    String subprotocol = handler.subprotocol();
-    Http2WebSocketAcceptor acceptor = handler.acceptor();
-    boolean hasSubprotocol = !subprotocol.isEmpty();
 
     WebSocketExtensionEncoder compressionEncoder = null;
     WebSocketExtensionDecoder compressionDecoder = null;
-    Http2Headers responseHeaders = EmptyHttp2Headers.INSTANCE;
+    Http2Headers responseHeaders = new DefaultHttp2Headers();
 
-    if (hasCompression || hasSubprotocol || acceptor.writesResponseHeaders()) {
-      responseHeaders = new DefaultHttp2Headers();
-      if (hasSubprotocol) {
-        responseHeaders.set(Http2WebSocketProtocol.HEADER_WEBSOCKET_SUBPROTOCOL_NAME, subprotocol);
-      }
-      if (hasCompression) {
-        responseHeaders.set(
-            Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
-            Http2WebSocketExtensions.encode(compressionExtension.newReponseData()));
-        compressionEncoder = compressionExtension.newExtensionEncoder();
-        compressionDecoder = compressionExtension.newExtensionDecoder();
-      }
+    if (hasCompression) {
+      responseHeaders.set(
+          Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
+          Http2WebSocketExtensions.encode(compressionExtension.newReponseData()));
+      compressionEncoder = compressionExtension.newExtensionEncoder();
+      compressionDecoder = compressionExtension.newExtensionDecoder();
     }
 
-    ChannelFuture accepted;
+    Future<ChannelHandler> acceptorResult;
     try {
-      accepted = acceptor.accept(ctx, requestHeaders, responseHeaders);
+      acceptorResult =
+          http2WebSocketAcceptor.accept(
+              ctx, path, requestedSubprotocols, requestHeaders, responseHeaders);
     } catch (Exception e) {
-      accepted = ctx.newFailedFuture(e);
+      acceptorResult = ctx.executor().newFailedFuture(e);
     }
 
     /*async acceptors are not yet supported*/
-    if (!accepted.isDone()) {
-      accepted.cancel(true);
+    if (!acceptorResult.isDone()) {
+      acceptorResult.cancel(true);
       Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
@@ -188,8 +163,9 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
       return;
     }
 
+    Throwable rejected = acceptorResult.cause();
     /*rejected request*/
-    if (!accepted.isSuccess()) {
+    if (rejected != null) {
       Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
@@ -198,11 +174,38 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
           requestHeaders,
           startNanos,
           System.nanoTime(),
-          accepted.cause());
+          rejected);
 
-      writeHeaders(ctx, streamId, HEADERS_REJECTED_REQUEST, true).addListener(this);
+      Http2Headers response =
+          rejected instanceof Http2WebSocketPathNotFoundException
+              ? HEADERS_NOT_FOUND
+              : HEADERS_REJECTED;
+
+      writeHeaders(ctx, streamId, response, true).addListener(this);
       return;
     }
+
+    CharSequence acceptedSubprotocolSeq =
+        responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_SUBPROTOCOL_NAME);
+    String acceptedSubprotocol = nonNullString(acceptedSubprotocolSeq);
+    if (!isExpectedSubprotocol(acceptedSubprotocol, requestedSubprotocols)) {
+      String subprotocolOrBlank = acceptedSubprotocol.isEmpty() ? "''" : acceptedSubprotocol;
+      Http2WebSocketEvent.fireHandshakeStartAndError(
+          ctx.channel(),
+          streamId,
+          path,
+          subprotocols,
+          requestHeaders,
+          startNanos,
+          System.nanoTime(),
+          WebSocketHandshakeException.class.getName(),
+          Http2WebSocketMessages.HANDSHAKE_UNEXPECTED_SUBPROTOCOL + subprotocolOrBlank);
+
+      writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true).addListener(this);
+      return;
+    }
+
+    ChannelHandler webSocketHandler = acceptorResult.getNow();
 
     WebSocketExtensionEncoder finalCompressionEncoder = compressionEncoder;
     WebSocketExtensionDecoder finalCompressionDecoder = compressionDecoder;
@@ -228,13 +231,12 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
               }
 
               /* synchronous acceptor, no need for timeout - just register webSocket*/
-              ChannelHandler webSocketHandler = handler.handler();
               Http2WebSocketChannel webSocket =
                   new Http2WebSocketChannel(
                           webSocketsParent,
                           streamId,
                           path,
-                          subprotocol,
+                          acceptedSubprotocol,
                           webSocketDecoderConfig,
                           isEncoderMaskPayload,
                           finalCompressionEncoder,
@@ -288,6 +290,20 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
             });
   }
 
+  private boolean isExpectedSubprotocol(String subprotocol, List<String> requestedSubprotocols) {
+    int requestedLength = requestedSubprotocols.size();
+    if (subprotocol.isEmpty()) {
+      return requestedLength == 0;
+    }
+
+    for (int i = 0; i < requestedLength; i++) {
+      if (requestedSubprotocols.get(i).equals(subprotocol)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /*HEADERS, RST_STREAM frame write*/
   @Override
   public void operationComplete(ChannelFuture future) {
@@ -316,12 +332,14 @@ class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFut
         Http2WebSocketProtocol.HEADER_PROTOCOL_VALUE);
   }
 
-  private static String[] parseSubprotocols(String subprotocols) {
-    String[] sp = subprotocols.split(",");
-    for (int i = 0; i < sp.length; i++) {
-      sp[i] = sp[i].trim();
+  static List<String> parseSubprotocols(String subprotocols) {
+    if (subprotocols.isEmpty()) {
+      return Collections.emptyList();
     }
-    return sp;
+    if (subprotocols.indexOf(',') == -1) {
+      return Collections.singletonList(subprotocols);
+    }
+    return Arrays.asList(subprotocols.split(","));
   }
 
   private static String nonNullString(@Nullable CharSequence seq) {
