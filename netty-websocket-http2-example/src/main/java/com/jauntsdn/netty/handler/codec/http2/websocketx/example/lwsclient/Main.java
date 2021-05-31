@@ -18,6 +18,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx.example.lwsclient;
 
 import static io.netty.channel.ChannelHandler.Sharable;
 
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandshaker;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.example.Security;
@@ -69,7 +70,7 @@ public class Main {
                     http2FrameCodecBuilder.initialSettings().initialWindowSize(10_000);
                     Http2FrameCodec http2FrameCodec = http2FrameCodecBuilder.build();
                     Http2WebSocketClientHandler http2WebSocketClientHandler =
-                        Http2WebSocketClientHandler.builder()
+                        Http2WebSocketClientBuilder.create()
                             .decoderConfig(
                                 WebSocketDecoderConfig.newBuilder()
                                     .allowExtensions(true)

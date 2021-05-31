@@ -49,10 +49,6 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
     this.http2WebSocketAcceptor = http2WebSocketAcceptor;
   }
 
-  public static Http2WebSocketServerBuilder builder() {
-    return new Http2WebSocketServerBuilder();
-  }
-
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     super.handlerAdded(ctx);

@@ -19,7 +19,7 @@ Allows transparent application of existing http1 websocket handlers on top of ht
 EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
 
  Http2WebSocketServerHandler http2webSocketHandler =
-       Http2WebSocketServerHandler.builder()
+       Http2WebSocketServerBuilder.create()
               .acceptor(
                    (ctx, path, subprotocols, request, response) -> {
                      switch (path) {
@@ -101,7 +101,7 @@ Intended for intermediaries/proxies.
 Only verifies whether http2 stream is valid websocket, then passes it down the pipeline. 
 ```groovy
       Http2WebSocketServerHandler http2webSocketHandler =
-          Http2WebSocketServerHandler.builder().handshakeOnly();
+          Http2WebSocketServerBuilder.buildHandshakeOnly();
 
       Http2StreamsHandler http2StreamsHandler = new Http2StreamsHandler();
       ch.pipeline()
@@ -114,7 +114,7 @@ Only verifies whether http2 stream is valid websocket, then passes it down the p
 Works with both callbacks-style `Http2ConnectionHandler` and frames based `Http2FrameCodec`.      
 
 ```
-Http2WebSocketServerHandler.builder().handshakeOnly();
+Http2WebSocketServerBuilder.buildHandshakeOnly();
 ```
  
 Runnable demo is available in `netty-websocket-http2-example` module - 
@@ -155,10 +155,11 @@ Http2WebSocketServerBuilder.compression(
 ``` 
 Client subprotocols are configured on per-path basis
 ```groovy
+EchoWebSocketHandler http1WebsocketHandler = new EchoWebSocketHandler();
 ChannelFuture handshake =
-        handShaker.handshake("/echo", "subprotocol", headers, new EchoWebSocketHandler());
+        handShaker.handshake("/echo", "subprotocol", headers, http1WebsocketHandler);
 ``` 
-It is responsibility of `Http2WebSocketAcceptor` to select supported protocol with
+On a server It is responsibility of `Http2WebSocketAcceptor` to select supported protocol with
 ```groovy
 Http2WebSocketAcceptor.Subprotocol.accept(subprotocol, response);
 ```

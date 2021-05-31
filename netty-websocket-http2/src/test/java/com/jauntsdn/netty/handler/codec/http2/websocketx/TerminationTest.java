@@ -55,7 +55,7 @@ public class TerminationTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
 
                   Http2WebSocketServerHandler http2webSocketHandler =
-                      Http2WebSocketServerHandler.builder()
+                          Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", serverWebsocketCloseHandler))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
@@ -71,7 +71,7 @@ public class TerminationTest extends AbstractTest {
                   SslHandler sslHandler = clientSslContext.newHandler(ch.alloc());
                   Http2FrameCodec http2FrameCodec = Http2FrameCodecBuilder.forClient().build();
                   Http2WebSocketClientHandler http2WebSocketClientHandler =
-                      Http2WebSocketClientHandler.builder().handshakeTimeoutMillis(5_000).build();
+                      Http2WebSocketClientBuilder.create().handshakeTimeoutMillis(5_000).build();
                   ch.pipeline().addLast(sslHandler, http2FrameCodec, http2WebSocketClientHandler);
                 })
             .sync()
@@ -117,7 +117,7 @@ public class TerminationTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
 
                   Http2WebSocketServerHandler http2webSocketHandler =
-                      Http2WebSocketServerHandler.builder()
+                          Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", serverWebsocketCloseListenerHandler))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
@@ -133,7 +133,7 @@ public class TerminationTest extends AbstractTest {
                   SslHandler sslHandler = clientSslContext.newHandler(ch.alloc());
                   Http2FrameCodec http2FrameCodec = Http2FrameCodecBuilder.forClient().build();
                   Http2WebSocketClientHandler http2WebSocketClientHandler =
-                      Http2WebSocketClientHandler.builder().handshakeTimeoutMillis(5_000).build();
+                      Http2WebSocketClientBuilder.create().handshakeTimeoutMillis(5_000).build();
                   ch.pipeline().addLast(sslHandler, http2FrameCodec, http2WebSocketClientHandler);
                 })
             .sync()
@@ -184,7 +184,7 @@ public class TerminationTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
 
                   Http2WebSocketServerHandler http2webSocketHandler =
-                      Http2WebSocketServerHandler.builder()
+                          Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", serverWebsocketCloseListenerHandler))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
@@ -200,7 +200,7 @@ public class TerminationTest extends AbstractTest {
                   SslHandler sslHandler = clientSslContext.newHandler(ch.alloc());
                   Http2FrameCodec http2FrameCodec = Http2FrameCodecBuilder.forClient().build();
                   Http2WebSocketClientHandler http2WebSocketClientHandler =
-                      Http2WebSocketClientHandler.builder().handshakeTimeoutMillis(5_000).build();
+                      Http2WebSocketClientBuilder.create().handshakeTimeoutMillis(5_000).build();
                   ch.pipeline().addLast(sslHandler, http2FrameCodec, http2WebSocketClientHandler);
                 })
             .sync()
@@ -243,7 +243,7 @@ public class TerminationTest extends AbstractTest {
                   Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
 
                   Http2WebSocketServerHandler http2webSocketHandler =
-                      Http2WebSocketServerHandler.builder()
+                          Http2WebSocketServerBuilder.create()
                           .acceptor(new PathAcceptor("/test", serverCloseHandler))
                           .build();
                   ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
@@ -259,7 +259,7 @@ public class TerminationTest extends AbstractTest {
                   SslHandler sslHandler = clientSslContext.newHandler(ch.alloc());
                   Http2FrameCodec http2FrameCodec = Http2FrameCodecBuilder.forClient().build();
                   Http2WebSocketClientHandler http2WebSocketClientHandler =
-                      Http2WebSocketClientHandler.builder().handshakeTimeoutMillis(5_000).build();
+                      Http2WebSocketClientBuilder.create().handshakeTimeoutMillis(5_000).build();
                   ch.pipeline().addLast(sslHandler, http2FrameCodec, http2WebSocketClientHandler);
                 })
             .sync()

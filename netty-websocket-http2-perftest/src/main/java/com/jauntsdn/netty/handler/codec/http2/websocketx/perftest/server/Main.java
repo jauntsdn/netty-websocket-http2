@@ -100,7 +100,7 @@ public class Main {
 
       EchoWebSocketHandler echoWebSocketHandler = new EchoWebSocketHandler();
       Http2WebSocketServerHandler http2webSocketHandler =
-          Http2WebSocketServerHandler.builder()
+              Http2WebSocketServerBuilder.create()
               .assumeSingleWebSocketPerConnection(true)
               .acceptor(
                   (ctx, path, subprotocols, request, response) -> {

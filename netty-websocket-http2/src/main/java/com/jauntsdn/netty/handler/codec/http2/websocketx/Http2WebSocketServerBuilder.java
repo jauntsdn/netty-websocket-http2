@@ -49,6 +49,22 @@ public final class Http2WebSocketServerBuilder {
   Http2WebSocketServerBuilder() {}
 
   /**
+   * Builds handshake-only {@link Http2WebSocketHandshakeOnlyServerHandler}.
+   *
+   * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
+   */
+  public static Http2WebSocketHandshakeOnlyServerHandler buildHandshakeOnly() {
+    return new Http2WebSocketHandshakeOnlyServerHandler();
+  }
+
+  /**
+   * @return new {@link Http2WebSocketServerBuilder} instance
+   */
+  public static Http2WebSocketServerBuilder create() {
+    return new Http2WebSocketServerBuilder();
+  }
+
+  /**
    * Utility method for configuring Http2FrameCodecBuilder with websocket-over-http2 support
    *
    * @param http2Builder {@link Http2FrameCodecBuilder} instance
@@ -173,16 +189,6 @@ public final class Http2WebSocketServerBuilder {
       boolean isSingleWebSocketPerConnection) {
     this.isSingleWebSocketPerConnection = isSingleWebSocketPerConnection;
     return this;
-  }
-
-  /**
-   * Builds handshake-only {@link Http2WebSocketHandshakeOnlyServerHandler}. All configuration
-   * options provided on this builder are ignored.
-   *
-   * @return new {@link Http2WebSocketHandshakeOnlyServerHandler} instance
-   */
-  public Http2WebSocketHandshakeOnlyServerHandler handshakeOnly() {
-    return new Http2WebSocketHandshakeOnlyServerHandler();
   }
 
   /**

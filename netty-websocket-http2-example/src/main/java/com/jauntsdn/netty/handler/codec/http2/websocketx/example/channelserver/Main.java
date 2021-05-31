@@ -102,9 +102,9 @@ public class Main {
       http2Builder.initialSettings().initialWindowSize(1_000);
       Http2FrameCodec http2frameCodec = http2Builder.build();
 
-      ChannelHandler echoWebSocketHandler = new EchoWebSocketHandler();
+      ChannelHandler http1webSocketHandler = new EchoWebSocketHandler();
       Http2WebSocketServerHandler http2webSocketHandler =
-          Http2WebSocketServerHandler.builder()
+          Http2WebSocketServerBuilder.create()
               .compression(true)
               .acceptor(
                   (ctx, path, subprotocols, request, response) -> {
@@ -113,12 +113,12 @@ public class Main {
                         if (subprotocols.contains("echo.jauntsdn.com")
                             && acceptUserAgent(request, response)) {
                           Http2WebSocketAcceptor.Subprotocol.accept("echo.jauntsdn.com", response);
-                          return ctx.executor().newSucceededFuture(echoWebSocketHandler);
+                          return ctx.executor().newSucceededFuture(http1webSocketHandler);
                         }
                         break;
                       case "/echo_all":
                         if (subprotocols.isEmpty() && acceptUserAgent(request, response)) {
-                          return ctx.executor().newSucceededFuture(echoWebSocketHandler);
+                          return ctx.executor().newSucceededFuture(http1webSocketHandler);
                         }
                         break;
                     }

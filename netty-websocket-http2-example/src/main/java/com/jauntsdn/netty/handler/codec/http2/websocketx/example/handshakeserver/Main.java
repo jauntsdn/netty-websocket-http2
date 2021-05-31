@@ -18,7 +18,6 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx.example.handshakeserve
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerBuilder;
-import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.example.Security;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
@@ -90,8 +89,7 @@ public class Main {
       http2Builder.initialSettings().initialWindowSize(FLOW_CONTROL_WINDOW_SIZE);
       Http2FrameCodec frameCodec = http2Builder.build();
 
-      Http2WebSocketHandler http2webSocketHandler =
-          Http2WebSocketServerHandler.builder().handshakeOnly();
+      Http2WebSocketHandler http2webSocketHandler = Http2WebSocketServerBuilder.buildHandshakeOnly();
 
       Http2StreamsHandler http2StreamsHandler = new Http2StreamsHandler(FLOW_CONTROL_WINDOW_SIZE);
       ch.pipeline().addLast(sslHandler, frameCodec, http2webSocketHandler, http2StreamsHandler);
