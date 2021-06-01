@@ -20,23 +20,21 @@ import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.example.Security;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.handler.codec.http2.*;
-import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.util.AsciiString;
 import io.netty.util.collection.IntObjectHashMap;
 import io.netty.util.collection.IntObjectMap;
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.concurrent.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +66,6 @@ public class Main {
     logger.info("\n==> Server is listening on {}:{}", host, port);
 
     logger.info("\n==> Echo path: {}", echoPath);
-    logger.info("\n==> Modern browser (Mozilla Firefox) demo: https://{}:{}", host, port);
 
     server.closeFuture().sync();
   }
@@ -112,7 +109,6 @@ public class Main {
             AsciiString.of("echo.jauntsdn.com"));
 
     private final IntObjectMap<Http2FrameStream> echos = new IntObjectHashMap<>();
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
     private int receiveBytes;
     private final int receiveWindowBytes;
 
@@ -130,14 +126,6 @@ public class Main {
           CharSequence method = requestHeaders.method();
           String query = requestHeaders.get(":path").toString();
           String path = new QueryStringDecoder(query).path();
-
-          if ("GET".contentEquals(method)) {
-            if (path.isEmpty() || path.equals("/")) {
-              path = "index.html";
-            }
-            serveResource(ctx, stream, path);
-            return;
-          }
 
           if (!"POST".contentEquals(method)) {
             ctx.write(new DefaultHttp2HeadersFrame(HEADERS_405, true).stream(stream));
@@ -213,52 +201,6 @@ public class Main {
       }
       logger.error("Unexpected connection error", cause);
       ctx.close();
-    }
-
-    private void serveResource(
-        ChannelHandlerContext ctx, Http2FrameStream frameStream, String resource) {
-      executorService.execute(
-          () -> {
-            String classPathResource = "web/" + resource;
-            try (InputStream resourceStream =
-                Main.class.getClassLoader().getResourceAsStream(classPathResource)) {
-              if (resourceStream == null) {
-                ctx.write(new DefaultHttp2HeadersFrame(HEADERS_404, true).stream(frameStream));
-                return;
-              }
-              Http2Headers responseHeaders = new DefaultHttp2Headers(true).status("200");
-
-              String contentType;
-              if (resource.endsWith(".html")) {
-                contentType = "text/html";
-              } else if (resource.endsWith(".js")) {
-                contentType = "text/javascript";
-              } else {
-                contentType = "application/octet-stream";
-              }
-              responseHeaders.set("content-type", contentType);
-
-              ctx.write(new DefaultHttp2HeadersFrame(responseHeaders, false).stream(frameStream));
-
-              int bufferSize = 16384;
-              InputStream bufferedResourceStream =
-                  new BufferedInputStream(resourceStream, bufferSize);
-              byte[] buffer = new byte[bufferSize];
-              int bytesRead;
-              /*keep it simple for the demo*/
-              while ((bytesRead = bufferedResourceStream.read(buffer)) != -1) {
-                ByteBuf response = ByteBufAllocator.DEFAULT.buffer(bytesRead);
-                response.writeBytes(buffer, 0, bytesRead);
-                ctx.write(new DefaultHttp2DataFrame(response, false).stream(frameStream));
-              }
-              ctx.writeAndFlush(
-                  new DefaultHttp2DataFrame(Unpooled.EMPTY_BUFFER, true).stream(frameStream));
-            } catch (Exception e) {
-              ctx.fireExceptionCaught(
-                  new RuntimeException(
-                      "Error while reading classpath resource: " + classPathResource, e));
-            }
-          });
     }
 
     @Override

@@ -68,7 +68,10 @@ public class Main {
                         Http2WebSocketClientBuilder.create()
                             .streamWeight(16)
                             .decoderConfig(
-                                WebSocketDecoderConfig.newBuilder().allowExtensions(true).build())
+                                WebSocketDecoderConfig.newBuilder()
+                                    .expectMaskedFrames(false)
+                                    .allowMaskMismatch(true)
+                                    .build())
                             .handshakeTimeoutMillis(15_000)
                             .compression(true)
                             .build();
@@ -90,7 +93,7 @@ public class Main {
     Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
     Http2Headers headers =
-        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.0.1");
+        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.2");
     ChannelFuture handshake =
         handShaker.handshake("/echo", "echo.jauntsdn.com", headers, new EchoWebSocketHandler());
 

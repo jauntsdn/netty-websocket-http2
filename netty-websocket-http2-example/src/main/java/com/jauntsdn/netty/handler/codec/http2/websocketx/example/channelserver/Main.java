@@ -57,12 +57,14 @@ public class Main {
   public static void main(String[] args) throws Exception {
     String host = System.getProperty("HOST", "localhost");
     int port = Integer.parseInt(System.getProperty("PORT", "8099"));
+    String advertiseAddress = System.getProperty("ADVERTISE_ADDRESS", "www.localhost:8099");
     String echoPath = System.getProperty("PING", "echo");
     String keyStoreFile = System.getProperty("KEYSTORE", "localhost.p12");
     String keyStorePassword = System.getProperty("KEYSTORE_PASS", "localhost");
 
     logger.info("\n==> Channel per websocket server\n");
     logger.info("\n==> Bind address: {}:{}", host, port);
+    logger.info("\n==> Advertise address: {}", advertiseAddress);
     logger.info("\n==> Keystore file: {}", keyStoreFile);
 
     SslContext sslContext = Security.serverSslContext(keyStoreFile, keyStorePassword);
@@ -79,14 +81,14 @@ public class Main {
     logger.info("\n==> Server is listening on {}:{}", host, port);
 
     logger.info("\n==> Echo path: {}", echoPath);
-    logger.info("\n==> Modern browser (Mozilla Firefox) demo: https://{}:{}", host, port);
+    logger.info("\n==> Modern browser (Firefox, latest Chrome) demo: https://{}", advertiseAddress);
 
     server.closeFuture().sync();
   }
 
   private static class ConnectionAcceptor extends ChannelInitializer<SocketChannel> {
     private static final List<String> SUPPORTED_USER_AGENTS =
-        Arrays.asList("Firefox/", "jauntsdn-websocket-http2-client/");
+        Arrays.asList("Firefox/", "Chrome/", "jauntsdn-websocket-http2-client/");
     private final SslContext sslContext;
 
     ConnectionAcceptor(SslContext sslContext) {

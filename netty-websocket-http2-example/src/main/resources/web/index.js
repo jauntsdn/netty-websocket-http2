@@ -1,4 +1,4 @@
-const address = 'wss://localhost:8099/echo';
+const address = 'wss://www.localhost:8099/echo';
 const subprotocol = 'echo.jauntsdn.com';
 
 const startMessage = 'start';
