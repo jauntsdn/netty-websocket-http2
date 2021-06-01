@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 /** Builder for {@link Http2WebSocketServerHandler} */
 public final class Http2WebSocketServerBuilder {
   private static final Logger logger = LoggerFactory.getLogger(Http2WebSocketServerBuilder.class);
+  private static final boolean MASK_PAYLOAD = false;
 
   private static final Http2WebSocketAcceptor REJECT_REQUESTS_ACCEPTOR =
       (context, path, subprotocols, request, response) ->
@@ -40,7 +41,7 @@ public final class Http2WebSocketServerBuilder {
                           + subprotocols));
 
   private WebSocketDecoderConfig webSocketDecoderConfig;
-  private boolean isEncoderMaskPayload = true;
+
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
   private boolean isSingleWebSocketPerConnection;
@@ -96,14 +97,6 @@ public final class Http2WebSocketServerBuilder {
   public Http2WebSocketServerBuilder decoderConfig(WebSocketDecoderConfig webSocketDecoderConfig) {
     this.webSocketDecoderConfig =
         Preconditions.requireNonNull(webSocketDecoderConfig, "webSocketDecoderConfig");
-    return this;
-  }
-  /**
-   * @param isEncoderMaskPayload enables websocket frames encoder payload masking
-   * @return this {@link Http2WebSocketServerBuilder} instance
-   */
-  public Http2WebSocketServerBuilder encoderMaskPayload(boolean isEncoderMaskPayload) {
-    this.isEncoderMaskPayload = isEncoderMaskPayload;
     return this;
   }
 
@@ -199,17 +192,22 @@ public final class Http2WebSocketServerBuilder {
     boolean hasCompression = perMessageDeflateServerExtensionHandshaker != null;
     WebSocketDecoderConfig config = webSocketDecoderConfig;
     if (config == null) {
-      config = WebSocketDecoderConfig.newBuilder().allowExtensions(hasCompression).build();
+      config =
+          WebSocketDecoderConfig.newBuilder()
+              /*align with the spec and strictness of some browsers*/
+              .expectMaskedFrames(true)
+              .allowMaskMismatch(false)
+              .allowExtensions(hasCompression)
+              .build();
     } else {
       boolean isAllowExtensions = config.allowExtensions();
       if (!isAllowExtensions && hasCompression) {
-        throw new IllegalStateException(
-            "websocket compression is enabled while extensions are disabled");
+        config = config.toBuilder().allowExtensions(true).build();
       }
     }
     return new Http2WebSocketServerHandler(
         config,
-        isEncoderMaskPayload,
+        MASK_PAYLOAD,
         closedWebSocketRemoveTimeoutMillis,
         perMessageDeflateServerExtensionHandshaker,
         acceptor,

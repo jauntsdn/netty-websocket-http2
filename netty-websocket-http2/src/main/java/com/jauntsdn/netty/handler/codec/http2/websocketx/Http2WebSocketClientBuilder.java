@@ -145,12 +145,17 @@ public final class Http2WebSocketClientBuilder {
     boolean hasCompression = compressionHandshaker != null;
     WebSocketDecoderConfig config = webSocketDecoderConfig;
     if (config == null) {
-      config = WebSocketDecoderConfig.newBuilder().allowExtensions(hasCompression).build();
+      config =
+          WebSocketDecoderConfig.newBuilder()
+              /*align with the spec and strictness of some browsers*/
+              .expectMaskedFrames(false)
+              .allowMaskMismatch(false)
+              .allowExtensions(hasCompression)
+              .build();
     } else {
       boolean isAllowExtensions = config.allowExtensions();
       if (!isAllowExtensions && hasCompression) {
-        throw new IllegalStateException(
-            "websocket compression is enabled while extensions are disabled");
+        config = config.toBuilder().allowExtensions(true).build();
       }
     }
     short weight = streamWeight;

@@ -73,8 +73,8 @@ public class Main {
                         Http2WebSocketClientBuilder.create()
                             .decoderConfig(
                                 WebSocketDecoderConfig.newBuilder()
-                                    .allowExtensions(true)
-                                    .allowMaskMismatch(true)
+                                    .expectMaskedFrames(false)
+                                    .allowMaskMismatch(false)
                                     .build())
                             .handshakeTimeoutMillis(15_000)
                             .compression(true)
@@ -90,7 +90,7 @@ public class Main {
     Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
     Http2Headers headers =
-        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.0.1");
+        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.2");
     ChannelFuture handshake =
         handShaker.handshake(
             "/", "dumb-increment-protocol", headers, new WebSocketDumbIncrementHandler());

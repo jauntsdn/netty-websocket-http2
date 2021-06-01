@@ -30,14 +30,14 @@ EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
                            Http2WebSocketAcceptor.Subprotocol
                                   .accept("echo.jauntsdn.com", response);
                            return ctx.executor()
-                                  .newSucceededFuture(echoWebSocketHandler);
+                                  .newSucceededFuture(http1WebSocketHandler);
                          }
                          break;
                        case "/echo_all":
                          if (subprotocols.isEmpty() 
                                   && acceptUserAgent(request, response)) {
                            return ctx.executor()
-                                  .newSucceededFuture(echoWebSocketHandler);
+                                  .newSucceededFuture(http1WebSocketHandler);
                          }
                          break;
                      }
@@ -82,7 +82,7 @@ EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
 Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
 Http2Headers headers =
-   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.0.1");
+   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.1");
 ChannelFuture handshakeFuture =
    /*http1 websocket handler*/
    handShaker.handshake("/echo", headers, new EchoWebSocketHandler());
@@ -98,7 +98,8 @@ Runnable demo is available in `netty-websocket-http2-example` module -
 
 ### websocket handshake only API
 Intended for intermediaries/proxies.   
-Only verifies whether http2 stream is valid websocket, then passes it down the pipeline. 
+Only verifies whether http2 stream is valid websocket, then passes it down the pipeline as `POST` request with `x-protocol=websocket` header.
+ 
 ```groovy
       Http2WebSocketServerHandler http2webSocketHandler =
           Http2WebSocketServerBuilder.buildHandshakeOnly();
@@ -159,7 +160,7 @@ EchoWebSocketHandler http1WebsocketHandler = new EchoWebSocketHandler();
 ChannelFuture handshake =
         handShaker.handshake("/echo", "subprotocol", headers, http1WebsocketHandler);
 ``` 
-On a server It is responsibility of `Http2WebSocketAcceptor` to select supported protocol with
+On a server It is responsibility of `Http2WebSocketAcceptor` to select supported subprotocol with
 ```groovy
 Http2WebSocketAcceptor.Subprotocol.accept(subprotocol, response);
 ```
@@ -244,17 +245,17 @@ the results are as follows (measured over time spans of 5 seconds):
 
 ### examples
 
-`netty-websocket-http2-example` module contains demos showcasing both API styles, 
-with this library/browser as clients. 
+`netty-websocket-http2-example` module contains demos showcasing both API styles, with this library/browser as clients.
+ 
 * `channelserver, channelclient` packages for websocket subchannel API demos. 
 * `handshakeserver, channelclient` packages for handshake only API demo.
 * `lwsclient` package for client demo that runs against [https://libwebsockets.org/testserver/](https://libwebsockets.org/testserver/) which hosts websocket-over-http2
 server implemented with [libwebsockets](https://github.com/warmcat/libwebsockets) - popular C-based networking library. 
 
 ### browser example
-Both example servers have web page at `https://localhost:8099` that sends pings to
-`/echo` endpoint.   
-The only browser with http2 websockets protocol support is `Mozilla Firefox`.
+`Channelserver` example serves web page at `https://www.localhost:8099` that sends pings to `/echo` endpoint.   
+
+Currently only `Mozilla Firefox` and latest `Google Chrome` support websockets-over-http2.
 
 ### build & binaries
 ```
@@ -268,7 +269,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.1.0'
+    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.1.1'
 }
 ```
 
