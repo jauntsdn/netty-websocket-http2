@@ -50,6 +50,7 @@ public interface Http2WebSocketAcceptor {
 
     public static void accept(String subprotocol, Http2Headers response) {
       Objects.requireNonNull(subprotocol, "subprotocol");
+      Objects.requireNonNull(response, "response");
       if (subprotocol.isEmpty()) {
         return;
       }
