@@ -40,19 +40,19 @@ import javax.annotation.Nullable;
 final class Http2WebSocketServerHandshaker implements GenericFutureListener<ChannelFuture> {
   private static final AsciiString HEADERS_STATUS_200 = AsciiString.of("200");
   private static final ReadOnlyHttp2Headers HEADERS_OK =
-      ReadOnlyHttp2Headers.serverHeaders(true, HEADERS_STATUS_200);
+      ReadOnlyHttp2Headers.serverHeaders(false, HEADERS_STATUS_200);
   private static final ReadOnlyHttp2Headers HEADERS_UNSUPPORTED_VERSION =
       ReadOnlyHttp2Headers.serverHeaders(
-          true,
+          false,
           AsciiString.of("400"),
           AsciiString.of(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME),
           AsciiString.of(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE));
   private static final ReadOnlyHttp2Headers HEADERS_REJECTED =
-      ReadOnlyHttp2Headers.serverHeaders(true, AsciiString.of("400"));
+      ReadOnlyHttp2Headers.serverHeaders(false, AsciiString.of("400"));
   private static final ReadOnlyHttp2Headers HEADERS_NOT_FOUND =
-      ReadOnlyHttp2Headers.serverHeaders(true, AsciiString.of("404"));
+      ReadOnlyHttp2Headers.serverHeaders(false, AsciiString.of("404"));
   private static final ReadOnlyHttp2Headers HEADERS_INTERNAL_ERROR =
-      ReadOnlyHttp2Headers.serverHeaders(true, AsciiString.of("500"));
+      ReadOnlyHttp2Headers.serverHeaders(false, AsciiString.of("500"));
 
   private final WebSocketsParent webSocketsParent;
   private final WebSocketDecoderConfig webSocketDecoderConfig;
