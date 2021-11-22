@@ -168,7 +168,7 @@ public final class Http2WebSocketServerBuilder {
    * @return this {@link Http2WebSocketServerBuilder} instance
    */
   public Http2WebSocketServerBuilder acceptor(Http2WebSocketAcceptor acceptor) {
-    this.acceptor = acceptor;
+    this.acceptor = Objects.requireNonNull(acceptor, "acceptor");
     return this;
   }
 
