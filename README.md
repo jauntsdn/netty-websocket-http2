@@ -255,7 +255,7 @@ server implemented with [libwebsockets](https://github.com/warmcat/libwebsockets
 ### browser example
 `Channelserver` example serves web page at `https://www.localhost:8099` that sends pings to `/echo` endpoint.   
 
-Currently only `Mozilla Firefox` and latest `Google Chrome` support websockets-over-http2.
+Currently Google Chrome, Mozilla Firefox and Microsoft Edge support websockets-over-http2.
 
 ### build & binaries
 ```
