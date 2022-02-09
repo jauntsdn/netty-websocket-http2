@@ -35,6 +35,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 public class ApplicationHandshakeTest extends AbstractTest {
   private Channel server;
@@ -670,6 +671,67 @@ public class ApplicationHandshakeTest extends AbstractTest {
     Http2Headers responseHeaders =
         successEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get("sec-websocket-extensions")).isNullOrEmpty();
+    Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
+  }
+
+  @Test
+  @Timeout(5)
+  void priorKnowledgeAccepted() throws Exception {
+    server =
+        createServer(
+                ch -> {
+                  Http2FrameCodecBuilder http2FrameCodecBuilder =
+                      Http2FrameCodecBuilder.forServer().validateHeaders(false);
+                  Http2Settings settings = http2FrameCodecBuilder.initialSettings();
+                  settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
+                  Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
+                  Http2WebSocketServerHandler http2webSocketHandler =
+                      Http2WebSocketServerBuilder.create()
+                          .acceptor(
+                              new PathSubprotocolAcceptor(
+                                  "/test", "com.jauntsdn.test", new ChannelInboundHandlerAdapter()))
+                          .build();
+                  ch.pipeline().addLast(http2frameCodec, http2webSocketHandler);
+                })
+            .sync()
+            .channel();
+
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    SocketAddress address = server.localAddress();
+    client =
+        createClient(
+                address,
+                ch -> {
+                  Http2FrameCodec http2FrameCodec = Http2FrameCodecBuilder.forClient().build();
+                  Http2WebSocketClientHandler http2WebSocketClientHandler =
+                      Http2WebSocketClientBuilder.create().handshakeTimeoutMillis(5_000).build();
+                  ch.pipeline()
+                      .addLast(http2FrameCodec, http2WebSocketClientHandler, eventsRecorder);
+                })
+            .sync()
+            .channel();
+
+    ChannelFuture handshake =
+        Http2WebSocketClientHandshaker.create(client)
+            .handshake("/test", "com.jauntsdn.test", new ChannelInboundHandlerAdapter());
+    handshake.await(6, TimeUnit.SECONDS);
+    Channel webSocketChannel = handshake.channel();
+    Assertions.assertThat(handshake.isSuccess()).isTrue();
+    Assertions.assertThat(webSocketChannel.isOpen()).isTrue();
+
+    eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
+    List<Http2WebSocketEvent> events = eventsRecorder.events();
+    Assertions.assertThat(events).hasSize(2);
+    Http2WebSocketEvent startEvent = events.get(0);
+    Http2WebSocketEvent successEvent = events.get(1);
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+    Assertions.assertThat(successEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+
+    Http2Headers responseHeaders =
+        successEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
   }
 
