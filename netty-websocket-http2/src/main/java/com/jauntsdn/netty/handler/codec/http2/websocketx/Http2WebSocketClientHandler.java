@@ -78,6 +78,15 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
   }
 
   @Override
+  public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    super.channelActive(ctx);
+    /*for non-tls connections netty's client http2 handler does not flush after http2 preface is written*/
+    if (scheme.equals(Http2WebSocketProtocol.SCHEME_HTTP)) {
+      ctx.flush();
+    }
+  }
+
+  @Override
   public void onSettingsRead(ChannelHandlerContext ctx, Http2Settings settings)
       throws Http2Exception {
     if (supportsWebSocket != null) {
