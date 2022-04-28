@@ -79,3 +79,5 @@ infer-out
 */.inferConfig
 
 */src/generated/*
+
+bin
