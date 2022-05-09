@@ -41,16 +41,23 @@ public final class Security {
     return SslContextBuilder.forServer(keyManagerFactory)
         .protocols("TLSv1.3")
         .sslProvider(sslProvider)
-        .applicationProtocolConfig(alpnConfig())
+        .applicationProtocolConfig(alpnConfigHttp2())
         .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
         .build();
   }
 
-  public static SslContext clientLocalSslContext() throws SSLException {
+  public static SslContext clientLocalSslContextHttp2() throws SSLException {
     return clientSslContextBuilder().trustManager(InsecureTrustManagerFactory.INSTANCE).build();
   }
 
-  public static SslContext clientSslContext() throws SSLException {
+  public static SslContext clientLocalSslContextHttp1() throws SSLException {
+    return clientSslContextBuilder()
+        .trustManager(InsecureTrustManagerFactory.INSTANCE)
+        .applicationProtocolConfig(alpnConfigHttp1())
+        .build();
+  }
+
+  public static SslContext clientSslContextHttp2() throws SSLException {
     return clientSslContextBuilder().build();
   }
 
@@ -58,16 +65,24 @@ public final class Security {
     return SslContextBuilder.forClient()
         .protocols("TLSv1.3")
         .sslProvider(sslProvider())
-        .applicationProtocolConfig(alpnConfig())
+        .applicationProtocolConfig(alpnConfigHttp2())
         .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE);
   }
 
-  private static ApplicationProtocolConfig alpnConfig() {
+  private static ApplicationProtocolConfig alpnConfigHttp2() {
     return new ApplicationProtocolConfig(
         ApplicationProtocolConfig.Protocol.ALPN,
         ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
         ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
         ApplicationProtocolNames.HTTP_2);
+  }
+
+  private static ApplicationProtocolConfig alpnConfigHttp1() {
+    return new ApplicationProtocolConfig(
+        ApplicationProtocolConfig.Protocol.ALPN,
+        ApplicationProtocolConfig.SelectorFailureBehavior.NO_ADVERTISE,
+        ApplicationProtocolConfig.SelectedListenerFailureBehavior.ACCEPT,
+        ApplicationProtocolNames.HTTP_1_1);
   }
 
   private static SslProvider sslProvider() {

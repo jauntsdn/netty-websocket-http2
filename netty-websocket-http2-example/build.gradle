@@ -36,6 +36,11 @@ task runChannelServer(type: JavaExec) {
     main = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.channelserver.Main"
 }
 
+task runMultiProtocolServer(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocolserver.Main"
+}
+
 task runChannelClient(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     main = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.channelclient.Main"
@@ -45,3 +50,9 @@ task runLwsClient(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     main = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.lwsclient.Main"
 }
+
+task runMultiProtocolClient(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    main = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocolclient.Main"
+}
+

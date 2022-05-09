@@ -249,6 +249,7 @@ the results are as follows (measured over time spans of 5 seconds):
  
 * `channelserver, channelclient` packages for websocket subchannel API demos. 
 * `handshakeserver, channelclient` packages for handshake only API demo.
+* `multiprotocolserver, multiprotocolclient` packages for demo of server handling htt1/http2 websockets on the same port.
 * `lwsclient` package for client demo that runs against [https://libwebsockets.org/testserver/](https://libwebsockets.org/testserver/) which hosts websocket-over-http2
 server implemented with [libwebsockets](https://github.com/warmcat/libwebsockets) - popular C-based networking library. 
 

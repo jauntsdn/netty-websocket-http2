@@ -55,7 +55,7 @@ public class Main {
     logger.info("\n==> Remote address: {}:{}", host, port);
     logger.info("\n==> Dumb increment demo of https://libwebsockets.org/testserver/");
 
-    final SslContext sslContext = Security.clientSslContext();
+    SslContext sslContext = Security.clientSslContextHttp2();
     Channel channel =
         new Bootstrap()
             .group(new NioEventLoopGroup())

@@ -50,7 +50,7 @@ public class Main {
     logger.info("\n==> Channel per websocket client\n");
     logger.info("\n==> Remote address: {}:{}", host, port);
 
-    final SslContext sslContext = Security.clientLocalSslContext();
+    final SslContext sslContext = Security.clientLocalSslContextHttp2();
     Channel channel =
         new Bootstrap()
             .group(new NioEventLoopGroup())
