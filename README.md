@@ -1,5 +1,5 @@
 ![Maven Central](https://img.shields.io/maven-central/v/com.jauntsdn.netty/netty-websocket-http2)
-
+[![Build](https://github.com/jauntsdn/netty-websocket-http2/actions/workflows/ci-build.yml/badge.svg)](https://github.com/jauntsdn/netty-websocket-http2/actions/workflows/ci-build.yml)
 # netty-websocket-http2
 
 Netty based implementation of [rfc8441](https://tools.ietf.org/html/rfc8441) - bootstrapping websockets with http/2
