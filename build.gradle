@@ -56,10 +56,15 @@ subprojects {
             options.with {
                 links jdkJavaDoc()
                 links "https://netty.io/4.1/api/"
+                addBooleanOption("Xdoclint:all,-missing", true)
             }
         }
 
         test {
+            if (JavaVersion.current() >= JavaVersion.VERSION_1_9) {
+                jvmArgs "--add-exports=java.base/sun.security.x509=ALL-UNNAMED"
+            }
+
             useJUnitPlatform()
             testLogging {
                 events "failed"
