@@ -28,12 +28,6 @@ description = "Netty based implementation of rfc8441 - bootstrapping websockets 
 apply from: "gradle/dependency-management.gradle"
 apply from: "gradle/publishing.gradle"
 
-allprojects {
-    dependencyLocking {
-        lockAllConfigurations()
-    }
-}
-
 subprojects {
     apply plugin: "com.google.osdetector"
     apply plugin: "com.github.sherter.google-java-format"
