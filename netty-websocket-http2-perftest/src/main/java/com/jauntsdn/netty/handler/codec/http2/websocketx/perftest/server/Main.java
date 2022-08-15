@@ -24,6 +24,7 @@ import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Security;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Transport;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
+import io.netty.channel.epoll.Epoll;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
@@ -48,7 +49,7 @@ public class Main {
     int flowControlWindowSize =
         Integer.parseInt(System.getProperty("FLOW_CONTROL_WINDOW", "100000"));
     boolean isOpensslAvailable = OpenSsl.isAvailable();
-    boolean isEpollAvailable = Transport.isEpollAvailable();
+    boolean isEpollAvailable = Epoll.isAvailable();
 
     logger.info("\n==> http2 websocket load test server\n");
     logger.info("\n==> bind address: {}:{}", host, port);

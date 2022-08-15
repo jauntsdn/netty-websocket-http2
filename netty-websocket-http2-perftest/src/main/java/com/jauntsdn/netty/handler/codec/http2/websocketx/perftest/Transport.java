@@ -19,7 +19,6 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx.perftest;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
-import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.epoll.EpollSocketChannel;
@@ -28,38 +27,17 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 public class Transport {
-  static final boolean isEpollAvailable;
-
-  static {
-    boolean available;
-    try {
-      Class.forName("io.netty.channel.epoll.Epoll");
-      available = Epoll.isAvailable();
-    } catch (ClassNotFoundException e) {
-      available = false;
-    }
-    isEpollAvailable = available;
-  }
-
   private final Class<? extends Channel> clientChannel;
   private final Class<? extends ServerChannel> serverChannel;
   private final EventLoopGroup eventLoopGroup;
 
-  public static boolean isEpollAvailable() {
-    return isEpollAvailable;
-  }
-
   public static Transport get(boolean isNative) {
     int threadCount = Runtime.getRuntime().availableProcessors() * 2;
     if (isNative) {
-      if (isEpollAvailable()) {
-        return new Transport(
-            EpollSocketChannel.class,
-            EpollServerSocketChannel.class,
-            new EpollEventLoopGroup(threadCount));
-      } else {
-        throw new IllegalArgumentException("native transport not available");
-      }
+      return new Transport(
+          EpollSocketChannel.class,
+          EpollServerSocketChannel.class,
+          new EpollEventLoopGroup(threadCount));
     }
     return new Transport(
         NioSocketChannel.class, NioServerSocketChannel.class, new NioEventLoopGroup(threadCount));
