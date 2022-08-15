@@ -36,10 +36,10 @@ dependencies {
 
 task runServer(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    main = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.server.Main"
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.server.Main"
 }
 
 task runClient(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    main = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main"
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main"
 }
