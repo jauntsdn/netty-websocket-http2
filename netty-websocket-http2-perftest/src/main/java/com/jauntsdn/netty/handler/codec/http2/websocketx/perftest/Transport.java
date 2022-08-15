@@ -19,6 +19,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx.perftest;
 import io.netty.channel.Channel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ServerChannel;
+import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.epoll.EpollSocketChannel;
@@ -34,10 +35,15 @@ public class Transport {
   public static Transport get(boolean isNative) {
     int threadCount = Runtime.getRuntime().availableProcessors() * 2;
     if (isNative) {
-      return new Transport(
-          EpollSocketChannel.class,
-          EpollServerSocketChannel.class,
-          new EpollEventLoopGroup(threadCount));
+      if (Epoll.isAvailable()) {
+        return new Transport(
+            EpollSocketChannel.class,
+            EpollServerSocketChannel.class,
+            new EpollEventLoopGroup(threadCount));
+      } else {
+        throw new IllegalArgumentException(
+            "Epoll IO not available: " + Epoll.unavailabilityCause());
+      }
     }
     return new Transport(
         NioSocketChannel.class, NioServerSocketChannel.class, new NioEventLoopGroup(threadCount));
