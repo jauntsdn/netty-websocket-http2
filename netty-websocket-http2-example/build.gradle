@@ -15,15 +15,16 @@
  */
 
 plugins {
-    id "java"
+    id "application"
 }
 
 description = "Netty based implementation of rfc8441 - bootstrapping websockets with http/2. Example project"
 
 dependencies {
     implementation project(":netty-websocket-http2")
-    implementation "io.netty:netty-tcnative-boringssl-static"
-    implementation "ch.qos.logback:logback-classic"
+    implementation "org.slf4j:slf4j-api"
+    runtimeOnly "io.netty:netty-tcnative-boringssl-static::${osdetector.classifier}"
+    runtimeOnly "ch.qos.logback:logback-classic"
 }
 
 task runHandshakeServer(type: JavaExec) {
