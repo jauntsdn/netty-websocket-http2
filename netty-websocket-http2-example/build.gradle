@@ -27,10 +27,6 @@ dependencies {
     runtimeOnly "ch.qos.logback:logback-classic"
 }
 
-dependencyLocking {
-    lockAllConfigurations()
-}
-
 task runHandshakeServer(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.handshakeserver.Main"

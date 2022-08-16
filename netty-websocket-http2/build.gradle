@@ -37,10 +37,6 @@ dependencies {
     testRuntimeOnly "io.netty:netty-tcnative-boringssl-static::${osdetector.classifier}"
 }
 
-dependencyLocking {
-    lockAllConfigurations()
-}
-
 tasks.named("jar") {
     manifest {
         attributes("Automatic-Module-Name": "com.jauntsdn.netty.websocket.http2")
