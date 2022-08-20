@@ -19,6 +19,7 @@ plugins {
     id "com.github.ben-manes.versions"
 
     id "com.github.sherter.google-java-format" apply false
+    id "com.google.osdetector" apply false
     id "io.spring.dependency-management" apply false
 }
 
@@ -27,13 +28,8 @@ description = "Netty based implementation of rfc8441 - bootstrapping websockets 
 apply from: "gradle/dependency-management.gradle"
 apply from: "gradle/publishing.gradle"
 
-allprojects {
-    dependencyLocking {
-        lockAllConfigurations()
-    }
-}
-
 subprojects {
+    apply plugin: "com.google.osdetector"
     apply plugin: "com.github.sherter.google-java-format"
 
     version = projectVersion(project)
@@ -42,6 +38,10 @@ subprojects {
 
     repositories {
         mavenCentral()
+    }
+
+    dependencyLocking {
+        lockAllConfigurations()
     }
 
     plugins.withType(JavaPlugin) {
@@ -56,10 +56,15 @@ subprojects {
             options.with {
                 links jdkJavaDoc()
                 links "https://netty.io/4.1/api/"
+                addBooleanOption("Xdoclint:all,-missing", true)
             }
         }
 
         test {
+            if (JavaVersion.current() >= JavaVersion.VERSION_1_9) {
+                jvmArgs "--add-exports=java.base/sun.security.x509=ALL-UNNAMED"
+            }
+
             useJUnitPlatform()
             testLogging {
                 events "failed"

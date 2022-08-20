@@ -15,25 +15,32 @@
  */
 
 plugins {
-    id "java"
+    id "application"
 }
 
 description = "Netty based implementation of rfc8441 - bootstrapping websockets with http/2. Performance test project"
 
+def epollClassifier =
+        osdetector.os == "linux"
+                ? "::${osdetector.classifier}"
+                : ""
+
 dependencies {
     implementation project(":netty-websocket-http2")
     implementation "org.hdrhistogram:HdrHistogram"
-    implementation "ch.qos.logback:logback-classic"
-    implementation "io.netty:netty-tcnative-boringssl-static"
-    implementation "io.netty:netty-transport-native-epoll::linux-x86_64"
+    implementation "io.netty:netty-transport-classes-epoll"
+    implementation "org.slf4j:slf4j-api"
+    runtimeOnly "io.netty:netty-transport-native-epoll${epollClassifier}"
+    runtimeOnly "io.netty:netty-tcnative-boringssl-static::${osdetector.classifier}"
+    runtimeOnly "ch.qos.logback:logback-classic"
 }
 
 task runServer(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    main = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.server.Main"
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.server.Main"
 }
 
 task runClient(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    main = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main"
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main"
 }

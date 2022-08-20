@@ -8,6 +8,7 @@ subprojects {
         }
         dependencies {
             dependency "org.hdrhistogram:HdrHistogram:${hdrHistogramVersion}"
+            dependency "io.netty:netty-tcnative-classes:${nettyTcnativeVersion}"
             dependency "io.netty:netty-tcnative-boringssl-static:${nettyTcnativeVersion}"
             dependency "org.slf4j:slf4j-api:${slf4jVersion}"
             dependency "ch.qos.logback:logback-classic:${logbackVersion}"

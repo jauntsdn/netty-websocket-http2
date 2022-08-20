@@ -50,7 +50,7 @@ public class Main {
     logger.info("\n==> Channel per websocket client\n");
     logger.info("\n==> Remote address: {}:{}", host, port);
 
-    final SslContext sslContext = Security.clientLocalSslContext();
+    final SslContext sslContext = Security.clientLocalSslContextHttp2();
     Channel channel =
         new Bootstrap()
             .group(new NioEventLoopGroup())
@@ -93,7 +93,7 @@ public class Main {
     Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
     Http2Headers headers =
-        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.2");
+        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.4");
     ChannelFuture handshake =
         handShaker.handshake("/echo", "echo.jauntsdn.com", headers, new EchoWebSocketHandler());
 

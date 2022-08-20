@@ -33,5 +33,12 @@ dependencies {
 
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
     testRuntimeOnly "ch.qos.logback:logback-classic"
-    testRuntimeOnly "io.netty:netty-tcnative-boringssl-static"
+    testRuntimeOnly "io.netty:netty-tcnative-classes"
+    testRuntimeOnly "io.netty:netty-tcnative-boringssl-static::${osdetector.classifier}"
+}
+
+tasks.named("jar") {
+    manifest {
+        attributes("Automatic-Module-Name": "com.jauntsdn.netty.websocket.http2")
+    }
 }

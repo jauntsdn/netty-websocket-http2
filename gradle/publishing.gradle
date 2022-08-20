@@ -1,4 +1,6 @@
 subprojects {
+    def isRelease = isRelease(project)
+    def releasedModules = isRelease ? releaseModules() : []
 
     tasks.withType(GenerateModuleMetadata) {
         enabled = false
@@ -88,12 +90,20 @@ subprojects {
 
         plugins.withType(SigningPlugin) {
             signing {
-                sign publishing.publications.maven
-                required {
-                    gradle.taskGraph.allTasks
-                            .any { it.name.contains("publishMavenPublicationToSonatypeRepository") }
+                def isSigned = isRelease && releasedModules.contains(project.name)
+                println("Publication signed: ${isSigned}")
+                if (isSigned) {
+                    sign publishing.publications.maven
                 }
             }
         }
     }
+}
+
+def isRelease(Project project) {
+    return project.hasProperty("release") && project.property("release") == "true"
+}
+
+def releaseModules() {
+    return "netty-websocket-http2"
 }

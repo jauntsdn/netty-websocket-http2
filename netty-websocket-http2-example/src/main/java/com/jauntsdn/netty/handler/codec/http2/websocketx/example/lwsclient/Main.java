@@ -55,7 +55,7 @@ public class Main {
     logger.info("\n==> Remote address: {}:{}", host, port);
     logger.info("\n==> Dumb increment demo of https://libwebsockets.org/testserver/");
 
-    final SslContext sslContext = Security.clientSslContext();
+    SslContext sslContext = Security.clientSslContextHttp2();
     Channel channel =
         new Bootstrap()
             .group(new NioEventLoopGroup())
@@ -90,7 +90,7 @@ public class Main {
     Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
     Http2Headers headers =
-        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.2");
+        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.4");
     ChannelFuture handshake =
         handShaker.handshake(
             "/", "dumb-increment-protocol", headers, new WebSocketDumbIncrementHandler());

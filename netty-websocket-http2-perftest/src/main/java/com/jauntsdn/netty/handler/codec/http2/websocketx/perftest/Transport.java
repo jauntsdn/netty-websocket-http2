@@ -28,37 +28,21 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 public class Transport {
-  static final boolean isEpollAvailable;
-
-  static {
-    boolean available;
-    try {
-      Class.forName("io.netty.channel.epoll.Epoll");
-      available = Epoll.isAvailable();
-    } catch (ClassNotFoundException e) {
-      available = false;
-    }
-    isEpollAvailable = available;
-  }
-
   private final Class<? extends Channel> clientChannel;
   private final Class<? extends ServerChannel> serverChannel;
   private final EventLoopGroup eventLoopGroup;
 
-  public static boolean isEpollAvailable() {
-    return isEpollAvailable;
-  }
-
   public static Transport get(boolean isNative) {
     int threadCount = Runtime.getRuntime().availableProcessors() * 2;
     if (isNative) {
-      if (isEpollAvailable()) {
+      if (Epoll.isAvailable()) {
         return new Transport(
             EpollSocketChannel.class,
             EpollServerSocketChannel.class,
             new EpollEventLoopGroup(threadCount));
       } else {
-        throw new IllegalArgumentException("native transport not available");
+        throw new IllegalArgumentException(
+            "Epoll IO not available: " + Epoll.unavailabilityCause());
       }
     }
     return new Transport(

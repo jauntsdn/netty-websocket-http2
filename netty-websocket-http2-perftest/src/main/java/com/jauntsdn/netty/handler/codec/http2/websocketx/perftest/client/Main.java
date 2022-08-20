@@ -28,6 +28,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
+import io.netty.channel.epoll.Epoll;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http2.Http2FrameCodec;
@@ -61,7 +62,7 @@ public class Main {
     int websocketsCount = Integer.parseInt(System.getProperty("WEBSOCKETS", "1"));
 
     boolean isOpensslAvailable = OpenSsl.isAvailable();
-    boolean isEpollAvailable = Transport.isEpollAvailable();
+    boolean isEpollAvailable = Epoll.isAvailable();
 
     logger.info("\n==> http2 websocket load test client\n");
     logger.info("\n==> remote address: {}:{}", host, port);

@@ -1,5 +1,5 @@
 ![Maven Central](https://img.shields.io/maven-central/v/com.jauntsdn.netty/netty-websocket-http2)
-
+[![Build](https://github.com/jauntsdn/netty-websocket-http2/actions/workflows/ci-build.yml/badge.svg)](https://github.com/jauntsdn/netty-websocket-http2/actions/workflows/ci-build.yml)
 # netty-websocket-http2
 
 Netty based implementation of [rfc8441](https://tools.ietf.org/html/rfc8441) - bootstrapping websockets with http/2
@@ -82,7 +82,7 @@ EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
 Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
 Http2Headers headers =
-   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.3");
+   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.4");
 ChannelFuture handshakeFuture =
    /*http1 websocket handler*/
    handShaker.handshake("/echo", headers, new EchoWebSocketHandler());
@@ -249,6 +249,7 @@ the results are as follows (measured over time spans of 5 seconds):
  
 * `channelserver, channelclient` packages for websocket subchannel API demos. 
 * `handshakeserver, channelclient` packages for handshake only API demo.
+* `multiprotocolserver, multiprotocolclient` packages for demo of server handling htt1/http2 websockets on the same port.
 * `lwsclient` package for client demo that runs against [https://libwebsockets.org/testserver/](https://libwebsockets.org/testserver/) which hosts websocket-over-http2
 server implemented with [libwebsockets](https://github.com/warmcat/libwebsockets) - popular C-based networking library. 
 
@@ -269,7 +270,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.1.3'
+    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.1.4'
 }
 ```
 
