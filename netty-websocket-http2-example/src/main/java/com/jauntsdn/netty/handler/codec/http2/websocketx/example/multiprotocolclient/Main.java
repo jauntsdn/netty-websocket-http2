@@ -100,7 +100,7 @@ public class Main {
         Http2WebSocketClientHandshaker.create(http2Channel);
 
     Http2Headers http2Headers =
-        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.4");
+        new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.1.5");
     ChannelFuture http2WebSocketHandshake =
         http2WebSocketHandShaker.handshake(
             "/echo", "echo.jauntsdn.com", http2Headers, echoWebSocketHandler);
@@ -119,7 +119,7 @@ public class Main {
             TimeUnit.MILLISECONDS);
 
     HttpHeaders http1Headers =
-        new DefaultHttpHeaders().set("user-agent", "jauntsdn-websocket-http1-client/1.1.4");
+        new DefaultHttpHeaders().set("user-agent", "jauntsdn-websocket-http1-client/1.1.5");
 
     Http1WebSocketHandshaker http1WebSocketHandshaker =
         new Http1WebSocketHandshaker(
