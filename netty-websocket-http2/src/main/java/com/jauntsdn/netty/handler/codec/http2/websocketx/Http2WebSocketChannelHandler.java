@@ -33,6 +33,7 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
+  final Http1WebSocketCodec webSocketCodec;
   final WebSocketDecoderConfig config;
   final boolean isEncoderMaskPayload;
   final long closedWebSocketRemoveTimeoutMillis;
@@ -44,10 +45,12 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   boolean isAutoRead;
 
   Http2WebSocketChannelHandler(
+      Http1WebSocketCodec webSocketCodec,
       @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long closedWebSocketRemoveTimeoutMillis,
       boolean isSingleWebSocketPerConnection) {
+    this.webSocketCodec = webSocketCodec;
     this.config = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
     this.closedWebSocketRemoveTimeoutMillis = closedWebSocketRemoveTimeoutMillis;

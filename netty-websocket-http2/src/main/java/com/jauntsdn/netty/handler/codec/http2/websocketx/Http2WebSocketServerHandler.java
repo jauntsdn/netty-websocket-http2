@@ -34,6 +34,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
   private Http2WebSocketServerHandshaker handshaker;
 
   Http2WebSocketServerHandler(
+      Http1WebSocketCodec webSocketCodec,
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       long closedWebSocketRemoveTimeoutMillis,
@@ -41,6 +42,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
       Http2WebSocketAcceptor http2WebSocketAcceptor,
       boolean isSingleWebSocketPerConnection) {
     super(
+        webSocketCodec,
         webSocketDecoderConfig,
         isEncoderMaskPayload,
         closedWebSocketRemoveTimeoutMillis,
@@ -58,6 +60,7 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
             config,
             isEncoderMaskPayload,
             http2WebSocketAcceptor,
+            webSocketCodec,
             compressionHandshaker);
   }
 

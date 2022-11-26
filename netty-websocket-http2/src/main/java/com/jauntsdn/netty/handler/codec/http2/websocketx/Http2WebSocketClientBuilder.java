@@ -22,14 +22,15 @@ import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageD
 /** Builder for {@link Http2WebSocketClientHandler} */
 public final class Http2WebSocketClientBuilder {
   private static final short DEFAULT_STREAM_WEIGHT = 16;
-  private static final boolean MASK_PAYLOAD = true;
 
+  private Http1WebSocketCodec webSocketCodec = Http1WebSocketCodec.DEFAULT;
   private WebSocketDecoderConfig webSocketDecoderConfig;
   private PerMessageDeflateClientExtensionHandshaker perMessageDeflateClientExtensionHandshaker;
   private long handshakeTimeoutMillis = 15_000;
   private short streamWeight;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
   private boolean isSingleWebSocketPerConnection;
+  private boolean isMaskPayload = true;
 
   Http2WebSocketClientBuilder() {}
 
@@ -39,12 +40,31 @@ public final class Http2WebSocketClientBuilder {
   }
 
   /**
+   * @param webSocketCodec factory for websocket1 encoder/decoder used for protocol processing. Must
+   *     be non-null
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
+  public Http2WebSocketClientBuilder codec(Http1WebSocketCodec webSocketCodec) {
+    this.webSocketCodec = Preconditions.requireNonNull(webSocketCodec, "webSocketCodec");
+    return this;
+  }
+
+  /**
    * @param webSocketDecoderConfig websocket decoder configuration. Must be non-null
    * @return this {@link Http2WebSocketClientBuilder} instance
    */
   public Http2WebSocketClientBuilder decoderConfig(WebSocketDecoderConfig webSocketDecoderConfig) {
     this.webSocketDecoderConfig =
         Preconditions.requireNonNull(webSocketDecoderConfig, "webSocketDecoderConfig");
+    return this;
+  }
+
+  /**
+   * @param maskPayload enables frame payload masking
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
+  public Http2WebSocketClientBuilder maskPayload(boolean maskPayload) {
+    this.isMaskPayload = maskPayload;
     return this;
   }
 
@@ -158,14 +178,19 @@ public final class Http2WebSocketClientBuilder {
         config = config.toBuilder().allowExtensions(true).build();
       }
     }
+    Http1WebSocketCodec codec = webSocketCodec;
+    boolean maskPayload = isMaskPayload;
+    codec.validate(maskPayload, config);
+
     short weight = streamWeight;
     if (weight == 0) {
       weight = DEFAULT_STREAM_WEIGHT;
     }
 
     return new Http2WebSocketClientHandler(
+        codec,
         config,
-        MASK_PAYLOAD,
+        maskPayload,
         weight,
         handshakeTimeoutMillis,
         closedWebSocketRemoveTimeoutMillis,

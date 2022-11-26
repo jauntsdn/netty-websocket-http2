@@ -117,6 +117,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
       String subprotocol,
       WebSocketDecoderConfig config,
       boolean isEncoderMaskPayload,
+      Http1WebSocketCodec webSocketCodec,
       @Nullable WebSocketExtensionEncoder compressionEncoder,
       @Nullable WebSocketExtensionDecoder compressionDecoder,
       ChannelHandler websocketHandler) {
@@ -130,13 +131,12 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
 
     if (compressionEncoder != null && compressionDecoder != null) {
       pl.addLast(
-          new WebSocket13FrameDecoder(config),
+          webSocketCodec.decoder(config),
           compressionDecoder,
-          new WebSocket13FrameEncoder(isEncoderMaskPayload),
+          webSocketCodec.encoder(isEncoderMaskPayload),
           compressionEncoder);
     } else {
-      pl.addLast(
-          new WebSocket13FrameDecoder(config), new WebSocket13FrameEncoder(isEncoderMaskPayload));
+      pl.addLast(webSocketCodec.decoder(config), webSocketCodec.encoder(isEncoderMaskPayload));
     }
     if (config.withUTF8Validator()) {
       pl.addLast(new Utf8FrameValidator());
@@ -157,6 +157,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
       String subprotocol,
       WebSocketDecoderConfig config,
       boolean isEncoderMaskPayload,
+      Http1WebSocketCodec webSocketCodec,
       ChannelHandler websocketHandler) {
     this.webSocketChannelParent = webSocketChannelParent;
     this.websocketChannelSerial = websocketChannelSerial;
@@ -164,14 +165,14 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
     this.subprotocol = subprotocol;
     channelId = new Http2WebSocketChannelId(parent().id(), websocketChannelSerial);
     ChannelPipeline pl = pipeline = new WebSocketChannelPipeline(this);
-
     PreHandshakeHandler preHandshakeHandler = new PreHandshakeHandler();
     pl.addLast(preHandshakeHandler, websocketHandler);
 
     closePromise = pl.newPromise();
     handshakePromise = pl.newPromise();
     handshakePromiseListener =
-        new CompleteClientHandshake(config, isEncoderMaskPayload, preHandshakeHandler);
+        new CompleteClientHandshake(
+            config, isEncoderMaskPayload, preHandshakeHandler, webSocketCodec);
   }
 
   /*called on user thread, done outside constructor to not publish
@@ -189,14 +190,17 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
     private final WebSocketDecoderConfig config;
     private final boolean isEncoderMaskPayload;
     private final PreHandshakeHandler preHandshakeHandler;
+    private final Http1WebSocketCodec webSocketCodec;
 
     public CompleteClientHandshake(
         WebSocketDecoderConfig config,
         boolean isEncoderMaskPayload,
-        PreHandshakeHandler preHandshakeHandler) {
+        PreHandshakeHandler preHandshakeHandler,
+        Http1WebSocketCodec webSocketCodec) {
       this.config = config;
       this.isEncoderMaskPayload = isEncoderMaskPayload;
       this.preHandshakeHandler = preHandshakeHandler;
+      this.webSocketCodec = webSocketCodec;
     }
 
     @Override
@@ -213,17 +217,13 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
       if (config.withUTF8Validator()) {
         pl.addFirst(new Utf8FrameValidator());
       }
+      Http1WebSocketCodec codec = webSocketCodec;
       WebSocketExtensionEncoder encoder = compressionEncoder;
       WebSocketExtensionDecoder decoder = compressionDecoder;
       if (encoder != null && decoder != null) {
-        pl.addFirst(
-            new WebSocket13FrameDecoder(config),
-            decoder,
-            new WebSocket13FrameEncoder(isEncoderMaskPayload),
-            encoder);
+        pl.addFirst(codec.decoder(config), decoder, codec.encoder(isEncoderMaskPayload), encoder);
       } else {
-        pl.addFirst(
-            new WebSocket13FrameDecoder(config), new WebSocket13FrameEncoder(isEncoderMaskPayload));
+        pl.addFirst(codec.decoder(config), codec.encoder(isEncoderMaskPayload));
       }
       preHandshakeHandler.complete();
     }

@@ -40,6 +40,7 @@ public final class Http2WebSocketServerBuilder {
                           + Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND_SUBPROTOCOLS
                           + subprotocols));
 
+  private Http1WebSocketCodec webSocketCodec = Http1WebSocketCodec.DEFAULT;
   private WebSocketDecoderConfig webSocketDecoderConfig;
 
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
@@ -88,6 +89,16 @@ public final class Http2WebSocketServerBuilder {
         .initialSettings()
         .put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
     return http2Builder.validateHeaders(false);
+  }
+
+  /**
+   * @param webSocketCodec factory for websocket1 encoder/decoder used for protocol processing. Must
+   *     be non-null
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
+  public Http2WebSocketServerBuilder codec(Http1WebSocketCodec webSocketCodec) {
+    this.webSocketCodec = Preconditions.requireNonNull(webSocketCodec, "webSocketCodec");
+    return this;
   }
 
   /**
@@ -205,7 +216,11 @@ public final class Http2WebSocketServerBuilder {
         config = config.toBuilder().allowExtensions(true).build();
       }
     }
+    Http1WebSocketCodec codec = webSocketCodec;
+    codec.validate(MASK_PAYLOAD, config);
+
     return new Http2WebSocketServerHandler(
+        codec,
         config,
         MASK_PAYLOAD,
         closedWebSocketRemoveTimeoutMillis,
