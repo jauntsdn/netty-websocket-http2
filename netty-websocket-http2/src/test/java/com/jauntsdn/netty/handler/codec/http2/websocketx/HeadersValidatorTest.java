@@ -88,6 +88,24 @@ public class HeadersValidatorTest {
   }
 
   @Test
+  void webSocketRequestWithInvalidHeader() {
+    Assertions.assertThat(
+            Http2WebSocketValidator.WebSocket.isValid(
+                validWebSocketRequestHeaders()
+                    .add(asciiString("connection"), asciiString("keep-alive")),
+                false))
+        .isFalse();
+  }
+
+  @Test
+  void webSocketRequestWithInvalidTeHeader() {
+    Assertions.assertThat(
+            Http2WebSocketValidator.WebSocket.isValid(
+                validWebSocketRequestHeaders().add(asciiString("te"), asciiString("gzip")), false))
+        .isFalse();
+  }
+
+  @Test
   void webSocketRequestWithValidTeHeader() {
     Assertions.assertThat(
             Http2WebSocketValidator.WebSocket.isValid(
@@ -209,6 +227,23 @@ public class HeadersValidatorTest {
     Assertions.assertThat(
             Http2WebSocketValidator.Http.isValid(
                 validHttpRequestHeaders().add(asciiString(":status"), asciiString("200")), false))
+        .isFalse();
+  }
+
+  @Test
+  void httpRequestWithInvalidHeader() {
+    Assertions.assertThat(
+            Http2WebSocketValidator.Http.isValid(
+                validHttpRequestHeaders().set(asciiString("connection"), asciiString("keep-alive")),
+                false))
+        .isFalse();
+  }
+
+  @Test
+  void httpRequestWithInvalidTeHeader() {
+    Assertions.assertThat(
+            Http2WebSocketValidator.Http.isValid(
+                validHttpRequestHeaders().set(asciiString("te"), asciiString("gzip")), false))
         .isFalse();
   }
 
