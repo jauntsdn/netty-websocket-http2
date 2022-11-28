@@ -50,6 +50,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
   private volatile Http2WebSocketClientHandshaker handshaker;
 
   Http2WebSocketClientHandler(
+      Http1WebSocketCodec webSocketCodec,
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       short streamWeight,
@@ -58,6 +59,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
       @Nullable PerMessageDeflateClientExtensionHandshaker compressionHandshaker,
       boolean isSingleWebSocketPerConnection) {
     super(
+        webSocketCodec,
         webSocketDecoderConfig,
         isEncoderMaskPayload,
         closedWebSocketRemoveTimeoutMillis,
@@ -157,6 +159,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
             streamWeight,
             scheme,
             handshakeTimeoutMillis,
+            webSocketCodec,
             compressionHandshaker);
 
     if (HANDSHAKER.compareAndSet(this, null, handShaker)) {

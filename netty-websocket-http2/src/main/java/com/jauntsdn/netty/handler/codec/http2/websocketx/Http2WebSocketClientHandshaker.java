@@ -48,6 +48,7 @@ public final class Http2WebSocketClientHandshaker {
               Http2WebSocketClientHandshaker.class, "webSocketChannelSerial");
   private static final Http2Headers EMPTY_HEADERS = new DefaultHttp2Headers(false);
 
+  private final Http1WebSocketCodec webSocketCodec;
   private final Http2Connection.Endpoint<Http2LocalFlowController> streamIdFactory;
   private final WebSocketDecoderConfig webSocketDecoderConfig;
   private final WebSocketsParent webSocketsParent;
@@ -69,6 +70,7 @@ public final class Http2WebSocketClientHandshaker {
       short streamWeight,
       CharSequence scheme,
       long handshakeTimeoutMillis,
+      Http1WebSocketCodec webSocketCodec,
       @Nullable PerMessageDeflateClientExtensionHandshaker compressionHandshaker) {
     this.webSocketsParent = webSocketsParent;
     this.streamIdFactory = streamIdFactory;
@@ -77,6 +79,7 @@ public final class Http2WebSocketClientHandshaker {
     this.timeoutMillis = handshakeTimeoutMillis;
     this.streamWeight = streamWeight;
     this.scheme = scheme;
+    this.webSocketCodec = webSocketCodec;
     this.compressionHandshaker = compressionHandshaker;
   }
 
@@ -171,6 +174,7 @@ public final class Http2WebSocketClientHandshaker {
                 subprotocol,
                 webSocketDecoderConfig,
                 isEncoderMaskPayload,
+                webSocketCodec,
                 webSocketHandler)
             .initialize();
 

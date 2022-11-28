@@ -58,6 +58,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
   private final WebSocketDecoderConfig webSocketDecoderConfig;
   private final boolean isEncoderMaskPayload;
   private final Http2WebSocketAcceptor http2WebSocketAcceptor;
+  private final Http1WebSocketCodec webSocketCodec;
   private final WebSocketServerExtensionHandshaker compressionHandshaker;
 
   Http2WebSocketServerHandshaker(
@@ -65,11 +66,13 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       Http2WebSocketAcceptor http2WebSocketAcceptor,
+      Http1WebSocketCodec webSocketCodec,
       @Nullable WebSocketServerExtensionHandshaker compressionHandshaker) {
     this.webSocketsParent = webSocketsParent;
     this.webSocketDecoderConfig = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
     this.http2WebSocketAcceptor = http2WebSocketAcceptor;
+    this.webSocketCodec = webSocketCodec;
     this.compressionHandshaker = compressionHandshaker;
   }
 
@@ -239,6 +242,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
                           acceptedSubprotocol,
                           webSocketDecoderConfig,
                           isEncoderMaskPayload,
+                          webSocketCodec,
                           finalCompressionEncoder,
                           finalCompressionDecoder,
                           webSocketHandler)
