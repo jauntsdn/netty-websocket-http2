@@ -7,6 +7,7 @@ subprojects {
             mavenBom "org.junit:junit-bom:${junitVersion}"
         }
         dependencies {
+            dependency "com.jauntsdn.netty:netty-websocket-http1:${jauntNettyWebsocketHttp1}"
             dependency "org.hdrhistogram:HdrHistogram:${hdrHistogramVersion}"
             dependency "io.netty:netty-tcnative-classes:${nettyTcnativeVersion}"
             dependency "io.netty:netty-tcnative-boringssl-static:${nettyTcnativeVersion}"
