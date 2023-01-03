@@ -10,6 +10,11 @@ It is websockets-over-http2 support with no http1 dependencies and minimal overh
 
 [https://jauntsdn.com/post/netty-websocket-http2/](https://jauntsdn.com/post/netty-websocket-http2/)
 
+### much faster http1 codec
+Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-callbacks-codec) codec for websocket-http1 
+frames processing [improves](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-perftest/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest/callbackscodec) 
+throughput 1.4x - 1.7x for small messages.
+
 ### websocket channel API  
 Intended for application servers and clients.  
 Allows transparent application of existing http1 websocket handlers on top of http2 stream.  
@@ -220,15 +225,26 @@ Library relies on capabilities provided by netty's `Http2ConnectionHandler` so p
 [netty-websocket-http2-perftest](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-perftest/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest) 
 module contains application that gives rough throughput/latency estimate. The application is started with `perf_server.sh`, `perf_client.sh`. 
 
-On modern box one can expect following results for single websocket:
+On modern box one can expect following results for single websocket, 140 bytes payload (TLS connection, per-core throughput):
 
 ```properties
-19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main p50 => 435 micros
-19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main p95 => 662 micros
-19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main p99 => 841 micros
-19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main throughput => 205874 messages
-19:31:58.537 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client.Main throughput => 201048.83 kbytes
+15:15:23.978 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.client.Main p50 => 639 micros
+15:15:23.978 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.client.Main p95 => 947 micros
+15:15:23.978 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.client.Main p99 => 1110 micros
+15:15:23.978 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.client.Main throughput => 505140 messages
+15:15:23.978 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.client.Main throughput => 69062.11 kbytes
+```
 
+Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-callbacks-codec) codec for websocket-http1 frames 
+processing significantly [improves](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-perftest/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest/callbackscodec) 
+throughput:
+
+```properties
+15:13:10.483 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client.Main p50 => 492 micros
+15:13:10.484 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client.Main p95 => 702 micros
+15:13:10.484 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client.Main p99 => 825 micros
+15:13:10.484 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client.Main throughput => 746880 messages
+15:13:10.484 epollEventLoopGroup-2-1 com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client.Main throughput => 102112.5 kbytes
 ```
 
 To evaluate performance with multiple connections we compose an application comprised with simple echo server, and client
