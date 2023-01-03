@@ -55,3 +55,40 @@ task runClientCallbacks(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client.Main"
 }
+
+task serverMessagesScripts(type: CreateStartScripts) {
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.server.Main"
+    applicationName = "${project.name}-messages-server"
+    classpath = startScripts.classpath
+    outputDir = startScripts.outputDir
+}
+
+task clientMessagesScripts(type: CreateStartScripts) {
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.client.Main"
+    applicationName = "${project.name}-messages-client"
+    classpath = startScripts.classpath
+    outputDir = startScripts.outputDir
+}
+
+task serverCallbacksScripts(type: CreateStartScripts) {
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.server.Main"
+    applicationName = "${project.name}-callbacks-server"
+    classpath = startScripts.classpath
+    outputDir = startScripts.outputDir
+}
+
+task clientCallbacksScripts(type: CreateStartScripts) {
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client.Main"
+    applicationName = "${project.name}-callbacks-client"
+    classpath = startScripts.classpath
+    outputDir = startScripts.outputDir
+}
+
+startScripts.dependsOn serverMessagesScripts
+startScripts.dependsOn clientMessagesScripts
+startScripts.dependsOn serverCallbacksScripts
+startScripts.dependsOn clientCallbacksScripts
+
+tasks.named("startScripts") {
+    enabled = false
+}
