@@ -23,36 +23,81 @@ import io.netty.channel.epoll.Epoll;
 import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.epoll.EpollSocketChannel;
+import io.netty.channel.kqueue.KQueue;
+import io.netty.channel.kqueue.KQueueEventLoopGroup;
+import io.netty.channel.kqueue.KQueueServerSocketChannel;
+import io.netty.channel.kqueue.KQueueSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 public class Transport {
+  static final boolean isEpollAvailable;
+  static final boolean isKqueueAvailable;
+
+  static {
+    boolean available;
+    try {
+      Class.forName("io.netty.channel.epoll.Epoll");
+      available = Epoll.isAvailable();
+    } catch (ClassNotFoundException e) {
+      available = false;
+    }
+    isEpollAvailable = available;
+
+    try {
+      Class.forName("io.netty.channel.kqueue.KQueue");
+      available = KQueue.isAvailable();
+    } catch (ClassNotFoundException e) {
+      available = false;
+    }
+    isKqueueAvailable = available;
+  }
+
+  private final String type;
   private final Class<? extends Channel> clientChannel;
   private final Class<? extends ServerChannel> serverChannel;
   private final EventLoopGroup eventLoopGroup;
 
+  public static boolean isEpollAvailable() {
+    return isEpollAvailable;
+  }
+
+  public static boolean isKqueueAvailable() {
+    return isKqueueAvailable;
+  }
+
   public static Transport get(boolean isNative) {
     int threadCount = Runtime.getRuntime().availableProcessors() * 2;
     if (isNative) {
-      if (Epoll.isAvailable()) {
+      if (isEpollAvailable()) {
         return new Transport(
+            "epoll",
             EpollSocketChannel.class,
             EpollServerSocketChannel.class,
             new EpollEventLoopGroup(threadCount));
-      } else {
-        throw new IllegalArgumentException(
-            "Epoll IO not available: " + Epoll.unavailabilityCause());
+      }
+      if (isKqueueAvailable()) {
+        return new Transport(
+            "kqueue",
+            KQueueSocketChannel.class,
+            KQueueServerSocketChannel.class,
+            new KQueueEventLoopGroup(threadCount));
       }
     }
     return new Transport(
-        NioSocketChannel.class, NioServerSocketChannel.class, new NioEventLoopGroup(threadCount));
+        "nio",
+        NioSocketChannel.class,
+        NioServerSocketChannel.class,
+        new NioEventLoopGroup(threadCount));
   }
 
   Transport(
+      String type,
       Class<? extends Channel> clientChannel,
       Class<? extends ServerChannel> serverChannel,
       EventLoopGroup eventLoopGroup) {
+    this.type = type;
     this.clientChannel = clientChannel;
     this.serverChannel = serverChannel;
     this.eventLoopGroup = eventLoopGroup;
@@ -68,5 +113,14 @@ public class Transport {
 
   public EventLoopGroup eventLoopGroup() {
     return eventLoopGroup;
+  }
+
+  public String type() {
+    return type;
+  }
+
+  @Override
+  public String toString() {
+    return "Transport{" + "type='" + type + '\'' + '}';
   }
 }

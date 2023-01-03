@@ -20,20 +20,21 @@ plugins {
 
 description = "Netty based implementation of rfc8441 - bootstrapping websockets with http/2. Performance test project"
 
-def epollClassifier =
-        osdetector.os == "linux"
-                ? "::${osdetector.classifier}"
-                : ""
-
 dependencies {
     implementation project(":netty-websocket-http2")
     implementation project(":netty-websocket-http2-callbacks-codec")
-    implementation "org.hdrhistogram:HdrHistogram"
     implementation "io.netty:netty-transport-classes-epoll"
+    implementation "io.netty:netty-transport-classes-kqueue"
+    implementation "org.hdrhistogram:HdrHistogram"
     implementation "org.slf4j:slf4j-api"
-    runtimeOnly "io.netty:netty-transport-native-epoll${epollClassifier}"
+
     runtimeOnly "io.netty:netty-tcnative-boringssl-static::${osdetector.classifier}"
     runtimeOnly "ch.qos.logback:logback-classic"
+    if (osdetector.os == "linux") {
+        runtimeOnly "io.netty:netty-transport-native-epoll::${osdetector.classifier}"
+    } else if (osdetector.os == "osx") {
+        runtimeOnly "io.netty:netty-transport-native-kqueue::${osdetector.classifier}"
+    }
 }
 
 task runServerMessages(type: JavaExec) {

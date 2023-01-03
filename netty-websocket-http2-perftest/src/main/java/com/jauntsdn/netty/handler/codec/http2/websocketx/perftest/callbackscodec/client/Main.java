@@ -38,6 +38,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.epoll.Epoll;
+import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http2.Http2FrameCodec;
@@ -72,12 +73,14 @@ public class Main {
 
     boolean isOpensslAvailable = OpenSsl.isAvailable();
     boolean isEpollAvailable = Epoll.isAvailable();
+    boolean isKqueueAvailable = KQueue.isAvailable();
 
     logger.info("\n==> http2 websocket callbacks codec perf test client\n");
     logger.info("\n==> remote address: {}:{}", host, port);
     logger.info("\n==> duration: {}", duration);
     logger.info("\n==> native transport: {}", isNativeTransport);
     logger.info("\n==> epoll available: {}", isEpollAvailable);
+    logger.info("\n==> kqueue available: {}", isKqueueAvailable);
     logger.info("\n==> openssl available: {}\n", isOpensslAvailable);
     logger.info("\n==> frame payload size: {}", frameSize);
     logger.info("\n==> written frames queue limit: {}", framesQueueLimit);

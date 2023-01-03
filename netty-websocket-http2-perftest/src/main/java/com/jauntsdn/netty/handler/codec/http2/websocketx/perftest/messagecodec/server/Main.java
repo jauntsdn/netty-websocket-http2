@@ -25,6 +25,7 @@ import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Transport;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.*;
 import io.netty.channel.epoll.Epoll;
+import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
@@ -50,12 +51,14 @@ public class Main {
         Integer.parseInt(System.getProperty("FLOW_CONTROL_WINDOW", "100000"));
     boolean isOpensslAvailable = OpenSsl.isAvailable();
     boolean isEpollAvailable = Epoll.isAvailable();
+    boolean isKqueueAvailable = KQueue.isAvailable();
 
     logger.info("\n==> http2 websocket load test server\n");
     logger.info("\n==> bind address: {}:{}", host, port);
     logger.info("\n==> flow control window size: {}", flowControlWindowSize);
     logger.info("\n==> native transport: {}", isNativeTransport);
     logger.info("\n==> epoll available: {}", isEpollAvailable);
+    logger.info("\n==> kqueue available: {}", isKqueueAvailable);
     logger.info("\n==> openssl available: {}", isOpensslAvailable);
 
     Transport transport = Transport.get(isNativeTransport);
