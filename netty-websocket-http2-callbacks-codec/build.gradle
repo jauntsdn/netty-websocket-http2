@@ -27,6 +27,10 @@ dependencies {
     api "com.jauntsdn.netty:netty-websocket-http1"
 }
 
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 tasks.named("jar") {
     manifest {
         attributes("Automatic-Module-Name": "com.jauntsdn.netty.websocket.http2.codec.callbacks")

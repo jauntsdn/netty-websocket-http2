@@ -40,10 +40,6 @@ subprojects {
         mavenCentral()
     }
 
-    dependencyLocking {
-        lockAllConfigurations()
-    }
-
     plugins.withType(JavaPlugin) {
 
         compileJava {
