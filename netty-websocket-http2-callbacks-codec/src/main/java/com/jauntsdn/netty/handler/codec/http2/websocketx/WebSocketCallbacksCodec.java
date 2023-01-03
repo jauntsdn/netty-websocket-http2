@@ -5,9 +5,7 @@ import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.WebSocketFrameDecoder;
 import io.netty.handler.codec.http.websocketx.WebSocketFrameEncoder;
 
-/**
- * Provides integration with jauntsdn/netty-websocket-http1 - high performance websocket codec.
- */
+/** Provides integration with jauntsdn/netty-websocket-http1 - high performance websocket codec. */
 public final class WebSocketCallbacksCodec implements Http1WebSocketCodec {
   private static final WebSocketCallbacksCodec INSTANCE = new WebSocketCallbacksCodec();
 

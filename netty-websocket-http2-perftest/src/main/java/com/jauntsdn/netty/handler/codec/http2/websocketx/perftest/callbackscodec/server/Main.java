@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 - present Maksym Ostroverkhov.
+ * Copyright 2022 - present Maksym Ostroverkhov.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,31 @@
  * limitations under the License.
  */
 
-package com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.server;
+package com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.server;
 
 import static io.netty.channel.ChannelHandler.*;
 
+import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketCallbacksHandler;
+import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketFrameFactory;
+import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketFrameListener;
+import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketProtocol;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.WebSocketCallbacksCodec;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Security;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Transport;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.channel.epoll.Epoll;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http2.*;
 import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
-import io.netty.util.ReferenceCountUtil;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +57,7 @@ public class Main {
     boolean isOpensslAvailable = OpenSsl.isAvailable();
     boolean isEpollAvailable = Epoll.isAvailable();
 
-    logger.info("\n==> http2 websocket load test server\n");
+    logger.info("\n==> http2 websocket callbacks codec perf test server\n");
     logger.info("\n==> bind address: {}:{}", host, port);
     logger.info("\n==> flow control window size: {}", flowControlWindowSize);
     logger.info("\n==> native transport: {}", isNativeTransport);
@@ -99,14 +105,28 @@ public class Main {
               new DefaultHttp2RemoteFlowController(
                   connection, new UniformStreamByteDistributor(connection)));
 
-      EchoWebSocketHandler echoWebSocketHandler = new EchoWebSocketHandler();
+      WebSocketsCallbacksHandler webSocketsCallbacksHandler =
+          new WebSocketsCallbacksHandler(new EchoWebSocketHandler());
+
+      WebSocketDecoderConfig decoderConfig =
+          WebSocketDecoderConfig.newBuilder()
+              .maxFramePayloadLength(65_535)
+              .expectMaskedFrames(false)
+              .allowMaskMismatch(true)
+              .allowExtensions(false)
+              .withUTF8Validator(false)
+              .build();
+
       Http2WebSocketServerHandler http2webSocketHandler =
           Http2WebSocketServerBuilder.create()
+              .codec(WebSocketCallbacksCodec.instance())
               .assumeSingleWebSocketPerConnection(true)
+              .compression(false)
+              .decoderConfig(decoderConfig)
               .acceptor(
                   (ctx, path, subprotocols, request, response) -> {
                     if ("/echo".equals(path) && subprotocols.isEmpty()) {
-                      return ctx.executor().newSucceededFuture(echoWebSocketHandler);
+                      return ctx.executor().newSucceededFuture(webSocketsCallbacksHandler);
                     }
                     return ctx.executor()
                         .newFailedFuture(
@@ -133,22 +153,69 @@ public class Main {
     }
   }
 
-  @Sharable
-  private static class EchoWebSocketHandler extends ChannelInboundHandlerAdapter {
+  private static class EchoWebSocketHandler
+      implements WebSocketCallbacksHandler, WebSocketFrameListener {
+    private WebSocketFrameFactory webSocketFrameFactory;
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-      if (!(msg instanceof BinaryWebSocketFrame)) {
-        ReferenceCountUtil.safeRelease(msg);
-        return;
-      }
-      ctx.write(msg);
+    public WebSocketFrameListener exchange(
+        ChannelHandlerContext ctx, WebSocketFrameFactory webSocketFrameFactory) {
+      this.webSocketFrameFactory = webSocketFrameFactory;
+      return this;
     }
 
     @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+    public void onChannelRead(
+        ChannelHandlerContext ctx, boolean finalFragment, int rsv, int opcode, ByteBuf payload) {
+      if (opcode != WebSocketProtocol.OPCODE_BINARY) {
+        payload.release();
+        return;
+      }
+      WebSocketFrameFactory frameFactory = webSocketFrameFactory;
+      ByteBuf frame = frameFactory.createBinaryFrame(ctx.alloc(), payload.readableBytes());
+      frame.writeBytes(payload);
+      frameFactory.mask(frame);
+      payload.release();
+      ctx.write(frame);
+    }
+
+    @Override
+    public void onChannelReadComplete(ChannelHandlerContext ctx) {
       ctx.flush();
-      super.channelReadComplete(ctx);
+    }
+
+    @Override
+    public void onExceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+      if (cause instanceof IOException) {
+        return;
+      }
+      logger.info("Unexpected websocket error", cause);
+      ctx.close();
+    }
+  }
+
+  @Sharable
+  private static class WebSocketsCallbacksHandler extends ChannelInboundHandlerAdapter {
+    final WebSocketCallbacksHandler webSocketHandler;
+
+    WebSocketsCallbacksHandler(WebSocketCallbacksHandler webSocketHandler) {
+      this.webSocketHandler = webSocketHandler;
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+      if (evt instanceof Http2WebSocketEvent.Http2WebSocketHandshakeSuccessEvent) {
+
+        WebSocketCallbacksHandler.exchange(ctx, webSocketHandler);
+        ctx.pipeline().remove(this);
+      }
+      super.userEventTriggered(ctx, evt);
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+      logger.info("Received {} message on callbacks handler", msg);
+      super.channelRead(ctx, msg);
     }
 
     @Override
