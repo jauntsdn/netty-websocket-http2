@@ -105,5 +105,5 @@ def isRelease(Project project) {
 }
 
 def releaseModules() {
-    return "netty-websocket-http2"
+    return ["netty-websocket-http2", "netty-websocket-http2-callbacks-codec"]
 }
