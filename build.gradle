@@ -40,10 +40,6 @@ subprojects {
         mavenCentral()
     }
 
-    dependencyLocking {
-        lockAllConfigurations()
-    }
-
     plugins.withType(JavaPlugin) {
 
         compileJava {
@@ -125,4 +121,4 @@ def projectVersion(project) {
     return project.version + versionSuffix
 }
 
-defaultTasks "clean", "build"
+defaultTasks "clean", "build", "installDist"

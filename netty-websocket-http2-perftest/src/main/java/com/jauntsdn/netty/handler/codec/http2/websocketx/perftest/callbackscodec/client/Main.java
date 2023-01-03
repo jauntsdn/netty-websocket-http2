@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 - present Maksym Ostroverkhov.
+ * Copyright 2022 - present Maksym Ostroverkhov.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,30 +14,40 @@
  * limitations under the License.
  */
 
-package com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.client;
+package com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.*;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketLifecycleEvent;
+import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Type;
 
+import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketCallbacksHandler;
+import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketFrameFactory;
+import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketFrameListener;
+import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketProtocol;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandshaker;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.WebSocketCallbacksCodec;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Security;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.Transport;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.epoll.Epoll;
+import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http2.Http2FrameCodec;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import io.netty.handler.ssl.OpenSsl;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
-import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.GenericFutureListener;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,18 +67,20 @@ public class Main {
     int duration = Integer.parseInt(System.getProperty("DURATION", "600"));
     boolean isNativeTransport = Boolean.parseBoolean(System.getProperty("NATIVE", "true"));
     int flowControlWindowSize = Integer.parseInt(System.getProperty("WINDOW", "100000"));
-    int frameSize = Integer.parseInt(System.getProperty("FRAME", "1000"));
+    int frameSize = Integer.parseInt(System.getProperty("FRAME", "140"));
     int framesQueueLimit = Integer.parseInt(System.getProperty("QUEUE", "60"));
     int websocketsCount = Integer.parseInt(System.getProperty("WEBSOCKETS", "1"));
 
     boolean isOpensslAvailable = OpenSsl.isAvailable();
     boolean isEpollAvailable = Epoll.isAvailable();
+    boolean isKqueueAvailable = KQueue.isAvailable();
 
-    logger.info("\n==> http2 websocket load test client\n");
+    logger.info("\n==> http2 websocket callbacks codec perf test client\n");
     logger.info("\n==> remote address: {}:{}", host, port);
     logger.info("\n==> duration: {}", duration);
     logger.info("\n==> native transport: {}", isNativeTransport);
     logger.info("\n==> epoll available: {}", isEpollAvailable);
+    logger.info("\n==> kqueue available: {}", isKqueueAvailable);
     logger.info("\n==> openssl available: {}\n", isOpensslAvailable);
     logger.info("\n==> frame payload size: {}", frameSize);
     logger.info("\n==> written frames queue limit: {}", framesQueueLimit);
@@ -87,11 +99,26 @@ public class Main {
                   @Override
                   protected void initChannel(SocketChannel ch) {
                     SslHandler sslHandler = sslContext.newHandler(ch.alloc());
+
                     Http2FrameCodecBuilder frameCodecBuilder = Http2FrameCodecBuilder.forClient();
                     frameCodecBuilder.initialSettings().initialWindowSize(flowControlWindowSize);
                     Http2FrameCodec http2FrameCodec = frameCodecBuilder.build();
+
+                    WebSocketDecoderConfig decoderConfig =
+                        WebSocketDecoderConfig.newBuilder()
+                            .maxFramePayloadLength(65_535)
+                            .expectMaskedFrames(false)
+                            .allowMaskMismatch(true)
+                            .allowExtensions(false)
+                            .withUTF8Validator(false)
+                            .build();
+
                     Http2WebSocketClientHandler http2WebSocketClientHandler =
                         Http2WebSocketClientBuilder.create()
+                            .codec(WebSocketCallbacksCodec.instance())
+                            .compression(false)
+                            .decoderConfig(decoderConfig)
+                            .maskPayload(false)
                             .handshakeTimeoutMillis(15_000)
                             .assumeSingleWebSocketPerConnection(true)
                             .build();
@@ -111,13 +138,14 @@ public class Main {
       ChannelFuture handshakeFuture =
           handShaker.handshake(
               "/echo",
-              new EchoWebSocketHandler(
-                  framesHistogram,
-                  framesPayload,
-                  frameSize,
-                  random,
-                  framesQueueLimit / 2,
-                  framesQueueLimit));
+              new WebSocketsCallbacksHandler(
+                  new EchoWebSocketHandler(
+                      framesHistogram,
+                      framesPayload,
+                      frameSize,
+                      random,
+                      framesQueueLimit / 2,
+                      framesQueueLimit)));
 
       handshakeFuture.addListener(new CloseOnError(channel));
     }
@@ -176,7 +204,8 @@ public class Main {
     }
   }
 
-  private static class EchoWebSocketHandler extends ChannelInboundHandlerAdapter {
+  private static class EchoWebSocketHandler
+      implements WebSocketCallbacksHandler, WebSocketFrameListener {
     private static final int HEADER_SIZE = Long.BYTES + Integer.BYTES;
 
     private final Recorder histogram;
@@ -189,6 +218,7 @@ public class Main {
     private int receiveIndex;
     private boolean isClosed;
     private QueueLimitingFrameWriter frameWriter;
+    private WebSocketFrameFactory webSocketFrameFactory;
 
     public EchoWebSocketHandler(
         Recorder histogram,
@@ -206,27 +236,31 @@ public class Main {
     }
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-      isClosed = true;
-      super.channelInactive(ctx);
+    public void onOpen(ChannelHandlerContext ctx) {
+      frameWriter.tryWrite();
     }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) {
-      if (!(msg instanceof BinaryWebSocketFrame)) {
-        ReferenceCountUtil.safeRelease(msg);
+    public void onClose(ChannelHandlerContext ctx) {
+      isClosed = true;
+    }
+
+    @Override
+    public void onChannelRead(
+        ChannelHandlerContext ctx, boolean finalFragment, int rsv, int opcode, ByteBuf content) {
+      if (opcode != WebSocketProtocol.OPCODE_BINARY) {
+        content.release();
         return;
       }
-      BinaryWebSocketFrame webSocketFrame = (BinaryWebSocketFrame) msg;
+
       try {
-        read(ctx, webSocketFrame);
+        read(ctx, content);
       } finally {
-        webSocketFrame.release();
+        content.release();
       }
     }
 
-    private void read(ChannelHandlerContext ctx, BinaryWebSocketFrame webSocketFrame) {
-      ByteBuf content = webSocketFrame.content();
+    private void read(ChannelHandlerContext ctx, ByteBuf content) {
       int expectedSize = frameSize;
       if (content.readableBytes() != expectedSize) {
         ctx.close();
@@ -251,7 +285,7 @@ public class Main {
     }
 
     @Override
-    public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {
+    public void onChannelWritabilityChanged(ChannelHandlerContext ctx) {
       boolean writable = ctx.channel().isWritable();
       if (writable) {
         QueueLimitingFrameWriter fw = frameWriter;
@@ -259,50 +293,28 @@ public class Main {
           fw.tryWrite();
         }
       }
-      super.channelWritabilityChanged(ctx);
     }
 
-    @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-      if (evt instanceof Http2WebSocketLifecycleEvent) {
-        Http2WebSocketLifecycleEvent handshakeEvent = (Http2WebSocketLifecycleEvent) evt;
-        Type eventType = handshakeEvent.type();
-        switch (eventType) {
-          case HANDSHAKE_START:
-          case CLOSE_REMOTE_ENDSTREAM:
-          case CLOSE_REMOTE_RESET:
-            break;
-          case HANDSHAKE_SUCCESS:
-            logger.info("==> WebSocket handshake success");
-            if (isClosed) {
-              return;
-            }
-            QueueLimitingFrameWriter fw =
-                frameWriter = new QueueLimitingFrameWriter(ctx, queueLowMark, queueHighMark);
-            fw.tryWrite();
-            break;
-          case HANDSHAKE_ERROR:
-            logger.info("==> WebSocket handshake error");
-            break;
-          default:
-            logger.info("==> WebSocket handshake unexpected event - type: {}", eventType);
-        }
-        return;
-      }
-      super.userEventTriggered(ctx, evt);
-    }
-
-    BinaryWebSocketFrame webSocketFrame() {
+    ByteBuf webSocketFrame(ChannelHandlerContext ctx) {
       List<ByteBuf> dl = dataList;
       int dataIndex = random.nextInt(dl.size());
       ByteBuf data = dl.get(dataIndex);
-      ByteBuf frame =
-          ByteBufAllocator.DEFAULT
-              .buffer(frameSize)
-              .writeInt(sendIndex++)
-              .writeLong(System.nanoTime())
-              .writeBytes(data, 0, data.readableBytes());
-      return new BinaryWebSocketFrame(frame);
+
+      WebSocketFrameFactory frameFactory = webSocketFrameFactory;
+      ByteBuf frame = frameFactory.createBinaryFrame(ctx.alloc(), frameSize);
+      frame
+          .writeInt(sendIndex++)
+          .writeLong(System.nanoTime())
+          .writeBytes(data, 0, data.readableBytes());
+      return frameFactory.mask(frame);
+    }
+
+    @Override
+    public WebSocketFrameListener exchange(
+        ChannelHandlerContext ctx, WebSocketFrameFactory webSocketFrameFactory) {
+      this.webSocketFrameFactory = webSocketFrameFactory;
+      this.frameWriter = new QueueLimitingFrameWriter(ctx, queueLowMark, queueHighMark);
+      return this;
     }
 
     class QueueLimitingFrameWriter implements GenericFutureListener<ChannelFuture> {
@@ -322,18 +334,19 @@ public class Main {
 
       void tryWrite() {
         if (queued <= lowMark) {
+          ChannelHandlerContext c = ctx;
           while (queued < highMark) {
             if (isClosed) {
               return;
             }
             if (channel.isWritable()) {
               queued++;
-              ctx.write(webSocketFrame()).addListener(this);
+              c.write(webSocketFrame(c)).addListener(this);
             } else {
               break;
             }
           }
-          ctx.flush();
+          c.flush();
         }
       }
 
@@ -351,6 +364,55 @@ public class Main {
         queued--;
         tryWrite();
       }
+    }
+  }
+
+  private static class WebSocketsCallbacksHandler extends ChannelInboundHandlerAdapter {
+    final WebSocketCallbacksHandler webSocketHandler;
+
+    WebSocketsCallbacksHandler(WebSocketCallbacksHandler webSocketHandler) {
+      this.webSocketHandler = webSocketHandler;
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+      if (evt instanceof Http2WebSocketLifecycleEvent) {
+        Http2WebSocketLifecycleEvent handshakeEvent = (Http2WebSocketLifecycleEvent) evt;
+        Type eventType = handshakeEvent.type();
+        switch (eventType) {
+          case HANDSHAKE_START:
+          case CLOSE_REMOTE_ENDSTREAM:
+          case CLOSE_REMOTE_RESET:
+            break;
+          case HANDSHAKE_SUCCESS:
+            logger.info("==> WebSocket handshake success");
+            WebSocketCallbacksHandler.exchange(ctx, webSocketHandler);
+            ctx.pipeline().remove(this);
+            break;
+          case HANDSHAKE_ERROR:
+            logger.info("==> WebSocket handshake error");
+            break;
+          default:
+            logger.info("==> WebSocket handshake unexpected event - type: {}", eventType);
+        }
+        return;
+      }
+      super.userEventTriggered(ctx, evt);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+      if (cause instanceof IOException) {
+        return;
+      }
+      logger.info("Unexpected websocket error", cause);
+      ctx.close();
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+      logger.info("Received {} message on callbacks handler", msg);
+      super.channelRead(ctx, msg);
     }
   }
 

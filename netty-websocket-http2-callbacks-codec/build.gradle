@@ -20,21 +20,11 @@ plugins {
     id "signing"
 }
 
-description = "Netty based implementation of rfc8441 - bootstrapping websockets with http/2"
+description = "netty-websocket-http2 integration with jauntsdn/netty-websocket-http1: high-performance websocket codec"
 
 dependencies {
-    api "io.netty:netty-codec-http2"
-    implementation "org.slf4j:slf4j-api"
-    compileOnly "com.google.code.findbugs:jsr305"
-
-    testImplementation "org.assertj:assertj-core"
-    testImplementation "org.junit.jupiter:junit-jupiter-api"
-    testImplementation "org.junit.jupiter:junit-jupiter-params"
-
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
-    testRuntimeOnly "ch.qos.logback:logback-classic"
-    testRuntimeOnly "io.netty:netty-tcnative-classes"
-    testRuntimeOnly "io.netty:netty-tcnative-boringssl-static::${osdetector.classifier}"
+    api project(":netty-websocket-http2")
+    api "com.jauntsdn.netty:netty-websocket-http1"
 }
 
 dependencyLocking {
@@ -43,6 +33,6 @@ dependencyLocking {
 
 tasks.named("jar") {
     manifest {
-        attributes("Automatic-Module-Name": "com.jauntsdn.netty.websocket.http2")
+        attributes("Automatic-Module-Name": "com.jauntsdn.netty.websocket.http2.codec.callbacks")
     }
 }
