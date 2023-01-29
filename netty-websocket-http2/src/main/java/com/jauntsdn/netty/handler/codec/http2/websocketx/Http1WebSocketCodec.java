@@ -28,6 +28,10 @@ public interface Http1WebSocketCodec {
 
   WebSocketFrameDecoder decoder(WebSocketDecoderConfig config);
 
+  default WebSocketFrameDecoder decoder(boolean maskPayload, WebSocketDecoderConfig config) {
+    return null;
+  }
+
   void validate(boolean maskPayload, WebSocketDecoderConfig config);
 
   Http1WebSocketCodec DEFAULT =

@@ -129,14 +129,15 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
     channelId = new Http2WebSocketChannelId(parent().id(), websocketChannelSerial);
     ChannelPipeline pl = pipeline = new WebSocketChannelPipeline(this);
 
+    WebSocketFrameDecoder decoder = webSocketCodec.decoder(isEncoderMaskPayload, config);
+    if (decoder == null) {
+      decoder = webSocketCodec.decoder(config);
+    }
+    WebSocketFrameEncoder encoder = webSocketCodec.encoder(isEncoderMaskPayload);
     if (compressionEncoder != null && compressionDecoder != null) {
-      pl.addLast(
-          webSocketCodec.decoder(config),
-          compressionDecoder,
-          webSocketCodec.encoder(isEncoderMaskPayload),
-          compressionEncoder);
+      pl.addLast(decoder, compressionDecoder, encoder, compressionEncoder);
     } else {
-      pl.addLast(webSocketCodec.decoder(config), webSocketCodec.encoder(isEncoderMaskPayload));
+      pl.addLast(decoder, encoder);
     }
     if (config.withUTF8Validator()) {
       pl.addLast(new Utf8FrameValidator());
@@ -218,12 +219,18 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
         pl.addFirst(new Utf8FrameValidator());
       }
       Http1WebSocketCodec codec = webSocketCodec;
-      WebSocketExtensionEncoder encoder = compressionEncoder;
-      WebSocketExtensionDecoder decoder = compressionDecoder;
-      if (encoder != null && decoder != null) {
-        pl.addFirst(codec.decoder(config), decoder, codec.encoder(isEncoderMaskPayload), encoder);
+      WebSocketExtensionEncoder comprEncoder = compressionEncoder;
+      WebSocketExtensionDecoder comprDecoder = compressionDecoder;
+      boolean maskPayload = isEncoderMaskPayload;
+      WebSocketFrameDecoder decoder = codec.decoder(maskPayload, config);
+      if (decoder == null) {
+        decoder = codec.decoder(config);
+      }
+      WebSocketFrameEncoder encoder = codec.encoder(maskPayload);
+      if (comprEncoder != null && comprDecoder != null) {
+        pl.addFirst(decoder, comprDecoder, encoder, comprEncoder);
       } else {
-        pl.addFirst(codec.decoder(config), codec.encoder(isEncoderMaskPayload));
+        pl.addFirst(decoder, encoder);
       }
       preHandshakeHandler.complete();
     }
