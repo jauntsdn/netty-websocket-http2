@@ -260,7 +260,7 @@ public class HeadersValidatorTest {
   }
 
   private static Http2Headers validWebSocketRequestHeaders() {
-    return new DefaultHttp2Headers()
+    return new DefaultHttp2Headers(false)
         .method(asciiString("connect"))
         .set(asciiString(":protocol"), asciiString("websocket"))
         .scheme(asciiString("https"))
@@ -269,7 +269,7 @@ public class HeadersValidatorTest {
   }
 
   private static Http2Headers validHttpRequestHeaders() {
-    return new DefaultHttp2Headers()
+    return new DefaultHttp2Headers(false)
         .method(asciiString("get"))
         .scheme(asciiString("https"))
         .authority(asciiString("localhost"))
@@ -277,7 +277,7 @@ public class HeadersValidatorTest {
   }
 
   private static Http2Headers validResponseHeaders() {
-    return new DefaultHttp2Headers()
+    return new DefaultHttp2Headers(false)
         .status(asciiString("200"))
         .set(asciiString("user-agent"), asciiString("test"));
   }
