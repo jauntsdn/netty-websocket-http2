@@ -17,21 +17,35 @@
 package com.jauntsdn.netty.handler.codec.http2.websocketx.perftest;
 
 import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.ApplicationProtocolConfig;
+import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.netty.handler.ssl.OpenSsl;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
+import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
-import java.security.SecureRandom;
+import java.io.InputStream;
+import java.security.KeyStore;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLException;
 
 public final class Security {
 
-  public static SslContext serverSslContext() throws Exception {
-    SecureRandom random = new SecureRandom();
-    SelfSignedCertificate ssc = new SelfSignedCertificate("com.jauntsdn", random, 1024);
+  public static SslContext serverSslContext(String keystoreFile, String keystorePassword)
+      throws Exception {
+    SslProvider sslProvider = sslProvider();
+    KeyStore keyStore = KeyStore.getInstance("PKCS12");
+    InputStream keystoreStream = Security.class.getClassLoader().getResourceAsStream(keystoreFile);
+    char[] keystorePasswordArray = keystorePassword.toCharArray();
+    keyStore.load(keystoreStream, keystorePasswordArray);
 
-    return SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey())
+    KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
+    keyManagerFactory.init(keyStore, keystorePasswordArray);
+
+    return SslContextBuilder.forServer(keyManagerFactory)
         .protocols("TLSv1.3")
-        .sslProvider(sslProvider())
+        .sslProvider(sslProvider)
         .applicationProtocolConfig(alpnConfig())
         .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
         .build();
