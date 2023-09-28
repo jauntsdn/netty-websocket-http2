@@ -57,6 +57,8 @@ public class Main {
 
     String host = System.getProperty("HOST", "localhost");
     int port = Integer.parseInt(System.getProperty("PORT", "8088"));
+    String keyStoreFile = System.getProperty("KEYSTORE", "localhost.p12");
+    String keyStorePassword = System.getProperty("KEYSTORE_PASS", "localhost");
     boolean isNativeTransport =
         Boolean.parseBoolean(System.getProperty("NATIVE_TRANSPORT", "true"));
     int flowControlWindowSize =
@@ -75,7 +77,7 @@ public class Main {
 
     Transport transport = Transport.get(isNativeTransport);
 
-    SslContext sslContext = Security.serverSslContext();
+    SslContext sslContext = Security.serverSslContext(keyStoreFile, keyStorePassword);
 
     ServerBootstrap bootstrap = new ServerBootstrap();
     Channel server =
