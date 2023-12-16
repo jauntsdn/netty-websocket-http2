@@ -221,7 +221,7 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
       }
       return webSocket;
     }
-    return next;
+    return next();
   }
 
   void registerWebSocket(int streamId, Http2WebSocketChannel webSocket) {
