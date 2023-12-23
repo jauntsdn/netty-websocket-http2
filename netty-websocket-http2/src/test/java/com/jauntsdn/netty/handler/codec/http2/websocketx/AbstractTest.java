@@ -18,7 +18,12 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.*;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPromise;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -26,14 +31,17 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
-import io.netty.handler.ssl.*;
+import io.netty.handler.ssl.ApplicationProtocolConfig;
+import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.SslProvider;
+import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.concurrent.Future;
 import java.io.InputStream;
 import java.net.SocketAddress;
 import java.security.KeyStore;
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -73,15 +81,7 @@ abstract class AbstractTest {
   }
 
   static SslContext serverSslContext() throws Exception {
-    SecureRandom random = new SecureRandom();
-    SelfSignedCertificate ssc = new SelfSignedCertificate("com.jauntsdn", random, 1024);
-
-    return SslContextBuilder.forServer(ssc.certificate(), ssc.privateKey())
-        .protocols("TLSv1.3")
-        .sslProvider(sslProvider())
-        .applicationProtocolConfig(alpnConfig())
-        .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
-        .build();
+    return serverSslContext("localhost.p12", "localhost");
   }
 
   static SslContext serverSslContext(String keystoreFile, String keystorePassword)

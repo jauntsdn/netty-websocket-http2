@@ -20,10 +20,13 @@ import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http2.Http2FrameCodec;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
+import io.netty.handler.codec.http2.Http2HeadersFrame;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
+import io.netty.util.ReferenceCountUtil;
 import java.net.SocketAddress;
+import java.nio.channels.ClosedChannelException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -32,6 +35,7 @@ import java.util.stream.Stream;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -108,6 +112,70 @@ class WebSocketTest extends AbstractTest {
     }
   }
 
+  @Test
+  void handlerRemove() throws InterruptedException {
+    Http2FramesHandler serverHttp2FramesHandler = new Http2FramesHandler();
+    server =
+        createServer(
+                ch -> {
+                  SslHandler sslHandler = serverSslContext.newHandler(ch.alloc());
+                  Http2FrameCodecBuilder http2FrameCodecBuilder =
+                      Http2FrameCodecBuilder.forServer().validateHeaders(false);
+                  Http2Settings settings = http2FrameCodecBuilder.initialSettings();
+                  settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
+                  settings.initialWindowSize(INITIAL_WINDOW_SIZE);
+                  Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
+
+                  Http2WebSocketServerHandler http2webSocketHandler =
+                      Http2WebSocketServerBuilder.create()
+                          .acceptor(new PathAcceptor("/test", new RemoveHttp2WebSocketHandler()))
+                          .build();
+                  ch.pipeline()
+                      .addLast(
+                          sslHandler,
+                          http2frameCodec,
+                          http2webSocketHandler,
+                          serverHttp2FramesHandler);
+                })
+            .sync()
+            .channel();
+
+    SocketAddress address = server.localAddress();
+
+    client =
+        createClient(
+                address,
+                ch -> {
+                  SslHandler sslHandler = clientSslContext.newHandler(ch.alloc());
+                  Http2FrameCodecBuilder http2FrameCodecBuilder =
+                      Http2FrameCodecBuilder.forClient();
+                  Http2Settings settings = http2FrameCodecBuilder.initialSettings();
+                  settings.initialWindowSize(INITIAL_WINDOW_SIZE);
+                  Http2FrameCodec http2FrameCodec = http2FrameCodecBuilder.build();
+                  Http2WebSocketClientHandler http2WebSocketClientHandler =
+                      Http2WebSocketClientBuilder.create().handshakeTimeoutMillis(5_000).build();
+                  ch.pipeline().addLast(sslHandler, http2FrameCodec, http2WebSocketClientHandler);
+                })
+            .sync()
+            .channel();
+
+    NoopClientWebSocketHandler clientWebSocketHandler = new NoopClientWebSocketHandler(client);
+    Http2WebSocketClientHandshaker handshaker = Http2WebSocketClientHandshaker.create(client);
+    ChannelFuture clientHandshake = handshaker.handshake("/test", clientWebSocketHandler);
+
+    clientHandshake.await(6, TimeUnit.SECONDS);
+    Assertions.assertThat(clientHandshake.isSuccess()).isTrue();
+    ChannelPromise frameReceived = clientWebSocketHandler.frameReceived;
+    frameReceived.await(6, TimeUnit.SECONDS);
+    Assertions.assertThat(frameReceived.isSuccess()).isTrue();
+
+    NoopClientWebSocketHandler nextClientWebSocketHandler = new NoopClientWebSocketHandler(client);
+    ChannelFuture nextClientHandshake = handshaker.handshake("/test", nextClientWebSocketHandler);
+    nextClientHandshake.await(6, TimeUnit.SECONDS);
+    Assertions.assertThat(nextClientHandshake.isSuccess()).isFalse();
+    Assertions.assertThat(serverHttp2FramesHandler.requestsReceived).isEqualTo(1);
+  }
+
   @BeforeEach
   void setUp() throws Exception {
     serverSslContext = serverSslContext();
@@ -125,6 +193,40 @@ class WebSocketTest extends AbstractTest {
     if (s != null) {
       s.eventLoop().shutdownGracefully(0, 5, TimeUnit.SECONDS);
       s.closeFuture().await(5, TimeUnit.SECONDS);
+    }
+  }
+
+  private static class NoopClientWebSocketHandler
+      extends SimpleChannelInboundHandler<TextWebSocketFrame> {
+
+    volatile ChannelPromise frameReceived;
+
+    NoopClientWebSocketHandler(Channel channel) {
+      this.frameReceived = channel.newPromise();
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+      super.channelActive(ctx);
+      ctx.writeAndFlush(new TextWebSocketFrame("test"));
+    }
+
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame msg) {
+      msg.release();
+      frameReceived.trySuccess();
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+      frameReceived.tryFailure(new ClosedChannelException());
+      super.channelInactive(ctx);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+      frameReceived.tryFailure(cause);
+      super.exceptionCaught(ctx, cause);
     }
   }
 
@@ -177,6 +279,39 @@ class WebSocketTest extends AbstractTest {
 
     private TextWebSocketFrame nextWebSocketFrame() {
       return new TextWebSocketFrame(String.valueOf(sentFrames++));
+    }
+  }
+
+  private static class Http2FramesHandler extends ChannelInboundHandlerAdapter {
+    volatile int requestsReceived;
+
+    @SuppressWarnings("NonAtomicOperationOnVolatileField")
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
+      try {
+        if (msg instanceof Http2HeadersFrame) {
+          /*called on eventloop thread only*/
+          requestsReceived++;
+          ctx.close();
+        }
+      } finally {
+        ReferenceCountUtil.safeRelease(msg);
+      }
+    }
+  }
+
+  private static class RemoveHttp2WebSocketHandler
+      extends SimpleChannelInboundHandler<TextWebSocketFrame> {
+
+    @Override
+    protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame webSocketFrame) {
+      ctx.writeAndFlush(webSocketFrame.retain());
+      ctx.channel().parent().pipeline().remove(Http2WebSocketServerHandler.class);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+      ctx.close();
     }
   }
 
