@@ -97,7 +97,7 @@ public final class Http2WebSocketServerBuilder {
    * @return this {@link Http2WebSocketClientBuilder} instance
    */
   public Http2WebSocketServerBuilder codec(Http1WebSocketCodec webSocketCodec) {
-    this.webSocketCodec = Preconditions.requireNonNull(webSocketCodec, "webSocketCodec");
+    this.webSocketCodec = Objects.requireNonNull(webSocketCodec, "webSocketCodec");
     return this;
   }
 
@@ -107,7 +107,7 @@ public final class Http2WebSocketServerBuilder {
    */
   public Http2WebSocketServerBuilder decoderConfig(WebSocketDecoderConfig webSocketDecoderConfig) {
     this.webSocketDecoderConfig =
-        Preconditions.requireNonNull(webSocketDecoderConfig, "webSocketDecoderConfig");
+        Objects.requireNonNull(webSocketDecoderConfig, "webSocketDecoderConfig");
     return this;
   }
 
@@ -120,7 +120,7 @@ public final class Http2WebSocketServerBuilder {
   public Http2WebSocketServerBuilder closedWebSocketRemoveTimeout(
       long closedWebSocketRemoveTimeoutMillis) {
     this.closedWebSocketRemoveTimeoutMillis =
-        Preconditions.requirePositive(
+        Http2WebSocketProtocol.requirePositive(
             closedWebSocketRemoveTimeoutMillis, "closedWebSocketRemoveTimeoutMillis");
     return this;
   }

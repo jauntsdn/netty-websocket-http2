@@ -101,7 +101,8 @@ public final class Http2WebSocketClientHandshaker {
    */
   public static Http2WebSocketClientHandshaker create(Channel channel) {
     Objects.requireNonNull(channel, "channel");
-    return Preconditions.requireHandler(channel, Http2WebSocketClientHandler.class).handShaker();
+    return Http2WebSocketHandler.requireChannelHandler(channel, Http2WebSocketClientHandler.class)
+        .handShaker();
   }
 
   /**
@@ -162,10 +163,10 @@ public final class Http2WebSocketClientHandshaker {
       String subprotocol,
       Http2Headers requestHeaders,
       ChannelHandler webSocketHandler) {
-    Preconditions.requireNonEmpty(path, "path");
-    Preconditions.requireNonNull(subprotocol, "subprotocol");
-    Preconditions.requireNonNull(requestHeaders, "requestHeaders");
-    Preconditions.requireNonNull(webSocketHandler, "webSocketHandler");
+    requireNonEmpty(path, "path");
+    Objects.requireNonNull(subprotocol, "subprotocol");
+    Objects.requireNonNull(requestHeaders, "requestHeaders");
+    Objects.requireNonNull(webSocketHandler, "webSocketHandler");
 
     long startNanos = System.nanoTime();
     ChannelHandlerContext ctx = webSocketsParent.context();
@@ -467,6 +468,13 @@ public final class Http2WebSocketClientHandshaker {
       return false;
     }
     return str.contentEquals(seq);
+  }
+
+  private static String requireNonEmpty(String string, String message) {
+    if (string == null || string.isEmpty()) {
+      throw new IllegalArgumentException(message + " must be non empty");
+    }
+    return string;
   }
 
   static class Handshake extends Http2WebSocketServerHandshaker.Handshake {
