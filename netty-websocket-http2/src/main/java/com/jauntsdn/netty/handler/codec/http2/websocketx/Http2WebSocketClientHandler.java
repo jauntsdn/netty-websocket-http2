@@ -182,7 +182,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
       int streamId, Http2Headers responseHeaders, boolean endOfStream) {
     Http2WebSocket webSocket = webSocketRegistry.get(streamId);
     if (webSocket != null) {
-      if (!Http2WebSocketValidator.isValid(responseHeaders)) {
+      if (!Http2WebSocketProtocol.Validator.isValid(responseHeaders)) {
         handShaker().reject(streamId, webSocket, responseHeaders, endOfStream);
       } else {
         handShaker().handshake(webSocket, responseHeaders, endOfStream);
