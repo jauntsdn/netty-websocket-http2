@@ -16,7 +16,7 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import io.netty.channel.*;
+import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
 import io.netty.handler.codec.http2.Http2Exception;
