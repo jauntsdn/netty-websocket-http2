@@ -117,7 +117,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
           startNanos,
           System.nanoTime(),
           WebSocketHandshakeException.class.getName(),
-          Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion);
+          Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion);
 
       writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true).addListener(this);
       return;
@@ -171,7 +171,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
           startNanos,
           System.nanoTime(),
           WebSocketHandshakeException.class.getName(),
-          Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE);
+          Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE);
 
       writeHeaders(ctx, streamId, HEADERS_INTERNAL_ERROR, true).addListener(this);
       return;
@@ -213,7 +213,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
           startNanos,
           System.nanoTime(),
           WebSocketHandshakeException.class.getName(),
-          Http2WebSocketMessages.HANDSHAKE_UNEXPECTED_SUBPROTOCOL + subprotocolOrBlank);
+          Http2WebSocketProtocol.MSG_HANDSHAKE_UNEXPECTED_SUBPROTOCOL + subprotocolOrBlank);
 
       writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true).addListener(this);
       return;

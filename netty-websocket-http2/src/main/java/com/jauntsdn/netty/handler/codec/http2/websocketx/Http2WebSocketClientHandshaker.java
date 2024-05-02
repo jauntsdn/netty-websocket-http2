@@ -229,7 +229,7 @@ public final class Http2WebSocketClientHandshaker {
     switch (status) {
       case "200":
         if (endOfStream) {
-          errorMessage = Http2WebSocketMessages.HANDSHAKE_UNEXPECTED_RESULT;
+          errorMessage = Http2WebSocketProtocol.MSG_HANDSHAKE_UNEXPECTED_RESULT;
         } else {
           /*subprotocol*/
           String clientSubprotocol = webSocketChannel.subprotocol();
@@ -237,7 +237,7 @@ public final class Http2WebSocketClientHandshaker {
               responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_SUBPROTOCOL_NAME);
           if (!isEqual(clientSubprotocol, serverSubprotocol)) {
             errorMessage =
-                Http2WebSocketMessages.HANDSHAKE_UNEXPECTED_SUBPROTOCOL + clientSubprotocol;
+                Http2WebSocketProtocol.MSG_HANDSHAKE_UNEXPECTED_SUBPROTOCOL + clientSubprotocol;
           }
           /*compression*/
           if (errorMessage == null) {
@@ -259,18 +259,18 @@ public final class Http2WebSocketClientHandshaker {
             responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME);
         errorMessage =
             webSocketVersion != null
-                ? Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion
-                : Http2WebSocketMessages.HANDSHAKE_BAD_REQUEST;
+                ? Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion
+                : Http2WebSocketProtocol.MSG_HANDSHAKE_BAD_REQUEST;
         break;
       case "404":
         errorMessage =
-            Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND
+            Http2WebSocketProtocol.MSG_HANDSHAKE_PATH_NOT_FOUND
                 + webSocketChannel.path()
-                + Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND_SUBPROTOCOLS
+                + Http2WebSocketProtocol.MSG_HANDSHAKE_PATH_NOT_FOUND_SUBPROTOCOLS
                 + webSocketChannel.subprotocol();
         break;
       default:
-        errorMessage = Http2WebSocketMessages.HANDSHAKE_GENERIC_ERROR + status;
+        errorMessage = Http2WebSocketProtocol.MSG_HANDSHAKE_GENERIC_ERROR + status;
     }
     if (errorMessage != null) {
       Exception cause = new WebSocketHandshakeException(errorMessage);
@@ -305,7 +305,8 @@ public final class Http2WebSocketClientHandshaker {
       return;
     }
     Exception cause =
-        new WebSocketHandshakeException(Http2WebSocketMessages.HANDSHAKE_INVALID_RESPONSE_HEADERS);
+        new WebSocketHandshakeException(
+            Http2WebSocketProtocol.MSG_HANDSHAKE_INVALID_RESPONSE_HEADERS);
     if (handshakePromise.tryFailure(cause)) {
       Http2WebSocketEvent.fireHandshakeError(webSocketChannel, headers, System.nanoTime(), cause);
     }
@@ -313,7 +314,7 @@ public final class Http2WebSocketClientHandshaker {
 
   void onSupportsWebSocket(boolean supportsWebSocket) {
     if (!supportsWebSocket) {
-      logger.error(Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_BOOTSTRAP);
+      logger.error(Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_BOOTSTRAP);
     }
     this.supportsWebSocket = supportsWebSocket;
     handshakeDeferred(supportsWebSocket);
@@ -387,7 +388,8 @@ public final class Http2WebSocketClientHandshaker {
     /*server does not support http2 websockets*/
     if (!supportsWebSocket) {
       WebSocketHandshakeException e =
-          new WebSocketHandshakeException(Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_BOOTSTRAP);
+          new WebSocketHandshakeException(
+              Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_BOOTSTRAP);
       Http2WebSocketEvent.fireHandshakeError(webSocketChannel, null, System.nanoTime(), e);
       handshake.complete(e);
       return;

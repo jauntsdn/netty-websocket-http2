@@ -37,6 +37,27 @@ final class Http2WebSocketProtocol {
   static final AsciiString HEADER_PROTOCOL_NAME_HANDSHAKED = AsciiString.of("x-protocol");
   static final AsciiString HEADER_METHOD_CONNECT_HANDSHAKED = AsciiString.of("POST");
 
+  /*messages*/
+  static final String MSG_HANDSHAKE_UNEXPECTED_RESULT =
+      "websocket handshake error: unexpected result - status=200, end_of_stream=true";
+  static final String MSG_HANDSHAKE_UNSUPPORTED_VERSION =
+      "websocket handshake error: unsupported version; supported versions - ";
+  static final String MSG_HANDSHAKE_BAD_REQUEST = "websocket handshake error: bad request";
+  static final String MSG_HANDSHAKE_PATH_NOT_FOUND = "websocket handshake error: path not found - ";
+  static final String MSG_HANDSHAKE_PATH_NOT_FOUND_SUBPROTOCOLS = ", subprotocols - ";
+  static final String MSG_HANDSHAKE_UNEXPECTED_SUBPROTOCOL =
+      "websocket handshake error: unexpected subprotocol - ";
+  static final String MSG_HANDSHAKE_GENERIC_ERROR = "websocket handshake error: ";
+  static final String MSG_HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE =
+      "websocket handshake error: async acceptors are not supported";
+  static final String MSG_HANDSHAKE_UNSUPPORTED_BOOTSTRAP =
+      "websocket handshake error: bootstrapping websockets with http2 is not supported by server";
+  static final String MSG_HANDSHAKE_INVALID_REQUEST_HEADERS =
+      "websocket handshake error: invalid request headers";
+  static final String MSG_HANDSHAKE_INVALID_RESPONSE_HEADERS =
+      "websocket handshake error: invalid response headers";
+  static final String MSG_WRITE_ERROR = "websocket frame write error";
+
   static Http2Headers extendedConnect(Http2Headers headers) {
     return headers
         .method(Http2WebSocketProtocol.HEADER_METHOD_CONNECT)

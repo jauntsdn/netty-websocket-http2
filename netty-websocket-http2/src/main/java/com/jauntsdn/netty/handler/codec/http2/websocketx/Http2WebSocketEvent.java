@@ -39,7 +39,7 @@ public abstract class Http2WebSocketEvent {
     }
     if (t instanceof Exception) {
       parentPipeline.fireUserEventTriggered(
-          new Http2WebSocketWriteErrorEvent(Http2WebSocketMessages.WRITE_ERROR, t));
+          new Http2WebSocketWriteErrorEvent(Http2WebSocketProtocol.MSG_WRITE_ERROR, t));
       return;
     }
     parentPipeline.fireExceptionCaught(t);
@@ -57,7 +57,7 @@ public abstract class Http2WebSocketEvent {
         timestamp,
         timestamp,
         WebSocketHandshakeException.class.getName(),
-        Http2WebSocketMessages.HANDSHAKE_INVALID_REQUEST_HEADERS);
+        Http2WebSocketProtocol.MSG_HANDSHAKE_INVALID_REQUEST_HEADERS);
   }
 
   static void fireHandshakeStartAndError(

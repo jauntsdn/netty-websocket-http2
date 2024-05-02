@@ -35,9 +35,9 @@ public final class Http2WebSocketServerBuilder {
               .executor()
               .newFailedFuture(
                   new Http2WebSocketPathNotFoundException(
-                      Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND
+                      Http2WebSocketProtocol.MSG_HANDSHAKE_PATH_NOT_FOUND
                           + path
-                          + Http2WebSocketMessages.HANDSHAKE_PATH_NOT_FOUND_SUBPROTOCOLS
+                          + Http2WebSocketProtocol.MSG_HANDSHAKE_PATH_NOT_FOUND_SUBPROTOCOLS
                           + subprotocols));
 
   private Http1WebSocketCodec webSocketCodec = Http1WebSocketCodec.DEFAULT;
