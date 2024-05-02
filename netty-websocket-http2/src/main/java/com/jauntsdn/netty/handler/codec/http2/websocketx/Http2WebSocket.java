@@ -18,10 +18,10 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Flags;
-import io.netty.handler.codec.http2.Http2FrameAdapter;
 import io.netty.handler.codec.http2.Http2FrameListener;
+import io.netty.handler.codec.http2.Http2Headers;
+import io.netty.handler.codec.http2.Http2Settings;
 
 interface Http2WebSocket extends Http2FrameListener {
 
@@ -37,43 +37,98 @@ interface Http2WebSocket extends Http2FrameListener {
 
   void closeForcibly();
 
-  Http2WebSocket CLOSED = new Http2WebSocketClosedChannel();
+  Http2WebSocket CLOSED =
+      new Http2WebSocket() {
+        @Override
+        public void onGoAwayRead(
+            ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData) {}
 
-  class Http2WebSocketClosedChannel extends Http2FrameAdapter implements Http2WebSocket {
+        @Override
+        public void onWindowUpdateRead(
+            ChannelHandlerContext ctx, int streamId, int windowSizeIncrement) {}
 
-    @Override
-    public void onGoAwayRead(
-        ChannelHandlerContext ctx, int lastStreamId, long errorCode, ByteBuf debugData) {}
+        @Override
+        public void streamClosed() {}
 
-    @Override
-    public void streamClosed() {}
+        @Override
+        public void trySetWritable() {}
 
-    @Override
-    public void trySetWritable() {}
+        @Override
+        public void fireExceptionCaught(Throwable t) {}
 
-    @Override
-    public void fireExceptionCaught(Throwable t) {}
+        @Override
+        public void closeForcibly() {}
 
-    @Override
-    public void closeForcibly() {}
+        @Override
+        public int onDataRead(
+            ChannelHandlerContext ctx,
+            int streamId,
+            ByteBuf data,
+            int padding,
+            boolean endOfStream) {
+          int processed = data.readableBytes() + padding;
+          data.release();
+          return processed;
+        }
 
-    @Override
-    public int onDataRead(
-        ChannelHandlerContext ctx, int streamId, ByteBuf data, int padding, boolean endOfStream)
-        throws Http2Exception {
-      int processed = super.onDataRead(ctx, streamId, data, padding, endOfStream);
-      data.release();
-      return processed;
-    }
+        @Override
+        public void onUnknownFrame(
+            ChannelHandlerContext ctx,
+            byte frameType,
+            int streamId,
+            Http2Flags flags,
+            ByteBuf payload) {
+          payload.release();
+        }
 
-    @Override
-    public void onUnknownFrame(
-        ChannelHandlerContext ctx,
-        byte frameType,
-        int streamId,
-        Http2Flags flags,
-        ByteBuf payload) {
-      payload.release();
-    }
-  }
+        @Override
+        public void onHeadersRead(
+            ChannelHandlerContext ctx,
+            int streamId,
+            Http2Headers headers,
+            int padding,
+            boolean endOfStream) {}
+
+        @Override
+        public void onHeadersRead(
+            ChannelHandlerContext ctx,
+            int streamId,
+            Http2Headers headers,
+            int streamDependency,
+            short weight,
+            boolean exclusive,
+            int padding,
+            boolean endOfStream) {}
+
+        @Override
+        public void onPriorityRead(
+            ChannelHandlerContext ctx,
+            int streamId,
+            int streamDependency,
+            short weight,
+            boolean exclusive) {}
+
+        @Override
+        public void onRstStreamRead(ChannelHandlerContext ctx, int streamId, long errorCode) {}
+
+        @Override
+        public void onSettingsAckRead(ChannelHandlerContext ctx) {}
+
+        @Override
+        public void onSettingsRead(ChannelHandlerContext ctx, Http2Settings settings) {}
+
+        @Override
+        public void onPingRead(ChannelHandlerContext ctx, long data) {}
+
+        @Override
+        public void onPingAckRead(ChannelHandlerContext ctx, long data) {}
+
+        @Override
+        public void onPushPromiseRead(
+            ChannelHandlerContext ctx,
+            int streamId,
+            int promisedStreamId,
+            Http2Headers headers,
+            int padding) {}
+      };
 }
