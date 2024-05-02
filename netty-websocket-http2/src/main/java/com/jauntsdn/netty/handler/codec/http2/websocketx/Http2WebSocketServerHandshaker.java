@@ -131,7 +131,8 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
     if (compressionHandshaker != null) {
       CharSequence extensionsHeader =
           requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME);
-      WebSocketExtensionData compression = Http2WebSocketExtensions.decode(extensionsHeader);
+      WebSocketExtensionData compression =
+          Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
       if (compression != null) {
         compressionExtension = compressionHandshaker.handshakeExtension(compression);
       }
@@ -145,7 +146,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
     if (hasCompression) {
       responseHeaders.set(
           Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
-          Http2WebSocketExtensions.encode(compressionExtension.newReponseData()));
+          Http2WebSocketProtocol.encodeExtensions(compressionExtension.newReponseData()));
       compressionEncoder = compressionExtension.newExtensionEncoder();
       compressionDecoder = compressionExtension.newExtensionDecoder();
     }

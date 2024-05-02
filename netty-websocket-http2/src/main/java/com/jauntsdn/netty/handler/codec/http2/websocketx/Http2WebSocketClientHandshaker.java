@@ -246,7 +246,7 @@ public final class Http2WebSocketClientHandshaker {
               CharSequence extensionsHeader =
                   responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME);
               WebSocketExtensionData compression =
-                  Http2WebSocketExtensions.decode(extensionsHeader);
+                  Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
               if (compression != null) {
                 compressionExtension = handshaker.handshakeExtension(compression);
               }
@@ -453,7 +453,7 @@ public final class Http2WebSocketClientHandshaker {
     if (header == null) {
       header =
           compressionExtensionHeader =
-              AsciiString.of(Http2WebSocketExtensions.encode(handshaker.newRequestData()));
+              AsciiString.of(Http2WebSocketProtocol.encodeExtensions(handshaker.newRequestData()));
     }
     return header;
   }
