@@ -299,6 +299,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
                   streamId,
                   path,
                   subprotocols,
+                  acceptedSubprotocol,
                   requestHeaders,
                   successHeaders,
                   startNanos,
