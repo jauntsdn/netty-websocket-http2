@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocolclient;
+package com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocol.client;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandler;
