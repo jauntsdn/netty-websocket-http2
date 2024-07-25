@@ -86,13 +86,13 @@ public final class Http2WebSocketHandshakeOnlyServerHandler extends Http2WebSock
 
   private boolean handshake(Http2Headers headers, boolean endOfStream) {
     if (Http2WebSocketProtocol.isExtendedConnect(headers)) {
-      boolean isValid = Http2WebSocketValidator.WebSocket.isValid(headers, endOfStream);
+      boolean isValid = Http2WebSocketProtocol.Validator.WebSocket.isValid(headers, endOfStream);
       if (isValid) {
         Http2WebSocketServerHandshaker.handshakeOnlyWebSocket(headers);
       }
       return isValid;
     }
-    return Http2WebSocketValidator.Http.isValid(headers, endOfStream);
+    return Http2WebSocketProtocol.Validator.Http.isValid(headers, endOfStream);
   }
 
   private void reject(

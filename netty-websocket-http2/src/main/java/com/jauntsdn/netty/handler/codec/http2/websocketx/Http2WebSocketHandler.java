@@ -17,9 +17,17 @@
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http2.*;
+import io.netty.handler.codec.http2.Http2ConnectionDecoder;
+import io.netty.handler.codec.http2.Http2ConnectionHandler;
+import io.netty.handler.codec.http2.Http2Exception;
+import io.netty.handler.codec.http2.Http2Flags;
+import io.netty.handler.codec.http2.Http2FrameListener;
+import io.netty.handler.codec.http2.Http2Headers;
+import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.util.AsciiString;
 
 /** Base type for client and server websocket-over-http2 handlers */
@@ -38,8 +46,7 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     Http2ConnectionHandler http2Handler =
-        this.http2Handler =
-            Preconditions.requireHandler(ctx.channel(), Http2ConnectionHandler.class);
+        this.http2Handler = requireChannelHandler(ctx.channel(), Http2ConnectionHandler.class);
     HandlerListener listener = handlerListener;
     if (listener == null) {
       Http2ConnectionDecoder decoder = http2Handler.decoder();
@@ -175,6 +182,15 @@ public abstract class Http2WebSocketHandler extends ChannelDuplexHandler
     return endOfStream
         ? HEADER_WEBSOCKET_ENDOFSTREAM_VALUE_TRUE
         : HEADER_WEBSOCKET_ENDOFSTREAM_VALUE_FALSE;
+  }
+
+  static <T extends ChannelHandler> T requireChannelHandler(Channel channel, Class<T> handler) {
+    T h = channel.pipeline().get(handler);
+    if (h == null) {
+      throw new IllegalArgumentException(
+          handler.getSimpleName() + " is absent in the channel pipeline");
+    }
+    return h;
   }
 
   static final class HandlerListener implements Http2FrameListener {

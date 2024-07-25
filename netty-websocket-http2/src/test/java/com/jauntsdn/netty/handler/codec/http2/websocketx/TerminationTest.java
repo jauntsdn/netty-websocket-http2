@@ -16,9 +16,13 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.*;
-
-import io.netty.channel.*;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketLocalCloseEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketRemoteCloseEvent;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http2.Http2FrameCodec;
 import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
 import io.netty.handler.codec.http2.Http2Settings;

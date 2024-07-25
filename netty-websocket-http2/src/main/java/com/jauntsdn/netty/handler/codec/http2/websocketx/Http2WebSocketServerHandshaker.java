@@ -20,11 +20,22 @@ import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHa
 import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandler.endOfStreamValue;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketChannelHandler.WebSocketsParent;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
-import io.netty.handler.codec.http.websocketx.extensions.*;
-import io.netty.handler.codec.http2.*;
+import io.netty.handler.codec.http.websocketx.extensions.WebSocketExtensionData;
+import io.netty.handler.codec.http.websocketx.extensions.WebSocketExtensionDecoder;
+import io.netty.handler.codec.http.websocketx.extensions.WebSocketExtensionEncoder;
+import io.netty.handler.codec.http.websocketx.extensions.WebSocketServerExtension;
+import io.netty.handler.codec.http.websocketx.extensions.WebSocketServerExtensionHandshaker;
+import io.netty.handler.codec.http2.DefaultHttp2Headers;
+import io.netty.handler.codec.http2.Http2Error;
+import io.netty.handler.codec.http2.Http2Headers;
+import io.netty.handler.codec.http2.ReadOnlyHttp2Headers;
 import io.netty.util.AsciiString;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
@@ -106,7 +117,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
           startNanos,
           System.nanoTime(),
           WebSocketHandshakeException.class.getName(),
-          Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion);
+          Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion);
 
       writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true).addListener(this);
       return;
@@ -120,7 +131,8 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
     if (compressionHandshaker != null) {
       CharSequence extensionsHeader =
           requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME);
-      WebSocketExtensionData compression = Http2WebSocketExtensions.decode(extensionsHeader);
+      WebSocketExtensionData compression =
+          Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
       if (compression != null) {
         compressionExtension = compressionHandshaker.handshakeExtension(compression);
       }
@@ -134,7 +146,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
     if (hasCompression) {
       responseHeaders.set(
           Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
-          Http2WebSocketExtensions.encode(compressionExtension.newReponseData()));
+          Http2WebSocketProtocol.encodeExtensions(compressionExtension.newReponseData()));
       compressionEncoder = compressionExtension.newExtensionEncoder();
       compressionDecoder = compressionExtension.newExtensionDecoder();
     }
@@ -160,7 +172,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
           startNanos,
           System.nanoTime(),
           WebSocketHandshakeException.class.getName(),
-          Http2WebSocketMessages.HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE);
+          Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE);
 
       writeHeaders(ctx, streamId, HEADERS_INTERNAL_ERROR, true).addListener(this);
       return;
@@ -202,7 +214,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
           startNanos,
           System.nanoTime(),
           WebSocketHandshakeException.class.getName(),
-          Http2WebSocketMessages.HANDSHAKE_UNEXPECTED_SUBPROTOCOL + subprotocolOrBlank);
+          Http2WebSocketProtocol.MSG_HANDSHAKE_UNEXPECTED_SUBPROTOCOL + subprotocolOrBlank);
 
       writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true).addListener(this);
       return;
@@ -287,6 +299,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
                   streamId,
                   path,
                   subprotocols,
+                  acceptedSubprotocol,
                   requestHeaders,
                   successHeaders,
                   startNanos,

@@ -14,19 +14,35 @@
  * limitations under the License.
  */
 
-package com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocolclient;
+package com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocol.client;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandshaker;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.example.Security;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.http.*;
-import io.netty.handler.codec.http.websocketx.*;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpClientCodec;
+import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import io.netty.handler.codec.http.websocketx.WebSocketClientHandshaker;
+import io.netty.handler.codec.http.websocketx.WebSocketClientHandshakerFactory;
+import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
+import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
+import io.netty.handler.codec.http.websocketx.WebSocketVersion;
 import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketClientCompressionHandler;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2FrameCodec;

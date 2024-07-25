@@ -16,21 +16,35 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx.example.channelclient;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.*;
-
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketClientHandshaker;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeErrorEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeStartEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeSuccessEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketLifecycleEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketLocalCloseEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketStreamWeightUpdateEvent;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.example.Security;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
-import io.netty.handler.codec.http2.*;
-import io.netty.handler.ssl.*;
+import io.netty.handler.codec.http2.DefaultHttp2Headers;
+import io.netty.handler.codec.http2.Http2FrameCodec;
+import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
+import io.netty.handler.codec.http2.Http2Headers;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import java.io.IOException;

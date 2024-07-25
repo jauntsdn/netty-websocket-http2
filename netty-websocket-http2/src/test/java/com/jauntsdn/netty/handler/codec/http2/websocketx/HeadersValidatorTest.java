@@ -27,21 +27,23 @@ public class HeadersValidatorTest {
   @Test
   void webSocketRequest() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(validWebSocketRequestHeaders(), false))
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
+                validWebSocketRequestHeaders(), false))
         .isTrue();
   }
 
   @Test
   void webSocketRequestWithEndStream() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(validWebSocketRequestHeaders(), true))
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
+                validWebSocketRequestHeaders(), true))
         .isFalse();
   }
 
   @Test
   void webSocketRequestWithEmptyScheme() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
                 validWebSocketRequestHeaders().scheme(asciiString("")), false))
         .isFalse();
   }
@@ -49,7 +51,7 @@ public class HeadersValidatorTest {
   @Test
   void webSocketRequestWithNonHttpScheme() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
                 validWebSocketRequestHeaders().scheme(asciiString("ftp")), false))
         .isFalse();
   }
@@ -57,7 +59,7 @@ public class HeadersValidatorTest {
   @Test
   void webSocketRequestWithEmptyAuthority() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
                 validWebSocketRequestHeaders().authority(asciiString("")), false))
         .isFalse();
   }
@@ -65,7 +67,7 @@ public class HeadersValidatorTest {
   @Test
   void webSocketRequestWithSubcomponentAuthority() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
                 validWebSocketRequestHeaders().authority(asciiString("test@localhost")), false))
         .isFalse();
   }
@@ -73,7 +75,7 @@ public class HeadersValidatorTest {
   @Test
   void webSocketRequestWithEmptyPath() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
                 validWebSocketRequestHeaders().path(asciiString("")), false))
         .isFalse();
   }
@@ -81,7 +83,7 @@ public class HeadersValidatorTest {
   @Test
   void webSocketRequestWithInvalidPseudoHeader() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
                 validWebSocketRequestHeaders().add(asciiString(":status"), asciiString("200")),
                 false))
         .isFalse();
@@ -90,7 +92,7 @@ public class HeadersValidatorTest {
   @Test
   void webSocketRequestWithInvalidHeader() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
                 validWebSocketRequestHeaders()
                     .add(asciiString("connection"), asciiString("keep-alive")),
                 false))
@@ -100,7 +102,7 @@ public class HeadersValidatorTest {
   @Test
   void webSocketRequestWithInvalidTeHeader() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
                 validWebSocketRequestHeaders().add(asciiString("te"), asciiString("gzip")), false))
         .isFalse();
   }
@@ -108,7 +110,7 @@ public class HeadersValidatorTest {
   @Test
   void webSocketRequestWithValidTeHeader() {
     Assertions.assertThat(
-            Http2WebSocketValidator.WebSocket.isValid(
+            Http2WebSocketProtocol.Validator.WebSocket.isValid(
                 validWebSocketRequestHeaders().add(asciiString("te"), asciiString("trailers")),
                 false))
         .isTrue();
@@ -116,13 +118,15 @@ public class HeadersValidatorTest {
 
   @Test
   void webSocketResponse() {
-    Assertions.assertThat(Http2WebSocketValidator.isValid(validResponseHeaders())).isTrue();
+    Assertions.assertThat(Http2WebSocketProtocol.Validator.isValid(validResponseHeaders()))
+        .isTrue();
   }
 
   @Test
   void webSocketResponseWithEmptyStatus() {
     Assertions.assertThat(
-            Http2WebSocketValidator.isValid(validResponseHeaders().status(asciiString(""))))
+            Http2WebSocketProtocol.Validator.isValid(
+                validResponseHeaders().status(asciiString(""))))
         .isFalse();
   }
 
@@ -131,13 +135,13 @@ public class HeadersValidatorTest {
     Http2Headers headers = validResponseHeaders();
     headers.remove(asciiString(":status"));
 
-    Assertions.assertThat(Http2WebSocketValidator.isValid(headers)).isFalse();
+    Assertions.assertThat(Http2WebSocketProtocol.Validator.isValid(headers)).isFalse();
   }
 
   @Test
   void webSocketResponseAdditionalPseudoHeader() {
     Assertions.assertThat(
-            Http2WebSocketValidator.isValid(validResponseHeaders().path(asciiString("/"))))
+            Http2WebSocketProtocol.Validator.isValid(validResponseHeaders().path(asciiString("/"))))
         .isFalse();
   }
 
@@ -146,21 +150,23 @@ public class HeadersValidatorTest {
     Http2Headers headers = validResponseHeaders();
     headers.remove(asciiString(":status"));
     headers.path(asciiString("/"));
-    Assertions.assertThat(Http2WebSocketValidator.isValid(headers)).isFalse();
+    Assertions.assertThat(Http2WebSocketProtocol.Validator.isValid(headers)).isFalse();
   }
 
   @Test
   void httpRequest() {
-    Assertions.assertThat(Http2WebSocketValidator.Http.isValid(validHttpRequestHeaders(), false))
+    Assertions.assertThat(
+            Http2WebSocketProtocol.Validator.Http.isValid(validHttpRequestHeaders(), false))
         .isTrue();
-    Assertions.assertThat(Http2WebSocketValidator.Http.isValid(validHttpRequestHeaders(), true))
+    Assertions.assertThat(
+            Http2WebSocketProtocol.Validator.Http.isValid(validHttpRequestHeaders(), true))
         .isTrue();
   }
 
   @Test
   void httpRequestWithEmptyAuthority() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().authority(asciiString("")), false))
         .isFalse();
   }
@@ -168,7 +174,7 @@ public class HeadersValidatorTest {
   @Test
   void httpRequestWithSubcomponentAuthority() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().authority(asciiString("test@localhost")), false))
         .isFalse();
   }
@@ -176,7 +182,7 @@ public class HeadersValidatorTest {
   @Test
   void httpRequestWithEmptyMethod() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().method(asciiString("")), false))
         .isFalse();
   }
@@ -184,7 +190,7 @@ public class HeadersValidatorTest {
   @Test
   void httpRequestWithEmptyScheme() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().scheme(asciiString("")), false))
         .isFalse();
   }
@@ -192,12 +198,12 @@ public class HeadersValidatorTest {
   @Test
   void httpRequestWithConnectMethod() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().method(asciiString("connect")), false))
         .isFalse();
 
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders()
                     .method(asciiString("connect"))
                     .scheme(asciiString(""))
@@ -209,7 +215,7 @@ public class HeadersValidatorTest {
   @Test
   void httpRequestWithEmptyPath() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().path(asciiString("")), false))
         .isFalse();
   }
@@ -217,7 +223,7 @@ public class HeadersValidatorTest {
   @Test
   void nonHttpRequestWithEmptyPath() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().scheme(asciiString("ftp")).path(asciiString("")), false))
         .isTrue();
   }
@@ -225,7 +231,7 @@ public class HeadersValidatorTest {
   @Test
   void httpRequestWithInvalidPseudoHeader() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().add(asciiString(":status"), asciiString("200")), false))
         .isFalse();
   }
@@ -233,7 +239,7 @@ public class HeadersValidatorTest {
   @Test
   void httpRequestWithInvalidHeader() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().set(asciiString("connection"), asciiString("keep-alive")),
                 false))
         .isFalse();
@@ -242,7 +248,7 @@ public class HeadersValidatorTest {
   @Test
   void httpRequestWithInvalidTeHeader() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().set(asciiString("te"), asciiString("gzip")), false))
         .isFalse();
   }
@@ -250,7 +256,7 @@ public class HeadersValidatorTest {
   @Test
   void httpRequestWithValidTeHeader() {
     Assertions.assertThat(
-            Http2WebSocketValidator.Http.isValid(
+            Http2WebSocketProtocol.Validator.Http.isValid(
                 validHttpRequestHeaders().set(asciiString("te"), asciiString("trailers")), false))
         .isTrue();
   }

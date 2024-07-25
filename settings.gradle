@@ -27,6 +27,7 @@ pluginManagement {
 rootProject.name = "netty-websocket-http2-parent"
 include "netty-websocket-http2"
 include "netty-websocket-http2-callbacks-codec"
+include "netty-websocket-multiprotocol"
 include "netty-websocket-http2-example"
 include "netty-websocket-http2-perftest"
 

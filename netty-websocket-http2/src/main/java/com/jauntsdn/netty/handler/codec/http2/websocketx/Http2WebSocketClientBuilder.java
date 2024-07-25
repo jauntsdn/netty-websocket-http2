@@ -18,6 +18,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateClientExtensionHandshaker;
+import java.util.Objects;
 
 /** Builder for {@link Http2WebSocketClientHandler} */
 public final class Http2WebSocketClientBuilder {
@@ -45,7 +46,7 @@ public final class Http2WebSocketClientBuilder {
    * @return this {@link Http2WebSocketClientBuilder} instance
    */
   public Http2WebSocketClientBuilder codec(Http1WebSocketCodec webSocketCodec) {
-    this.webSocketCodec = Preconditions.requireNonNull(webSocketCodec, "webSocketCodec");
+    this.webSocketCodec = Objects.requireNonNull(webSocketCodec, "webSocketCodec");
     return this;
   }
 
@@ -55,7 +56,7 @@ public final class Http2WebSocketClientBuilder {
    */
   public Http2WebSocketClientBuilder decoderConfig(WebSocketDecoderConfig webSocketDecoderConfig) {
     this.webSocketDecoderConfig =
-        Preconditions.requireNonNull(webSocketDecoderConfig, "webSocketDecoderConfig");
+        Objects.requireNonNull(webSocketDecoderConfig, "webSocketDecoderConfig");
     return this;
   }
 
@@ -74,7 +75,7 @@ public final class Http2WebSocketClientBuilder {
    */
   public Http2WebSocketClientBuilder handshakeTimeoutMillis(long handshakeTimeoutMillis) {
     this.handshakeTimeoutMillis =
-        Preconditions.requirePositive(handshakeTimeoutMillis, "handshakeTimeoutMillis");
+        Http2WebSocketProtocol.requirePositive(handshakeTimeoutMillis, "handshakeTimeoutMillis");
     return this;
   }
 
@@ -87,7 +88,7 @@ public final class Http2WebSocketClientBuilder {
   public Http2WebSocketClientBuilder closedWebSocketRemoveTimeoutMillis(
       long closedWebSocketRemoveTimeoutMillis) {
     this.closedWebSocketRemoveTimeoutMillis =
-        Preconditions.requirePositive(
+        Http2WebSocketProtocol.requirePositive(
             closedWebSocketRemoveTimeoutMillis, "closedWebSocketRemoveTimeoutMillis");
     return this;
   }
@@ -144,7 +145,7 @@ public final class Http2WebSocketClientBuilder {
    * @return this {@link Http2WebSocketClientBuilder} instance
    */
   public Http2WebSocketClientBuilder streamWeight(int weight) {
-    this.streamWeight = Preconditions.requireRange(weight, 1, 256, "streamWeight");
+    this.streamWeight = Http2WebSocketProtocol.requireRange(weight, 1, 256, "streamWeight");
     return this;
   }
 

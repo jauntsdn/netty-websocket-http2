@@ -16,12 +16,25 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import static com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.*;
-
-import io.netty.channel.*;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeErrorEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeStartEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeSuccessEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.WebSocketEvent.WebSocketHandshakeErrorEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.WebSocketEvent.WebSocketHandshakeStartEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.WebSocketEvent.WebSocketHandshakeSuccessEvent;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.codec.Headers;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
-import io.netty.handler.codec.http2.*;
+import io.netty.handler.codec.http2.DefaultHttp2Headers;
+import io.netty.handler.codec.http2.Http2FrameCodec;
+import io.netty.handler.codec.http2.Http2FrameCodecBuilder;
+import io.netty.handler.codec.http2.Http2Headers;
+import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.AsciiString;
@@ -63,7 +76,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -87,17 +100,31 @@ public class ApplicationHandshakeTest extends AbstractTest {
     Assertions.assertThat(handshake.isSuccess()).isTrue();
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
+
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent successEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2startEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2SuccessEvent = events.get(2);
+    Http2WebSocketEvent successEvent = events.get(3);
+
+    Assertions.assertThat(http2startEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
         .isEqualTo("/test");
-    Assertions.assertThat(successEvent)
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2SuccessEvent)
         .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().id())
-        .isEqualTo(successEvent.<Http2WebSocketHandshakeSuccessEvent>cast().id());
+    Assertions.assertThat(http2startEvent.<Http2WebSocketHandshakeStartEvent>cast().id())
+        .isEqualTo(http2SuccessEvent.<Http2WebSocketHandshakeSuccessEvent>cast().id());
+
+    Assertions.assertThat(successEvent).isExactlyInstanceOf(WebSocketHandshakeSuccessEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().id())
+        .isEqualTo(successEvent.<WebSocketHandshakeSuccessEvent>cast().id());
   }
 
   @Test
@@ -118,7 +145,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -147,15 +174,30 @@ public class ApplicationHandshakeTest extends AbstractTest {
     Assertions.assertThat(webSocketChannel.isOpen()).isFalse();
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
+
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent errorEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2StartEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2ErrorEvent = events.get(2);
+    Http2WebSocketEvent errorEvent = events.get(3);
+
+    Assertions.assertThat(http2StartEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2StartEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
         .isEqualTo("/test");
-    Assertions.assertThat(errorEvent).isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
-    Assertions.assertThat(errorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2ErrorEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
+    Assertions.assertThat(http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
+        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+
+    Assertions.assertThat(errorEvent).isExactlyInstanceOf(WebSocketHandshakeErrorEvent.class);
+    Assertions.assertThat(errorEvent.<WebSocketHandshakeErrorEvent>cast().error())
         .isExactlyInstanceOf(WebSocketHandshakeException.class);
   }
 
@@ -177,7 +219,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -208,14 +250,28 @@ public class ApplicationHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent errorEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2StartEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2ErrorEvent = events.get(2);
+    Http2WebSocketEvent errorEvent = events.get(3);
+
+    Assertions.assertThat(http2StartEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2StartEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
         .isEqualTo("/test");
-    Assertions.assertThat(errorEvent).isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
-    Assertions.assertThat(errorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2ErrorEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
+    Assertions.assertThat(http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
+        .isExactlyInstanceOf(TimeoutException.class);
+
+    Assertions.assertThat(errorEvent).isExactlyInstanceOf(WebSocketHandshakeErrorEvent.class);
+    Assertions.assertThat(errorEvent.<WebSocketHandshakeErrorEvent>cast().error())
         .isExactlyInstanceOf(TimeoutException.class);
   }
 
@@ -240,7 +296,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -268,17 +324,31 @@ public class ApplicationHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent successEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
-        .isEqualTo("/test");
-    Assertions.assertThat(successEvent)
-        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2StartEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2SuccessEvent = events.get(2);
+    Http2WebSocketEvent successEvent = events.get(3);
 
-    Http2Headers responseHeaders =
-        successEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2StartEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2StartEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2SuccessEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Http2Headers http2ResponseHeaders =
+        http2SuccessEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2ResponseHeaders.contains("x-request-id")).isTrue();
+    Assertions.assertThat(http2ResponseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
+
+    Assertions.assertThat(successEvent).isExactlyInstanceOf(WebSocketHandshakeSuccessEvent.class);
+    Headers<CharSequence, CharSequence, ?> responseHeaders =
+        successEvent.<WebSocketHandshakeSuccessEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.contains("x-request-id")).isTrue();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
   }
@@ -304,7 +374,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -333,16 +403,30 @@ public class ApplicationHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent errorEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
-        .isEqualTo("/test");
-    Assertions.assertThat(errorEvent).isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2startEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2ErrorEvent = events.get(2);
+    Http2WebSocketEvent errorEvent = events.get(3);
 
-    Http2Headers responseHeaders =
-        errorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
+    Assertions.assertThat(http2startEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2ErrorEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
+    Http2Headers http2ResponseHeaders =
+        http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
+    Assertions.assertThat(http2ResponseHeaders.get(":status")).isEqualTo(AsciiString.of("400"));
+
+    Assertions.assertThat(errorEvent).isExactlyInstanceOf(WebSocketHandshakeErrorEvent.class);
+    Headers<CharSequence, CharSequence, ?> responseHeaders =
+        errorEvent.<WebSocketHandshakeErrorEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("400"));
   }
 
@@ -368,7 +452,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -393,17 +477,30 @@ public class ApplicationHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent successEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
-        .isEqualTo("/test");
-    Assertions.assertThat(successEvent)
-        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2StartEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2SuccessEvent = events.get(2);
+    Http2WebSocketEvent successEvent = events.get(3);
 
-    Http2Headers responseHeaders =
-        successEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2StartEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2StartEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2SuccessEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Http2Headers http2responseHeaders =
+        http2SuccessEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
+
+    Assertions.assertThat(successEvent).isExactlyInstanceOf(WebSocketHandshakeSuccessEvent.class);
+    Headers<CharSequence, CharSequence, ?> responseHeaders =
+        successEvent.<WebSocketHandshakeSuccessEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
   }
 
@@ -429,7 +526,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -457,18 +554,34 @@ public class ApplicationHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent errorEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
-        .isEqualTo("/test");
-    Assertions.assertThat(errorEvent).isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
-    Assertions.assertThat(errorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2StartEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2ErrorEvent = events.get(2);
+    Http2WebSocketEvent errorEvent = events.get(3);
 
-    Http2Headers responseHeaders =
-        errorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
+    Assertions.assertThat(http2StartEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2StartEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2ErrorEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
+    Assertions.assertThat(http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
+        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+    Http2Headers http2responseHeaders =
+        http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
+    Assertions.assertThat(http2responseHeaders.get(":status")).isEqualTo(AsciiString.of("404"));
+
+    Assertions.assertThat(errorEvent).isExactlyInstanceOf(WebSocketHandshakeErrorEvent.class);
+    Assertions.assertThat(errorEvent.<WebSocketHandshakeErrorEvent>cast().error())
+        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+    Headers<CharSequence, CharSequence, ?> responseHeaders =
+        http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("404"));
   }
 
@@ -497,7 +610,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -525,18 +638,34 @@ public class ApplicationHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent errorEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
-        .isEqualTo("/test");
-    Assertions.assertThat(errorEvent).isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
-    Assertions.assertThat(errorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2StartEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2ErrorEvent = events.get(2);
+    Http2WebSocketEvent errorEvent = events.get(3);
 
-    Http2Headers responseHeaders =
-        errorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
+    Assertions.assertThat(http2StartEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2StartEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2ErrorEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
+    Assertions.assertThat(http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
+        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+    Http2Headers http2responseHeaders =
+        http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
+    Assertions.assertThat(http2responseHeaders.get(":status")).isEqualTo(AsciiString.of("404"));
+
+    Assertions.assertThat(errorEvent).isExactlyInstanceOf(WebSocketHandshakeErrorEvent.class);
+    Assertions.assertThat(errorEvent.<WebSocketHandshakeErrorEvent>cast().error())
+        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+    Headers<CharSequence, CharSequence, ?> responseHeaders =
+        errorEvent.<WebSocketHandshakeErrorEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("404"));
   }
 
@@ -563,7 +692,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -593,17 +722,32 @@ public class ApplicationHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent successEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
-        .isEqualTo("/test");
-    Assertions.assertThat(successEvent)
-        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2StartEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2SuccessEvent = events.get(2);
+    Http2WebSocketEvent successEvent = events.get(3);
 
-    Http2Headers responseHeaders =
-        successEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2StartEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2StartEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2SuccessEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Http2Headers http2responseHeaders =
+        http2SuccessEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
+    Assertions.assertThat(http2responseHeaders.get("sec-websocket-extensions"))
+        .isEqualTo(AsciiString.of("permessage-deflate"));
+
+    Assertions.assertThat(successEvent).isExactlyInstanceOf(WebSocketHandshakeSuccessEvent.class);
+    Headers<CharSequence, CharSequence, ?> responseHeaders =
+        successEvent.<WebSocketHandshakeSuccessEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
     Assertions.assertThat(responseHeaders.get("sec-websocket-extensions"))
         .isEqualTo(AsciiString.of("permessage-deflate"));
@@ -629,7 +773,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -659,17 +803,31 @@ public class ApplicationHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent successEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
-        .isEqualTo("/test");
-    Assertions.assertThat(successEvent)
-        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2StartEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2SuccessEvent = events.get(2);
+    Http2WebSocketEvent successEvent = events.get(3);
 
-    Http2Headers responseHeaders =
-        successEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2StartEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2StartEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2SuccessEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Http2Headers http2responseHeaders =
+        http2SuccessEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2responseHeaders.get("sec-websocket-extensions")).isNullOrEmpty();
+    Assertions.assertThat(http2responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
+
+    Assertions.assertThat(successEvent).isExactlyInstanceOf(WebSocketHandshakeSuccessEvent.class);
+    Headers<CharSequence, CharSequence, ?> responseHeaders =
+        successEvent.<WebSocketHandshakeSuccessEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get("sec-websocket-extensions")).isNullOrEmpty();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
   }
@@ -696,7 +854,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
             .sync()
             .channel();
 
-    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(2);
+    WebsocketEventsHandler eventsRecorder = new WebsocketEventsHandler(4);
     SocketAddress address = server.localAddress();
     client =
         createClient(
@@ -721,17 +879,30 @@ public class ApplicationHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
-    Assertions.assertThat(events).hasSize(2);
-    Http2WebSocketEvent startEvent = events.get(0);
-    Http2WebSocketEvent successEvent = events.get(1);
-    Assertions.assertThat(startEvent).isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
-    Assertions.assertThat(startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
-        .isEqualTo("/test");
-    Assertions.assertThat(successEvent)
-        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Assertions.assertThat(events).hasSize(4);
+    Http2WebSocketEvent http2startEvent = events.get(0);
+    Http2WebSocketEvent startEvent = events.get(1);
+    Http2WebSocketEvent http2successEvent = events.get(2);
+    Http2WebSocketEvent successEvent = events.get(3);
 
-    Http2Headers responseHeaders =
-        successEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2startEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(http2startEvent.<Http2WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
+    Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
+        .isEqualTo("/test");
+
+    Assertions.assertThat(http2successEvent)
+        .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
+    Http2Headers http2responseHeaders =
+        http2successEvent.<Http2WebSocketHandshakeSuccessEvent>cast().responseHeaders();
+    Assertions.assertThat(http2responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
+
+    Assertions.assertThat(successEvent).isExactlyInstanceOf(WebSocketHandshakeSuccessEvent.class);
+    Headers<CharSequence, CharSequence, ?> responseHeaders =
+        successEvent.<WebSocketHandshakeSuccessEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
   }
 
