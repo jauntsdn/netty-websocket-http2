@@ -1,0 +1,50 @@
+/*
+ * Copyright 2020 - present Maksym Ostroverkhov.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id "java-library"
+    id "maven-publish"
+    id "signing"
+}
+
+description = "Netty support for multiprotocol websockets: http1, http2"
+
+dependencies {
+    api project(":netty-websocket-http2")
+    implementation "org.slf4j:slf4j-api"
+    compileOnly project(":netty-websocket-http2-callbacks-codec")
+    compileOnly "com.google.code.findbugs:jsr305"
+
+    testImplementation "org.assertj:assertj-core"
+    testImplementation "org.junit.jupiter:junit-jupiter-api"
+    testImplementation "org.junit.jupiter:junit-jupiter-params"
+    testImplementation project(":netty-websocket-http2-callbacks-codec")
+
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+    testRuntimeOnly "ch.qos.logback:logback-classic"
+    testRuntimeOnly "io.netty:netty-tcnative-classes"
+    testRuntimeOnly "io.netty:netty-tcnative-boringssl-static::${osdetector.classifier}"
+}
+
+dependencyLocking {
+    lockAllConfigurations()
+}
+
+tasks.named("jar") {
+    manifest {
+        attributes("Automatic-Module-Name": "com.jauntsdn.netty.websocket.multiprotocol")
+    }
+}

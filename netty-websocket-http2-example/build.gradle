@@ -22,6 +22,8 @@ description = "Netty based implementation of rfc8441 - bootstrapping websockets 
 
 dependencies {
     implementation project(":netty-websocket-http2")
+    implementation project(":netty-websocket-multiprotocol")
+    implementation project(":netty-websocket-http2-callbacks-codec")
     implementation "org.slf4j:slf4j-api"
     runtimeOnly "io.netty:netty-tcnative-boringssl-static::${osdetector.classifier}"
     runtimeOnly "ch.qos.logback:logback-classic"
@@ -37,9 +39,14 @@ task runChannelServer(type: JavaExec) {
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.channelserver.Main"
 }
 
-task runMultiProtocolServer(type: JavaExec) {
+task runMultiProtocolDefaultServer(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocolserver.Main"
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocol.server.defaultcodec.Main"
+}
+
+task runMultiProtocolCallbacksServer(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocol.server.callbackscodec.Main"
 }
 
 task runChannelClient(type: JavaExec) {
@@ -54,6 +61,6 @@ task runLwsClient(type: JavaExec) {
 
 task runMultiProtocolClient(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocolclient.Main"
+    mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.example.multiprotocol.client.Main"
 }
 

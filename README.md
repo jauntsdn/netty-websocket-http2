@@ -2,18 +2,30 @@
 [![Build](https://github.com/jauntsdn/netty-websocket-http2/actions/workflows/ci-build.yml/badge.svg)](https://github.com/jauntsdn/netty-websocket-http2/actions/workflows/ci-build.yml)
 # netty-websocket-http2
 
-Netty based implementation of [rfc8441](https://tools.ietf.org/html/rfc8441) - bootstrapping websockets with http/2
+Netty based implementation of [rfc8441](https://tools.ietf.org/html/rfc8441) - bootstrapping websockets with http/2, and multiprotocol support (websocket-over-http1, websocket-over-http2).
 
-Library addresses 2 use cases: for application servers and clients, 
-It is transparent use of existing http1 websocket handlers on top of http2 streams; for gateways/proxies, 
-It is websockets-over-http2 support with no http1 dependencies and minimal overhead.
+### use cases
+
+* Websocket channel API
+
+for application servers and clients, It provides transparent use of existing http1 websocket handlers on top of http2 streams. Compatible with
+callbacks codec (described below).
+ 
+* Websocket handshake only API
+
+for gateways/proxies, It provides websockets-over-http2 support with no http1 dependencies and minimal overhead.
+
+* Websocket multiprotocol
+
+for application servers, It provides transparent use of existing http1 websocket handlers to process both http1 and http2 websockets. 
+Compatible with callbacks codec (described below).
 
 [https://jauntsdn.com/post/netty-websocket-http2/](https://jauntsdn.com/post/netty-websocket-http2/)
 
 ### much faster http1 codec
-Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-callbacks-codec) codec for websocket-http1 
+Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-callbacks-codec) codec (callbacks codec) for websocket-http1 
 frames processing [improves](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-perftest/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest/callbackscodec) 
-throughput 1.4x - 1.7x for small messages.
+throughput 1.4x - 1.7x for small messages compared to one provided by netty (default codec).
 
 ### websocket channel API  
 Intended for application servers and clients.  
@@ -25,6 +37,7 @@ EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
 
  Http2WebSocketServerHandler http2webSocketHandler =
        Http2WebSocketServerBuilder.create()
+              .codec(Http1WebSocketCodec.DEFAULT)
               .acceptor(
                    (ctx, path, subprotocols, request, response) -> {
                      switch (path) {
@@ -70,6 +83,7 @@ EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
 
                     Http2WebSocketClientHandler http2WebSocketClientHandler =
                         Http2WebSocketClientBuilder.create()
+                            .codec(Http1WebSocketCodec.DEFAULT)
                             .handshakeTimeoutMillis(15_000)
                             .build();
 
@@ -127,6 +141,26 @@ Runnable demo is available in `netty-websocket-http2-example` module -
 [handshakeserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/handshakeserver/Main.java), 
 [channelclient](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelclient/Main.java).
 
+### websocket multiprotocol
+Provides transparent use of existing http1 websocket handlers to process both http1 and http2 websockets. 
+
+* Server
+```groovy
+       MultiProtocolWebSocketServerHandler multiprotocolHandler =
+           MultiprotocolWebSocketServerBuilder.create()
+               .path("/echo")
+               .subprotocols("echo.jauntsdn.com")
+               .defaultCodec()
+               .handler(new DefaultEchoWebSocketHandler())
+               .build();
+       ch.pipeline().addLast(sslHandler, multiprotocolHandler);
+```
+
+Runnable demo is available in `netty-websocket-http2-example` module - 
+[multiprotocol.server.defaultcodec](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/multiprotocol/server/defaultcodec/Main.java), 
+[multiprotocol.server.callbackscodec](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/multiprotocol/server/callbackscodec/Main.java), 
+[multiprotocol.client.defaultcodec](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/multiprotocol/client/Main.java), 
+
 ### configuration
 Initial settings of server http2 codecs (`Http2ConnectionHandler` or `Http2FrameCodec`)  should contain [SETTINGS_ENABLE_CONNECT_PROTOCOL=1](https://tools.ietf.org/html/rfc8441#section-9.1)
 parameter to advertise websocket-over-http2 support.
@@ -180,6 +214,12 @@ Events are fired on parent channel, also on websocket channel if one gets create
 * `Http2WebSocketHandshakeStartEvent(websocketId, path, subprotocols, timestampNanos, requestHeaders)`
 * `Http2WebSocketHandshakeErrorEvent(webSocketId, path, subprotocols, timestampNanos, responseHeaders, error)`
 * `Http2WebSocketHandshakeSuccessEvent(webSocketId, path, subprotocols, timestampNanos, responseHeaders)`
+
+These events are accompanied by transport agnostic variants
+
+* `WebSocketHandshakeStartEvent(websocketId, path, subprotocols, timestampNanos, requestHeaders)`
+* `WebSocketHandshakeErrorEvent(webSocketId, path, subprotocols, timestampNanos, responseHeaders, error)`
+* `WebSocketHandshakeSuccessEvent(webSocketId, path, subprotocols, timestampNanos, responseHeaders)`
 
 #### close events
 
@@ -265,7 +305,7 @@ the results are as follows (measured over time spans of 5 seconds):
  
 * `channelserver, channelclient` packages for websocket subchannel API demos. 
 * `handshakeserver, channelclient` packages for handshake only API demo.
-* `multiprotocolserver, multiprotocolclient` packages for demo of server handling htt1/http2 websockets on the same port.
+* `multiprotocol` packages for demo of server handling htt1/http2 websockets on the same port.
 * `lwsclient` package for client demo that runs against [https://libwebsockets.org/testserver/](https://libwebsockets.org/testserver/) which hosts websocket-over-http2
 server implemented with [libwebsockets](https://github.com/warmcat/libwebsockets) - popular C-based networking library. 
 
