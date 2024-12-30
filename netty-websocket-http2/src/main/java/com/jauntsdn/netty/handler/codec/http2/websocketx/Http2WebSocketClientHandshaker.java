@@ -36,11 +36,16 @@ import io.netty.handler.codec.http2.Http2Connection;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2LocalFlowController;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.ScheduledFuture;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
@@ -477,17 +482,26 @@ public final class Http2WebSocketClientHandshaker {
     return string;
   }
 
-  static class Handshake extends Http2WebSocketServerHandshaker.Handshake {
+  static class Handshake {
     private final Http2WebSocketChannel webSocketChannel;
     private final Http2Headers requestHeaders;
     private final long handshakeStartNanos;
+    private final Future<Void> channelClose;
+    private final ChannelPromise handshake;
+    private final long timeoutMillis;
+    private boolean done;
+    private ScheduledFuture<?> timeoutFuture;
+    private Future<?> handshakeCompleteFuture;
+    private GenericFutureListener<ChannelFuture> channelCloseListener;
 
     public Handshake(
         Http2WebSocketChannel webSocketChannel,
         Http2Headers requestHeaders,
         long timeoutMillis,
         long handshakeStartNanos) {
-      super(webSocketChannel.closeFuture(), webSocketChannel.handshakePromise(), timeoutMillis);
+      this.channelClose = webSocketChannel.closeFuture();
+      this.handshake = webSocketChannel.handshakePromise();
+      this.timeoutMillis = timeoutMillis;
       this.webSocketChannel = webSocketChannel;
       this.requestHeaders = requestHeaders;
       this.handshakeStartNanos = handshakeStartNanos;
@@ -503,6 +517,80 @@ public final class Http2WebSocketClientHandshaker {
 
     public long startNanos() {
       return handshakeStartNanos;
+    }
+
+    public void startTimeout() {
+      ChannelPromise h = handshake;
+      Channel channel = h.channel();
+
+      if (done) {
+        return;
+      }
+      GenericFutureListener<ChannelFuture> l = channelCloseListener = future -> onConnectionClose();
+      channelClose.addListener(l);
+      /*account for possible synchronous callback execution*/
+      if (done) {
+        return;
+      }
+      handshakeCompleteFuture = h.addListener(future -> onHandshakeComplete(future.cause()));
+      if (done) {
+        return;
+      }
+      timeoutFuture =
+          channel.eventLoop().schedule(this::onTimeout, timeoutMillis, TimeUnit.MILLISECONDS);
+    }
+
+    public void complete(Throwable e) {
+      onHandshakeComplete(e);
+    }
+
+    public boolean isDone() {
+      return done;
+    }
+
+    public ChannelFuture future() {
+      return handshake;
+    }
+
+    private void onConnectionClose() {
+      if (!done) {
+        handshake.tryFailure(new ClosedChannelException());
+        done();
+      }
+    }
+
+    private void onHandshakeComplete(Throwable cause) {
+      if (!done) {
+        if (cause != null) {
+          handshake.tryFailure(cause);
+        } else {
+          handshake.trySuccess();
+        }
+        done();
+      }
+    }
+
+    private void onTimeout() {
+      if (!done) {
+        handshake.tryFailure(new TimeoutException());
+        done();
+      }
+    }
+
+    private void done() {
+      done = true;
+      GenericFutureListener<ChannelFuture> closeListener = channelCloseListener;
+      if (closeListener != null) {
+        channelClose.removeListener(closeListener);
+      }
+      cancel(handshakeCompleteFuture);
+      cancel(timeoutFuture);
+    }
+
+    private void cancel(Future<?> future) {
+      if (future != null) {
+        future.cancel(true);
+      }
     }
   }
 }
