@@ -57,6 +57,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
       Http1WebSocketCodec webSocketCodec,
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
+      boolean isNomaskingExtension,
       short streamWeight,
       long handshakeTimeoutMillis,
       long closedWebSocketRemoveTimeoutMillis,
@@ -66,6 +67,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
         webSocketCodec,
         webSocketDecoderConfig,
         isEncoderMaskPayload,
+        isNomaskingExtension,
         closedWebSocketRemoveTimeoutMillis,
         isSingleWebSocketPerConnection);
     this.streamWeight = streamWeight;
@@ -154,12 +156,16 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
       throw new IllegalStateException(
           "webSocket handshaker cant be created before channel is registered");
     }
+    boolean nomaskingExtension =
+        isNomaskingExtension && ctx.pipeline().get(SslHandler.class) != null;
+
     Http2WebSocketClientHandshaker handShaker =
         new Http2WebSocketClientHandshaker(
             webSocketsParent,
             streamIdFactory,
             config,
             isEncoderMaskPayload,
+            nomaskingExtension,
             streamWeight,
             scheme,
             handshakeTimeoutMillis,

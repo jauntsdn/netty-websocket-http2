@@ -49,6 +49,7 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
   final Http1WebSocketCodec webSocketCodec;
   final WebSocketDecoderConfig config;
   final boolean isEncoderMaskPayload;
+  final boolean isNomaskingExtension;
   final long closedWebSocketRemoveTimeoutMillis;
   final Supplier<IntObjectMap<Http2WebSocket>> webSocketRegistryFactory;
 
@@ -61,11 +62,13 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
       Http1WebSocketCodec webSocketCodec,
       @Nullable WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
+      boolean isNomaskingExtension,
       long closedWebSocketRemoveTimeoutMillis,
       boolean isSingleWebSocketPerConnection) {
     this.webSocketCodec = webSocketCodec;
     this.config = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
+    this.isNomaskingExtension = isNomaskingExtension;
     this.closedWebSocketRemoveTimeoutMillis = closedWebSocketRemoveTimeoutMillis;
     this.webSocketRegistryFactory = webSocketRegistryFactory(isSingleWebSocketPerConnection);
   }

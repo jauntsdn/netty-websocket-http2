@@ -41,6 +41,7 @@ public final class MultiprotocolWebSocketServerBuilder {
   private HttpDecoderConfig http1Config;
   private MultiProtocolWebSocketServerHandler.Http2Config http2Config;
   private long handshakeTimeoutMillis = 10_000;
+  private boolean isNomaskingExtension;
 
   MultiprotocolWebSocketServerBuilder() {}
 
@@ -182,6 +183,17 @@ public final class MultiprotocolWebSocketServerBuilder {
   }
 
   /**
+   * @param isNomaskingExtension enables "no-masking" extension <a
+   *     href="https://datatracker.ietf.org/doc/html/draft-damjanovic-websockets-nomasking-02">draft</a>.
+   *     Takes precedence over masking related configuration.
+   * @return this {@link MultiprotocolWebSocketServerBuilder} instance
+   */
+  public MultiprotocolWebSocketServerBuilder nomaskingExtension(boolean isNomaskingExtension) {
+    this.isNomaskingExtension = isNomaskingExtension;
+    return this;
+  }
+
+  /**
    * @param channelHandler websocket channel handler. Must be non-null.
    * @return this {@link MultiprotocolWebSocketServerBuilder} instance
    */
@@ -232,6 +244,7 @@ public final class MultiprotocolWebSocketServerBuilder {
         h1Config,
         h2Config,
         compression,
+        isNomaskingExtension,
         path,
         subprotocols,
         handshakeTimeoutMillis,

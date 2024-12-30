@@ -64,6 +64,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
   private final WebSocketsParent webSocketsParent;
   private final WebSocketDecoderConfig webSocketDecoderConfig;
   private final boolean isEncoderMaskPayload;
+  private final boolean isNomaskingExtension;
   private final Http2WebSocketAcceptor http2WebSocketAcceptor;
   private final Http1WebSocketCodec webSocketCodec;
   private final WebSocketServerExtensionHandshaker compressionHandshaker;
@@ -72,12 +73,14 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
       WebSocketsParent webSocketsParent,
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
+      boolean isNomaskingExtension,
       Http2WebSocketAcceptor http2WebSocketAcceptor,
       Http1WebSocketCodec webSocketCodec,
       @Nullable WebSocketServerExtensionHandshaker compressionHandshaker) {
     this.webSocketsParent = webSocketsParent;
     this.webSocketDecoderConfig = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
+    this.isNomaskingExtension = isNomaskingExtension;
     this.http2WebSocketAcceptor = http2WebSocketAcceptor;
     this.webSocketCodec = webSocketCodec;
     this.compressionHandshaker = compressionHandshaker;
@@ -121,30 +124,51 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
 
     List<String> requestedSubprotocols = parseSubprotocols(subprotocols);
 
-    /*compression*/
-    WebSocketServerExtension compressionExtension = null;
-    WebSocketServerExtensionHandshaker compressionHandshaker = this.compressionHandshaker;
-    if (compressionHandshaker != null) {
-      CharSequence extensionsHeader =
-          requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME);
-      WebSocketExtensionData compression =
-          Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
-      if (compression != null) {
-        compressionExtension = compressionHandshaker.handshakeExtension(compression);
-      }
-    }
-    boolean hasCompression = compressionExtension != null;
+    boolean encoderMaskPayload = isEncoderMaskPayload;
+    WebSocketDecoderConfig decoderConfig = webSocketDecoderConfig;
 
+    /*extensions*/
+    WebSocketServerExtension compressionExtension = null;
     WebSocketExtensionEncoder compressionEncoder = null;
     WebSocketExtensionDecoder compressionDecoder = null;
-    Http2Headers responseHeaders = new DefaultHttp2Headers();
+    WebSocketServerExtensionHandshaker compressionHandshaker = this.compressionHandshaker;
+    boolean supportsCompression = compressionHandshaker != null;
+    boolean supportsNomasking = isNomaskingExtension;
+    boolean acceptsNomasking = false;
 
-    if (hasCompression) {
+    boolean supportsExtensions = supportsCompression || supportsNomasking;
+
+    CharSequence extensionsHeader =
+        supportsExtensions
+            ? requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME)
+            : null;
+    Http2WebSocketProtocol.WebSocketExtensions extensions =
+        Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
+
+    if (extensions != null) {
+      if (extensions.isNomasking() && supportsNomasking) {
+        acceptsNomasking = true;
+        encoderMaskPayload = Http2WebSocketProtocol.WEBSOCKET_EXTENSIONS_NOMASKING_MASK_PAYLOAD;
+        decoderConfig = Http2WebSocketProtocol.nomaskingExtensionDecoderConfig(decoderConfig);
+      }
+      WebSocketExtensionData compression = extensions.compression();
+      if (compression != null && supportsCompression) {
+        compressionExtension = compressionHandshaker.handshakeExtension(compression);
+        compressionEncoder = compressionExtension.newExtensionEncoder();
+        compressionDecoder = compressionExtension.newExtensionDecoder();
+      }
+    }
+    Http2Headers responseHeaders = new DefaultHttp2Headers();
+    boolean acceptsCompression = compressionExtension != null;
+    if (acceptsCompression) {
       responseHeaders.set(
           Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
-          Http2WebSocketProtocol.encodeExtensions(compressionExtension.newReponseData()));
-      compressionEncoder = compressionExtension.newExtensionEncoder();
-      compressionDecoder = compressionExtension.newExtensionDecoder();
+          Http2WebSocketProtocol.encodeExtensions(
+              compressionExtension.newReponseData(), acceptsNomasking));
+    } else if (acceptsNomasking) {
+      responseHeaders.set(
+          Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
+          Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING);
     }
 
     Future<ChannelHandler> acceptorResult;
@@ -220,6 +244,9 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
 
     WebSocketExtensionEncoder finalCompressionEncoder = compressionEncoder;
     WebSocketExtensionDecoder finalCompressionDecoder = compressionDecoder;
+    boolean finalEncoderMaskPayload = encoderMaskPayload;
+    WebSocketDecoderConfig finalDecoderConfig = decoderConfig;
+
     Http2Headers successHeaders = successHeaders(responseHeaders);
     writeHeaders(ctx, streamId, successHeaders, false)
         .addListener(
@@ -248,8 +275,8 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
                           streamId,
                           path,
                           acceptedSubprotocol,
-                          webSocketDecoderConfig,
-                          isEncoderMaskPayload,
+                          finalDecoderConfig,
+                          finalEncoderMaskPayload,
                           webSocketCodec,
                           finalCompressionEncoder,
                           finalCompressionDecoder,

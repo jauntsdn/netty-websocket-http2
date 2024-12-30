@@ -30,6 +30,7 @@ dependencies {
     testImplementation "org.assertj:assertj-core"
     testImplementation "org.junit.jupiter:junit-jupiter-api"
     testImplementation "org.junit.jupiter:junit-jupiter-params"
+    testImplementation project(":netty-websocket-http2-callbacks-codec")
 
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
     testRuntimeOnly "ch.qos.logback:logback-classic"

@@ -43,6 +43,7 @@ public final class Http2WebSocketServerBuilder {
   private Http1WebSocketCodec webSocketCodec = Http1WebSocketCodec.DEFAULT;
   private WebSocketDecoderConfig webSocketDecoderConfig;
 
+  private boolean isNomaskingExtension;
   private PerMessageDeflateServerExtensionHandshaker perMessageDeflateServerExtensionHandshaker;
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
   private boolean isSingleWebSocketPerConnection;
@@ -173,6 +174,17 @@ public final class Http2WebSocketServerBuilder {
   }
 
   /**
+   * @param isNomaskingExtension enables "no-masking" extension <a
+   *     href="https://datatracker.ietf.org/doc/html/draft-damjanovic-websockets-nomasking-02">draft</a>.
+   *     Takes precedence over masking related configuration.
+   * @return this {@link Http2WebSocketServerBuilder} instance
+   */
+  public Http2WebSocketServerBuilder nomaskingExtension(boolean isNomaskingExtension) {
+    this.isNomaskingExtension = isNomaskingExtension;
+    return this;
+  }
+
+  /**
    * Sets http1 websocket request acceptor
    *
    * @param acceptor websocket request acceptor. Must be non-null.
@@ -223,6 +235,7 @@ public final class Http2WebSocketServerBuilder {
         codec,
         config,
         MASK_PAYLOAD,
+        isNomaskingExtension,
         closedWebSocketRemoveTimeoutMillis,
         perMessageDeflateServerExtensionHandshaker,
         acceptor,

@@ -16,6 +16,7 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.WebSocketExtensionData;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.util.AsciiString;
@@ -47,6 +48,11 @@ final class Http2WebSocketProtocol {
   static final AsciiString HEADER_METHOD_CONNECT_HANDSHAKED = AsciiString.of("POST");
 
   /*extensions*/
+  static final boolean WEBSOCKET_EXTENSIONS_NOMASKING_MASK_PAYLOAD = false;
+
+  static final String HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING = "no-masking";
+  static final AsciiString HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING_ASCII =
+      AsciiString.of(HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING);
   static final String HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE = "permessage-deflate";
   static final AsciiString HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE_ASCII =
       AsciiString.of(HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE);
@@ -90,12 +96,14 @@ final class Http2WebSocketProtocol {
   /*extensions*/
 
   @Nullable
-  static WebSocketExtensionData decodeExtensions(@Nullable CharSequence extensionHeader) {
+  static WebSocketExtensions decodeExtensions(@Nullable CharSequence extensionHeader) {
     if (extensionHeader == null || extensionHeader.length() == 0) {
       return null;
     }
-    AsciiString asciiExtensionHeader = (AsciiString) extensionHeader;
+    WebSocketExtensionData compression = null;
+    boolean noMasking = false;
 
+    AsciiString asciiExtensionHeader = (AsciiString) extensionHeader;
     for (AsciiString extension : asciiExtensionHeader.split(',')) {
       AsciiString[] extensionParameters = extension.split(';');
       AsciiString name = extensionParameters[0].trim();
@@ -118,37 +126,46 @@ final class Http2WebSocketProtocol {
         } else {
           parameters = Collections.emptyMap();
         }
-        return new WebSocketExtensionData(
-            HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE, parameters);
+        compression =
+            new WebSocketExtensionData(
+                HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE, parameters);
+      } else if (HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING_ASCII.equals(name)) {
+        noMasking = true;
       }
     }
-    return null;
+    return compression == null && noMasking
+        ? WebSocketExtensions.NO_MASKING
+        : new WebSocketExtensions(compression, noMasking);
   }
 
-  static String encodeExtensions(WebSocketExtensionData extensionData) {
-    String name = extensionData.name();
-    Map<String, String> params = extensionData.parameters();
+  static String encodeExtensions(WebSocketExtensionData compression, boolean hasNoMasking) {
+    String name = compression.name();
+    Map<String, String> params = compression.parameters();
     if (params.isEmpty()) {
       return name;
     }
     /*at most 4 parameters*/
-    StringBuilder sb = new StringBuilder(sizeOf(name, params));
+    StringBuilder sb = new StringBuilder(sizeOf(name, params, hasNoMasking));
     sb.append(name);
     for (Map.Entry<String, String> param : params.entrySet()) {
-      sb.append(";");
+      sb.append(';');
       sb.append(param.getKey());
       String value = param.getValue();
       if (value != null) {
-        sb.append("=");
+        sb.append('=');
         sb.append(value);
       }
+    }
+    if (hasNoMasking) {
+      sb.append(',').append(HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING);
     }
     return sb.toString();
   }
 
-  static int sizeOf(String extensionName, Map<String, String> extensionParameters) {
-    int size = extensionName.length();
-    for (Map.Entry<String, String> param : extensionParameters.entrySet()) {
+  static int sizeOf(
+      String compression, Map<String, String> compressionParameters, boolean noMasking) {
+    int size = compression.length();
+    for (Map.Entry<String, String> param : compressionParameters.entrySet()) {
       /* key and ; */
       size += param.getKey().length() + 1;
       String value = param.getValue();
@@ -156,7 +173,38 @@ final class Http2WebSocketProtocol {
         /* value and = */ size += value.length() + 1;
       }
     }
+    if (noMasking) {
+      /* value and , */ size += HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING.length() + 1;
+    }
     return size;
+  }
+
+  static class WebSocketExtensions {
+    static final WebSocketExtensions NO_MASKING = new WebSocketExtensions(null, true);
+
+    WebSocketExtensionData compression;
+    boolean noMasking;
+
+    WebSocketExtensions(WebSocketExtensionData compression, boolean noMasking) {
+      this.compression = compression;
+      this.noMasking = noMasking;
+    }
+
+    public WebSocketExtensionData compression() {
+      return compression;
+    }
+
+    public boolean isNomasking() {
+      return noMasking;
+    }
+  }
+
+  static WebSocketDecoderConfig nomaskingExtensionDecoderConfig(
+      WebSocketDecoderConfig decoderConfig) {
+    if (!decoderConfig.expectMaskedFrames() && !decoderConfig.allowMaskMismatch()) {
+      return decoderConfig;
+    }
+    return decoderConfig.toBuilder().expectMaskedFrames(false).allowMaskMismatch(false).build();
   }
 
   static final class Validator {

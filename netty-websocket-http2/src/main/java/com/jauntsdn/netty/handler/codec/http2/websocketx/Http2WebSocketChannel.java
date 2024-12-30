@@ -134,6 +134,8 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
   private short pendingStreamWeight;
   private WebSocketExtensionEncoder compressionEncoder;
   private WebSocketExtensionDecoder compressionDecoder;
+  WebSocketDecoderConfig decoderConfig;
+  boolean isEncoderMaskPayload;
   boolean isHandshakeCompleted;
 
   /*server*/
@@ -153,6 +155,8 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
     this.websocketChannelSerial = websocketChannelSerial;
     this.path = path;
     this.subprotocol = subprotocol;
+    this.decoderConfig = config;
+    this.isEncoderMaskPayload = isEncoderMaskPayload;
     channelId = new Http2WebSocketChannelId(parent().id(), websocketChannelSerial);
     ChannelPipeline pl = pipeline = new WebSocketChannelPipeline(this);
 
@@ -183,8 +187,6 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
       int websocketChannelSerial,
       String path,
       String subprotocol,
-      WebSocketDecoderConfig config,
-      boolean isEncoderMaskPayload,
       Http1WebSocketCodec webSocketCodec,
       ChannelHandler websocketHandler) {
     this.webSocketChannelParent = webSocketChannelParent;
@@ -198,9 +200,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
 
     closePromise = pl.newPromise();
     handshakePromise = pl.newPromise();
-    handshakePromiseListener =
-        new CompleteClientHandshake(
-            config, isEncoderMaskPayload, preHandshakeHandler, webSocketCodec);
+    handshakePromiseListener = new CompleteClientHandshake(preHandshakeHandler, webSocketCodec);
   }
 
   /*called on user thread, done outside constructor to not publish
@@ -215,18 +215,11 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
   }
 
   class CompleteClientHandshake implements GenericFutureListener<ChannelFuture> {
-    private final WebSocketDecoderConfig config;
-    private final boolean isEncoderMaskPayload;
     private final PreHandshakeHandler preHandshakeHandler;
     private final Http1WebSocketCodec webSocketCodec;
 
     public CompleteClientHandshake(
-        WebSocketDecoderConfig config,
-        boolean isEncoderMaskPayload,
-        PreHandshakeHandler preHandshakeHandler,
-        Http1WebSocketCodec webSocketCodec) {
-      this.config = config;
-      this.isEncoderMaskPayload = isEncoderMaskPayload;
+        PreHandshakeHandler preHandshakeHandler, Http1WebSocketCodec webSocketCodec) {
       this.preHandshakeHandler = preHandshakeHandler;
       this.webSocketCodec = webSocketCodec;
     }
@@ -240,7 +233,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
         preHandshakeHandler.cancel(cause);
         return;
       }
-      WebSocketDecoderConfig config = this.config;
+      WebSocketDecoderConfig config = decoderConfig;
       ChannelPipeline pl = pipeline();
       if (config.withUTF8Validator()) {
         pl.addFirst(new Utf8FrameValidator());
@@ -285,6 +278,11 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
       WebSocketExtensionEncoder compressionEncoder, WebSocketExtensionDecoder compressionDecoder) {
     this.compressionEncoder = compressionEncoder;
     this.compressionDecoder = compressionDecoder;
+  }
+
+  void codecConfig(WebSocketDecoderConfig decoderConfig, boolean isEncoderMaskPayload) {
+    this.decoderConfig = decoderConfig;
+    this.isEncoderMaskPayload = isEncoderMaskPayload;
   }
 
   /*parent channel closed*/

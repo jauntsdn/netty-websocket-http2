@@ -70,17 +70,19 @@ public final class Http2WebSocketClientHandshaker {
   private final CharSequence scheme;
   private final PerMessageDeflateClientExtensionHandshaker compressionHandshaker;
   private final boolean isEncoderMaskPayload;
+  private final boolean isNomaskingExtension;
   private final long timeoutMillis;
   private Queue<Handshake> deferred;
   private Boolean supportsWebSocket;
   private volatile int webSocketChannelSerial;
-  private CharSequence compressionExtensionHeader;
+  private CharSequence extensionsHeader;
 
   Http2WebSocketClientHandshaker(
       WebSocketsParent webSocketsParent,
       Http2Connection.Endpoint<Http2LocalFlowController> streamIdFactory,
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
+      boolean isNomaskingExtension,
       short streamWeight,
       CharSequence scheme,
       long handshakeTimeoutMillis,
@@ -90,6 +92,7 @@ public final class Http2WebSocketClientHandshaker {
     this.streamIdFactory = streamIdFactory;
     this.webSocketDecoderConfig = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
+    this.isNomaskingExtension = isNomaskingExtension;
     this.timeoutMillis = handshakeTimeoutMillis;
     this.streamWeight = streamWeight;
     this.scheme = scheme;
@@ -183,14 +186,7 @@ public final class Http2WebSocketClientHandshaker {
 
     Http2WebSocketChannel webSocketChannel =
         new Http2WebSocketChannel(
-                webSocketsParent,
-                serial,
-                path,
-                subprotocol,
-                webSocketDecoderConfig,
-                isEncoderMaskPayload,
-                webSocketCodec,
-                webSocketHandler)
+                webSocketsParent, serial, path, subprotocol, webSocketCodec, webSocketHandler)
             .initialize();
 
     Handshake handshake =
@@ -229,6 +225,8 @@ public final class Http2WebSocketClientHandshaker {
     }
 
     String errorMessage = null;
+    boolean encoderMaskPayload = isEncoderMaskPayload;
+    WebSocketDecoderConfig decoderConfig = webSocketDecoderConfig;
     WebSocketClientExtension compressionExtension = null;
 
     String status = responseHeaders.status().toString();
@@ -245,15 +243,30 @@ public final class Http2WebSocketClientHandshaker {
             errorMessage =
                 Http2WebSocketProtocol.MSG_HANDSHAKE_UNEXPECTED_SUBPROTOCOL + clientSubprotocol;
           }
-          /*compression*/
+          /*extensions*/
           if (errorMessage == null) {
             PerMessageDeflateClientExtensionHandshaker handshaker = compressionHandshaker;
-            if (handshaker != null) {
-              CharSequence extensionsHeader =
-                  responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME);
-              WebSocketExtensionData compression =
-                  Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
-              if (compression != null) {
+            boolean supportsCompression = handshaker != null;
+            boolean supportsNomasking = isNomaskingExtension;
+
+            boolean supportsExtensions = supportsCompression || supportsNomasking;
+
+            CharSequence extensionsHeader =
+                supportsExtensions
+                    ? responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME)
+                    : null;
+            Http2WebSocketProtocol.WebSocketExtensions extensions =
+                Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
+
+            if (extensions != null) {
+              if (extensions.isNomasking() && supportsNomasking) {
+                encoderMaskPayload =
+                    Http2WebSocketProtocol.WEBSOCKET_EXTENSIONS_NOMASKING_MASK_PAYLOAD;
+                decoderConfig =
+                    Http2WebSocketProtocol.nomaskingExtensionDecoderConfig(decoderConfig);
+              }
+              WebSocketExtensionData compression = extensions.compression();
+              if (compression != null && supportsCompression) {
                 compressionExtension = handshaker.handshakeExtension(compression);
               }
             }
@@ -286,6 +299,7 @@ public final class Http2WebSocketClientHandshaker {
       }
       return;
     }
+    webSocketChannel.codecConfig(decoderConfig, encoderMaskPayload);
     if (compressionExtension != null) {
       webSocketChannel.compression(
           compressionExtension.newExtensionEncoder(), compressionExtension.newExtensionDecoder());
@@ -416,12 +430,18 @@ public final class Http2WebSocketClientHandshaker {
                     Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME,
                     Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE));
 
-    /*compression*/
-    PerMessageDeflateClientExtensionHandshaker handshaker = compressionHandshaker;
-    if (handshaker != null) {
+    /*extensions*/
+    PerMessageDeflateClientExtensionHandshaker compression = compressionHandshaker;
+    boolean hasCompression = compression != null;
+    boolean hasNomasking = isNomaskingExtension;
+    if (hasCompression) {
       headers.set(
           Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
-          compressionExtensionHeader(handshaker));
+          encodeExtensions(compression, hasNomasking));
+    } else if (hasNomasking) {
+      headers.set(
+          Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
+          Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING);
     }
     /*subprotocol*/
     String subprotocol = webSocketChannel.subprotocol();
@@ -452,14 +472,17 @@ public final class Http2WebSocketClientHandshaker {
         .getHostString();
   }
 
-  private CharSequence compressionExtensionHeader(
-      PerMessageDeflateClientExtensionHandshaker handshaker) {
-    /*compression config is shared by all websockets of connection*/
-    CharSequence header = compressionExtensionHeader;
+  private CharSequence encodeExtensions(
+      PerMessageDeflateClientExtensionHandshaker compressionExtension,
+      boolean isNomaskingExtension) {
+    /*extensions config is shared by all websockets of connection*/
+    CharSequence header = extensionsHeader;
     if (header == null) {
       header =
-          compressionExtensionHeader =
-              AsciiString.of(Http2WebSocketProtocol.encodeExtensions(handshaker.newRequestData()));
+          extensionsHeader =
+              AsciiString.of(
+                  Http2WebSocketProtocol.encodeExtensions(
+                      compressionExtension.newRequestData(), isNomaskingExtension));
     }
     return header;
   }
