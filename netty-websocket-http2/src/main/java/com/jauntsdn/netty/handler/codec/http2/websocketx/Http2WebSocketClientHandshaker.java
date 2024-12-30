@@ -36,11 +36,16 @@ import io.netty.handler.codec.http2.Http2Connection;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2LocalFlowController;
 import io.netty.util.AsciiString;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.ScheduledFuture;
 import java.net.InetSocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
@@ -65,17 +70,19 @@ public final class Http2WebSocketClientHandshaker {
   private final CharSequence scheme;
   private final PerMessageDeflateClientExtensionHandshaker compressionHandshaker;
   private final boolean isEncoderMaskPayload;
+  private final boolean isNomaskingExtension;
   private final long timeoutMillis;
   private Queue<Handshake> deferred;
   private Boolean supportsWebSocket;
   private volatile int webSocketChannelSerial;
-  private CharSequence compressionExtensionHeader;
+  private CharSequence extensionsHeader;
 
   Http2WebSocketClientHandshaker(
       WebSocketsParent webSocketsParent,
       Http2Connection.Endpoint<Http2LocalFlowController> streamIdFactory,
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
+      boolean isNomaskingExtension,
       short streamWeight,
       CharSequence scheme,
       long handshakeTimeoutMillis,
@@ -85,6 +92,7 @@ public final class Http2WebSocketClientHandshaker {
     this.streamIdFactory = streamIdFactory;
     this.webSocketDecoderConfig = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
+    this.isNomaskingExtension = isNomaskingExtension;
     this.timeoutMillis = handshakeTimeoutMillis;
     this.streamWeight = streamWeight;
     this.scheme = scheme;
@@ -178,14 +186,7 @@ public final class Http2WebSocketClientHandshaker {
 
     Http2WebSocketChannel webSocketChannel =
         new Http2WebSocketChannel(
-                webSocketsParent,
-                serial,
-                path,
-                subprotocol,
-                webSocketDecoderConfig,
-                isEncoderMaskPayload,
-                webSocketCodec,
-                webSocketHandler)
+                webSocketsParent, serial, path, subprotocol, webSocketCodec, webSocketHandler)
             .initialize();
 
     Handshake handshake =
@@ -224,6 +225,8 @@ public final class Http2WebSocketClientHandshaker {
     }
 
     String errorMessage = null;
+    boolean encoderMaskPayload = isEncoderMaskPayload;
+    WebSocketDecoderConfig decoderConfig = webSocketDecoderConfig;
     WebSocketClientExtension compressionExtension = null;
 
     String status = responseHeaders.status().toString();
@@ -240,15 +243,30 @@ public final class Http2WebSocketClientHandshaker {
             errorMessage =
                 Http2WebSocketProtocol.MSG_HANDSHAKE_UNEXPECTED_SUBPROTOCOL + clientSubprotocol;
           }
-          /*compression*/
+          /*extensions*/
           if (errorMessage == null) {
             PerMessageDeflateClientExtensionHandshaker handshaker = compressionHandshaker;
-            if (handshaker != null) {
-              CharSequence extensionsHeader =
-                  responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME);
-              WebSocketExtensionData compression =
-                  Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
-              if (compression != null) {
+            boolean supportsCompression = handshaker != null;
+            boolean supportsNomasking = isNomaskingExtension;
+
+            boolean supportsExtensions = supportsCompression || supportsNomasking;
+
+            CharSequence extensionsHeader =
+                supportsExtensions
+                    ? responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME)
+                    : null;
+            Http2WebSocketProtocol.WebSocketExtensions extensions =
+                Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
+
+            if (extensions != null) {
+              if (extensions.isNomasking() && supportsNomasking) {
+                encoderMaskPayload =
+                    Http2WebSocketProtocol.WEBSOCKET_EXTENSIONS_NOMASKING_MASK_PAYLOAD;
+                decoderConfig =
+                    Http2WebSocketProtocol.nomaskingExtensionDecoderConfig(decoderConfig);
+              }
+              WebSocketExtensionData compression = extensions.compression();
+              if (compression != null && supportsCompression) {
                 compressionExtension = handshaker.handshakeExtension(compression);
               }
             }
@@ -281,6 +299,7 @@ public final class Http2WebSocketClientHandshaker {
       }
       return;
     }
+    webSocketChannel.codecConfig(decoderConfig, encoderMaskPayload);
     if (compressionExtension != null) {
       webSocketChannel.compression(
           compressionExtension.newExtensionEncoder(), compressionExtension.newExtensionDecoder());
@@ -411,12 +430,18 @@ public final class Http2WebSocketClientHandshaker {
                     Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME,
                     Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_VALUE));
 
-    /*compression*/
-    PerMessageDeflateClientExtensionHandshaker handshaker = compressionHandshaker;
-    if (handshaker != null) {
+    /*extensions*/
+    PerMessageDeflateClientExtensionHandshaker compression = compressionHandshaker;
+    boolean hasCompression = compression != null;
+    boolean hasNomasking = isNomaskingExtension;
+    if (hasCompression) {
       headers.set(
           Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
-          compressionExtensionHeader(handshaker));
+          encodeExtensions(compression, hasNomasking));
+    } else if (hasNomasking) {
+      headers.set(
+          Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME,
+          Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING);
     }
     /*subprotocol*/
     String subprotocol = webSocketChannel.subprotocol();
@@ -447,14 +472,17 @@ public final class Http2WebSocketClientHandshaker {
         .getHostString();
   }
 
-  private CharSequence compressionExtensionHeader(
-      PerMessageDeflateClientExtensionHandshaker handshaker) {
-    /*compression config is shared by all websockets of connection*/
-    CharSequence header = compressionExtensionHeader;
+  private CharSequence encodeExtensions(
+      PerMessageDeflateClientExtensionHandshaker compressionExtension,
+      boolean isNomaskingExtension) {
+    /*extensions config is shared by all websockets of connection*/
+    CharSequence header = extensionsHeader;
     if (header == null) {
       header =
-          compressionExtensionHeader =
-              AsciiString.of(Http2WebSocketProtocol.encodeExtensions(handshaker.newRequestData()));
+          extensionsHeader =
+              AsciiString.of(
+                  Http2WebSocketProtocol.encodeExtensions(
+                      compressionExtension.newRequestData(), isNomaskingExtension));
     }
     return header;
   }
@@ -477,17 +505,26 @@ public final class Http2WebSocketClientHandshaker {
     return string;
   }
 
-  static class Handshake extends Http2WebSocketServerHandshaker.Handshake {
+  static class Handshake {
     private final Http2WebSocketChannel webSocketChannel;
     private final Http2Headers requestHeaders;
     private final long handshakeStartNanos;
+    private final Future<Void> channelClose;
+    private final ChannelPromise handshake;
+    private final long timeoutMillis;
+    private boolean done;
+    private ScheduledFuture<?> timeoutFuture;
+    private Future<?> handshakeCompleteFuture;
+    private GenericFutureListener<ChannelFuture> channelCloseListener;
 
     public Handshake(
         Http2WebSocketChannel webSocketChannel,
         Http2Headers requestHeaders,
         long timeoutMillis,
         long handshakeStartNanos) {
-      super(webSocketChannel.closeFuture(), webSocketChannel.handshakePromise(), timeoutMillis);
+      this.channelClose = webSocketChannel.closeFuture();
+      this.handshake = webSocketChannel.handshakePromise();
+      this.timeoutMillis = timeoutMillis;
       this.webSocketChannel = webSocketChannel;
       this.requestHeaders = requestHeaders;
       this.handshakeStartNanos = handshakeStartNanos;
@@ -503,6 +540,80 @@ public final class Http2WebSocketClientHandshaker {
 
     public long startNanos() {
       return handshakeStartNanos;
+    }
+
+    public void startTimeout() {
+      ChannelPromise h = handshake;
+      Channel channel = h.channel();
+
+      if (done) {
+        return;
+      }
+      GenericFutureListener<ChannelFuture> l = channelCloseListener = future -> onConnectionClose();
+      channelClose.addListener(l);
+      /*account for possible synchronous callback execution*/
+      if (done) {
+        return;
+      }
+      handshakeCompleteFuture = h.addListener(future -> onHandshakeComplete(future.cause()));
+      if (done) {
+        return;
+      }
+      timeoutFuture =
+          channel.eventLoop().schedule(this::onTimeout, timeoutMillis, TimeUnit.MILLISECONDS);
+    }
+
+    public void complete(Throwable e) {
+      onHandshakeComplete(e);
+    }
+
+    public boolean isDone() {
+      return done;
+    }
+
+    public ChannelFuture future() {
+      return handshake;
+    }
+
+    private void onConnectionClose() {
+      if (!done) {
+        handshake.tryFailure(new ClosedChannelException());
+        done();
+      }
+    }
+
+    private void onHandshakeComplete(Throwable cause) {
+      if (!done) {
+        if (cause != null) {
+          handshake.tryFailure(cause);
+        } else {
+          handshake.trySuccess();
+        }
+        done();
+      }
+    }
+
+    private void onTimeout() {
+      if (!done) {
+        handshake.tryFailure(new TimeoutException());
+        done();
+      }
+    }
+
+    private void done() {
+      done = true;
+      GenericFutureListener<ChannelFuture> closeListener = channelCloseListener;
+      if (closeListener != null) {
+        channelClose.removeListener(closeListener);
+      }
+      cancel(handshakeCompleteFuture);
+      cancel(timeoutFuture);
+    }
+
+    private void cancel(Future<?> future) {
+      if (future != null) {
+        future.cancel(true);
+      }
     }
   }
 }

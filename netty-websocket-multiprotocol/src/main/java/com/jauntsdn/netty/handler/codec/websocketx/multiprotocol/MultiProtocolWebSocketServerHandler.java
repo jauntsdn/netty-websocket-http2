@@ -59,6 +59,7 @@ public final class MultiProtocolWebSocketServerHandler extends ChannelInitialize
   private final HttpDecoderConfig http1Config;
   private final Http2Config http2Config;
   private final CompressionConfig compression;
+  private final boolean isNomaskingExtension;
   private final String path;
   private final String subprotocols;
   private final Set<String> subprotocolSet;
@@ -71,6 +72,7 @@ public final class MultiProtocolWebSocketServerHandler extends ChannelInitialize
       HttpDecoderConfig http1Config,
       Http2Config http2Config,
       CompressionConfig compression,
+      boolean isNomaskingExtension,
       String path,
       @Nullable String subprotocols,
       long handshakeTimeoutMillis,
@@ -80,6 +82,7 @@ public final class MultiProtocolWebSocketServerHandler extends ChannelInitialize
     this.http1Config = http1Config;
     this.http2Config = http2Config;
     this.compression = compression;
+    this.isNomaskingExtension = isNomaskingExtension;
     this.path = path;
     this.subprotocols = subprotocols;
     this.subprotocolSet = parseSubprotocols(subprotocols);
@@ -109,7 +112,8 @@ public final class MultiProtocolWebSocketServerHandler extends ChannelInitialize
                       applyConfig(
                           Http2WebSocketServerBuilder.create()
                               .codec(webSocketCodec)
-                              .decoderConfig(webSocketDecoderConfig),
+                              .decoderConfig(webSocketDecoderConfig)
+                              .nomaskingExtension(isNomaskingExtension),
                           h2Config);
 
                   CompressionConfig compr = compression;
@@ -195,6 +199,7 @@ public final class MultiProtocolWebSocketServerHandler extends ChannelInitialize
                                 .subprotocols(subprotocols)
                                 .handshakeTimeoutMillis(handshakeTimeoutMillis)
                                 .decoderConfig(webSocketDecoderConfig)
+                                .nomaskingExtension(isNomaskingExtension)
                                 .build();
                     pipeline.addLast(callbacksWebSocketProtocolHandler);
                   }

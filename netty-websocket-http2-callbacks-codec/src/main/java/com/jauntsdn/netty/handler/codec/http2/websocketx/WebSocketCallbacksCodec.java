@@ -22,18 +22,14 @@ public final class WebSocketCallbacksCodec implements Http1WebSocketCodec {
 
   @Override
   public WebSocketFrameDecoder decoder(WebSocketDecoderConfig config) {
-    throw new IllegalStateException(
-        "unexpected call to method #decoder(WebSocketDecoderConfig): "
-            + "expected #decoder(maskPayload, WebSocketDecoderConfig)");
+    return WebSocketProtocol.frameDecoder(
+        config.maxFramePayloadLength(), config.expectMaskedFrames(), config.allowMaskMismatch());
   }
 
   @Override
   public WebSocketFrameDecoder decoder(boolean maskPayload, WebSocketDecoderConfig config) {
     return WebSocketProtocol.frameDecoder(
-        maskPayload,
-        config.maxFramePayloadLength(),
-        config.expectMaskedFrames(),
-        config.allowMaskMismatch());
+        config.maxFramePayloadLength(), config.expectMaskedFrames(), config.allowMaskMismatch());
   }
 
   @Override

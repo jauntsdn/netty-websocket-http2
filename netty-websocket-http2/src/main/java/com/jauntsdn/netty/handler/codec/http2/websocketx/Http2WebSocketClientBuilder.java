@@ -32,6 +32,7 @@ public final class Http2WebSocketClientBuilder {
   private long closedWebSocketRemoveTimeoutMillis = 30_000;
   private boolean isSingleWebSocketPerConnection;
   private boolean isMaskPayload = true;
+  private boolean isNomaskingExtension;
 
   Http2WebSocketClientBuilder() {}
 
@@ -141,6 +142,17 @@ public final class Http2WebSocketClientBuilder {
   }
 
   /**
+   * @param isNomaskingExtension enables "no-masking" extension <a
+   *     href="https://datatracker.ietf.org/doc/html/draft-damjanovic-websockets-nomasking-02">draft</a>.
+   *     Takes precedence over masking related configuration.
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
+  public Http2WebSocketClientBuilder nomaskingExtension(boolean isNomaskingExtension) {
+    this.isNomaskingExtension = isNomaskingExtension;
+    return this;
+  }
+
+  /**
    * @param weight sets websocket http2 stream weight. Must belong to [1; 256] range
    * @return this {@link Http2WebSocketClientBuilder} instance
    */
@@ -192,6 +204,7 @@ public final class Http2WebSocketClientBuilder {
         codec,
         config,
         maskPayload,
+        isNomaskingExtension,
         weight,
         handshakeTimeoutMillis,
         closedWebSocketRemoveTimeoutMillis,

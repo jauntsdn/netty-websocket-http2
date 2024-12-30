@@ -6,24 +6,18 @@ Netty based implementation of [rfc8441](https://tools.ietf.org/html/rfc8441) - b
 
 ### use cases
 
-* Websocket channel API
-
-for application servers and clients, It provides transparent use of existing http1 websocket handlers on top of http2 streams. Compatible with
+* Websocket channel API: for application servers and clients, It provides transparent use of existing http1 websocket handlers on top of http2 streams. Compatible with
 callbacks codec (described below).
  
-* Websocket handshake only API
+* Websocket handshake only API: for gateways/proxies, It provides websockets-over-http2 support with no http1 dependencies and minimal overhead.
 
-for gateways/proxies, It provides websockets-over-http2 support with no http1 dependencies and minimal overhead.
-
-* Websocket multiprotocol
-
-for application servers, It provides transparent use of existing http1 websocket handlers to process both http1 and http2 websockets. 
+* Websocket multiprotocol: for application servers, It provides transparent use of existing http1 websocket handlers to process both http1 and http2 websockets. 
 Compatible with callbacks codec (described below).
 
 [https://jauntsdn.com/post/netty-websocket-http2/](https://jauntsdn.com/post/netty-websocket-http2/)
 
 ### much faster http1 codec
-Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-callbacks-codec) codec (callbacks codec) for websocket-http1 
+Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http1) codec (callbacks codec) for websocket-http1 
 frames processing [improves](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-perftest/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest/callbackscodec) 
 throughput 1.4x - 1.7x for small messages compared to one provided by netty (default codec).
 
@@ -101,7 +95,7 @@ EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
 Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
 Http2Headers headers =
-   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.2.6");
+   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.3.0");
 ChannelFuture handshakeFuture =
    /*http1 websocket handler*/
    handShaker.handshake("/echo", headers, new EchoWebSocketHandler());
@@ -316,7 +310,7 @@ Currently Google Chrome, Mozilla Firefox and Microsoft Edge support websockets-o
 
 ### build & binaries
 ```
-./gradlew
+./gradlew clean build installDist
 ```
 
 Releases are published on MavenCentral
@@ -326,7 +320,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.2.6'
+    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.3.0'
 }
 ```
 
