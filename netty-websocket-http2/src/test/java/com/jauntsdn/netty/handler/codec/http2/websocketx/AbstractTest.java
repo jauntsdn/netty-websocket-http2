@@ -89,7 +89,7 @@ abstract class AbstractTest {
     SslProvider sslProvider = sslProvider();
     KeyStore keyStore = KeyStore.getInstance("PKCS12");
     InputStream keystoreStream =
-        PingPongTest.class.getClassLoader().getResourceAsStream(keystoreFile);
+        AbstractTest.class.getClassLoader().getResourceAsStream(keystoreFile);
     char[] keystorePasswordArray = keystorePassword.toCharArray();
     keyStore.load(keystoreStream, keystorePasswordArray);
 

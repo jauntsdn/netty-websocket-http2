@@ -363,7 +363,7 @@ public class WebSocketMultiprotocolTest {
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, Object msg) {
       if (msg instanceof FullHttpResponse) {
         WebSocketClientHandshaker h = handshaker;
         if (h.isHandshakeComplete()) {
@@ -515,11 +515,9 @@ public class WebSocketMultiprotocolTest {
     }
   }
 
-  static <T> Set<T> setOf(T... elems) {
-    Set<T> set = new HashSet<>(elems.length);
-    for (T elem : elems) {
-      set.add(elem);
-    }
+  static Set<String> setOf(String... elems) {
+    Set<String> set = new HashSet<>(elems.length);
+    Collections.addAll(set, elems);
     return set;
   }
 }
