@@ -14,7 +14,7 @@ callbacks codec (described below).
 * Websocket multiprotocol: for application servers, It provides transparent use of existing http1 websocket handlers to process both http1 and http2 websockets. 
 Compatible with callbacks codec (described below).
 
-[https://jauntsdn.com/post/netty-websocket-http2/](https://jauntsdn.com/post/netty-websocket-http2/)
+[https://jauntsdn.com/post/netty-websocket-http2/](https://jauntsdn.github.io/post/netty-websocket-http2/)
 
 ### much faster http1 codec
 Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http1) codec (callbacks codec) for websocket-http1 
