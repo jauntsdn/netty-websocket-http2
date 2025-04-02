@@ -33,6 +33,13 @@ public abstract class Http2WebSocketEvent {
     this.type = type;
   }
 
+  static void fireWebSocketSupported(Channel parentChannel, boolean webSocketSupported) {
+    long timestamp = System.nanoTime();
+    ChannelPipeline parentPipeline = parentChannel.pipeline();
+    parentPipeline.fireUserEventTriggered(
+        new Http2WebSocketSupportedEvent(webSocketSupported, timestamp));
+  }
+
   static void fireFrameWriteError(Channel parentChannel, Throwable t) {
     ChannelPipeline parentPipeline = parentChannel.pipeline();
     if (parentChannel.config().isAutoClose()) {
@@ -242,7 +249,8 @@ public abstract class Http2WebSocketEvent {
     CLOSE_REMOTE_RESET,
     CLOSE_REMOTE_GOAWAY,
     WEIGHT_UPDATE,
-    WRITE_ERROR
+    WRITE_ERROR,
+    WEBSOCKET_SUPPORTED
   }
 
   /**
@@ -511,6 +519,26 @@ public abstract class Http2WebSocketEvent {
         return ((Http2WebSocketChannel) webSocketChannel).streamWeightAttribute();
       }
       return null;
+    }
+  }
+
+  /** websocket-over-http2 support event */
+  public static final class Http2WebSocketSupportedEvent extends Http2WebSocketEvent {
+    private final boolean webSocketSupported;
+    private final long timestampNanos;
+
+    Http2WebSocketSupportedEvent(boolean webSocketSupported, long timestampNanos) {
+      super(Type.WEBSOCKET_SUPPORTED);
+      this.webSocketSupported = webSocketSupported;
+      this.timestampNanos = timestampNanos;
+    }
+
+    public boolean isWebSocketSupported() {
+      return webSocketSupported;
+    }
+
+    public long timestampNanos() {
+      return timestampNanos;
     }
   }
 

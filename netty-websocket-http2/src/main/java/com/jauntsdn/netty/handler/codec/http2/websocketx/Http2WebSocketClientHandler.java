@@ -105,6 +105,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
         settings.get(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL);
     boolean supports =
         supportsWebSocket = extendedConnectEnabled != null && extendedConnectEnabled == 1;
+    Http2WebSocketEvent.fireWebSocketSupported(webSocketsParent.context().channel(), supports);
     Http2WebSocketClientHandshaker listener = HANDSHAKER.get(this);
     if (listener != null) {
       supportsWebSocketCalled = true;

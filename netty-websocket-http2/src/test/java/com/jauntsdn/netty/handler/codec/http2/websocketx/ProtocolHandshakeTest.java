@@ -19,6 +19,7 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeErrorEvent;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeStartEvent;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeSuccessEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketSupportedEvent;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.WebSocketEvent.WebSocketHandshakeErrorEvent;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.WebSocketEvent.WebSocketHandshakeStartEvent;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.WebSocketEvent.WebSocketHandshakeSuccessEvent;
@@ -103,6 +104,8 @@ public class ProtocolHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
+    Http2WebSocketEvent webSocketSupportedEvent = eventsRecorder.webSocketSupportedEvent();
+
     Assertions.assertThat(events).hasSize(4);
     Http2WebSocketEvent http2startEvent = events.get(0);
     Http2WebSocketEvent startEvent = events.get(1);
@@ -117,6 +120,13 @@ public class ProtocolHandshakeTest extends AbstractTest {
     Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
     Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
         .isEqualTo("/test");
+
+    Assertions.assertThat(webSocketSupportedEvent)
+        .isNotNull()
+        .isExactlyInstanceOf(Http2WebSocketSupportedEvent.class);
+    Assertions.assertThat(
+            webSocketSupportedEvent.<Http2WebSocketSupportedEvent>cast().isWebSocketSupported())
+        .isTrue();
 
     Assertions.assertThat(http2successEvent)
         .isExactlyInstanceOf(Http2WebSocketHandshakeSuccessEvent.class);
@@ -167,6 +177,8 @@ public class ProtocolHandshakeTest extends AbstractTest {
 
     eventsRecorder.eventsReceived().await(5, TimeUnit.SECONDS);
     List<Http2WebSocketEvent> events = eventsRecorder.events();
+    Http2WebSocketEvent webSocketSupportedEvent = eventsRecorder.webSocketSupportedEvent();
+
     Assertions.assertThat(events).hasSize(4);
     Http2WebSocketEvent http2startEvent = events.get(0);
     Http2WebSocketEvent startEvent = events.get(1);
@@ -181,6 +193,13 @@ public class ProtocolHandshakeTest extends AbstractTest {
     Assertions.assertThat(startEvent).isExactlyInstanceOf(WebSocketHandshakeStartEvent.class);
     Assertions.assertThat(startEvent.<WebSocketHandshakeStartEvent>cast().path())
         .isEqualTo("/test");
+
+    Assertions.assertThat(webSocketSupportedEvent)
+        .isNotNull()
+        .isExactlyInstanceOf(Http2WebSocketSupportedEvent.class);
+    Assertions.assertThat(
+            webSocketSupportedEvent.<Http2WebSocketSupportedEvent>cast().isWebSocketSupported())
+        .isFalse();
 
     Assertions.assertThat(http2errorEvent)
         .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
