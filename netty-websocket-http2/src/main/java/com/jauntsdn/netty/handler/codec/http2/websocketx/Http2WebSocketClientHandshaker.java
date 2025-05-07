@@ -123,7 +123,7 @@ public final class Http2WebSocketClientHandshaker {
    *     soon as this method returns.
    */
   public ChannelFuture handshake(String path, ChannelHandler webSocketHandler) {
-    return handshake(path, "", EMPTY_HEADERS, webSocketHandler);
+    return handshake("", path, "", EMPTY_HEADERS, webSocketHandler);
   }
 
   /**
@@ -138,7 +138,7 @@ public final class Http2WebSocketClientHandshaker {
    */
   public ChannelFuture handshake(
       String path, Http2Headers requestHeaders, ChannelHandler webSocketHandler) {
-    return handshake(path, "", requestHeaders, webSocketHandler);
+    return handshake("", path, "", requestHeaders, webSocketHandler);
   }
 
   /**
@@ -152,7 +152,7 @@ public final class Http2WebSocketClientHandshaker {
    *     soon as this method returns.
    */
   public ChannelFuture handshake(String path, String subprotocol, ChannelHandler webSocketHandler) {
-    return handshake(path, subprotocol, EMPTY_HEADERS, webSocketHandler);
+    return handshake("", path, subprotocol, EMPTY_HEADERS, webSocketHandler);
   }
 
   /**
@@ -171,7 +171,30 @@ public final class Http2WebSocketClientHandshaker {
       String subprotocol,
       Http2Headers requestHeaders,
       ChannelHandler webSocketHandler) {
+    return handshake("", path, subprotocol, requestHeaders, webSocketHandler);
+  }
+
+  /**
+   * Starts websocket-over-http2 handshake using given authority, path, subprotocol and request
+   * headers
+   *
+   * @param authority websocket authority, must be non-null
+   * @param path websocket path, must be non-empty
+   * @param subprotocol websocket subprotocol, must be non-null
+   * @param requestHeaders request headers, must be non-null
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
+  public ChannelFuture handshake(
+      String authority,
+      String path,
+      String subprotocol,
+      Http2Headers requestHeaders,
+      ChannelHandler webSocketHandler) {
     requireNonEmpty(path, "path");
+    Objects.requireNonNull(authority, "authority");
     Objects.requireNonNull(subprotocol, "subprotocol");
     Objects.requireNonNull(requestHeaders, "requestHeaders");
     Objects.requireNonNull(webSocketHandler, "webSocketHandler");
@@ -186,7 +209,13 @@ public final class Http2WebSocketClientHandshaker {
 
     Http2WebSocketChannel webSocketChannel =
         new Http2WebSocketChannel(
-                webSocketsParent, serial, path, subprotocol, webSocketCodec, webSocketHandler)
+                webSocketsParent,
+                serial,
+                authority,
+                path,
+                subprotocol,
+                webSocketCodec,
+                webSocketHandler)
             .initialize();
 
     Handshake handshake =
@@ -417,8 +446,11 @@ public final class Http2WebSocketClientHandshaker {
     int streamId = streamIdFactory.incrementAndGetNextStreamId();
     webSocketsParent.register(streamId, webSocketChannel.setStreamId(streamId));
 
-    String authority = authority();
     String path = webSocketChannel.path();
+    String authority = webSocketChannel.authority();
+    if (authority.isEmpty()) {
+      authority = authorityFromAddress();
+    }
     Http2Headers headers =
         Http2WebSocketProtocol.extendedConnect(
             new DefaultHttp2Headers()
@@ -467,7 +499,7 @@ public final class Http2WebSocketClientHandshaker {
             });
   }
 
-  private String authority() {
+  private String authorityFromAddress() {
     return ((InetSocketAddress) webSocketsParent.context().channel().remoteAddress())
         .getHostString();
   }

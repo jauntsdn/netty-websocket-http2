@@ -94,6 +94,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
   private final ChannelPipeline pipeline;
   private final WebSocketsParent webSocketChannelParent;
   private final int websocketChannelSerial;
+  private final String authority;
   private final String path;
   private final String subprotocol;
   private final ChannelPromise closePromise;
@@ -142,6 +143,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
   Http2WebSocketChannel(
       WebSocketsParent webSocketChannelParent,
       int websocketChannelSerial,
+      String authority,
       String path,
       String subprotocol,
       WebSocketDecoderConfig config,
@@ -153,6 +155,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
     this.isHandshakeCompleted = true;
     this.webSocketChannelParent = webSocketChannelParent;
     this.websocketChannelSerial = websocketChannelSerial;
+    this.authority = authority;
     this.path = path;
     this.subprotocol = subprotocol;
     this.decoderConfig = config;
@@ -185,12 +188,14 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
   Http2WebSocketChannel(
       WebSocketsParent webSocketChannelParent,
       int websocketChannelSerial,
+      String authority,
       String path,
       String subprotocol,
       Http1WebSocketCodec webSocketCodec,
       ChannelHandler websocketHandler) {
     this.webSocketChannelParent = webSocketChannelParent;
     this.websocketChannelSerial = websocketChannelSerial;
+    this.authority = authority;
     this.path = path;
     this.subprotocol = subprotocol;
     channelId = new Http2WebSocketChannelId(parent().id(), websocketChannelSerial);
@@ -258,6 +263,10 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
 
   int serial() {
     return websocketChannelSerial;
+  }
+
+  String authority() {
+    return authority;
   }
 
   String path() {
