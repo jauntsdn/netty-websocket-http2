@@ -333,7 +333,8 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
   public void onRstStreamRead(ChannelHandlerContext ctx, int streamId, long errorCode) {
     pipeline()
         .fireUserEventTriggered(
-            Http2WebSocketRemoteCloseEvent.reset(serial(), path, subprotocol, System.nanoTime()));
+            Http2WebSocketRemoteCloseEvent.reset(
+                serial(), authority, path, subprotocol, System.nanoTime()));
     streamClosed();
   }
 
@@ -343,7 +344,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
     pipeline()
         .fireUserEventTriggered(
             new Http2WebSocketEvent.Http2WebSocketRemoteGoAwayEvent(
-                serial(), path, subprotocol, System.nanoTime(), errorCode));
+                serial(), authority, path, subprotocol, System.nanoTime(), errorCode));
     streamClosed();
   }
 
@@ -756,7 +757,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
       pipeline()
           .fireUserEventTriggered(
               Http2WebSocketRemoteCloseEvent.endStream(
-                  serial(), path, subprotocol, System.nanoTime()));
+                  serial(), authority, path, subprotocol, System.nanoTime()));
     }
   }
 

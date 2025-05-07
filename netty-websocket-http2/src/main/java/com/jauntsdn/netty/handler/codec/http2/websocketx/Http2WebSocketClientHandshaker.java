@@ -386,6 +386,7 @@ public final class Http2WebSocketClientHandshaker {
       Http2WebSocketEvent.fireHandshakeStartAndError(
           webSocketChannel.parent(),
           webSocketChannel.serial(),
+          webSocketChannel.authority(),
           webSocketChannel.path(),
           webSocketChannel.subprotocol(),
           requestHeaders,

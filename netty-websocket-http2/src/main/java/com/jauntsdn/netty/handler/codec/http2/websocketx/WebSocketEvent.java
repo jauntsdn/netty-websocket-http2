@@ -25,10 +25,11 @@ public abstract class WebSocketEvent extends Http2WebSocketEvent.Http2WebSocketL
   WebSocketEvent(
       Http2WebSocketEvent.Type type,
       int id,
+      String authority,
       String path,
       String subprotocols,
       long timestampNanos) {
-    super(type, id, path, subprotocols, timestampNanos);
+    super(type, id, authority, path, subprotocols, timestampNanos);
   }
 
   /** websocket handshake start event */
@@ -37,11 +38,12 @@ public abstract class WebSocketEvent extends Http2WebSocketEvent.Http2WebSocketL
 
     WebSocketHandshakeStartEvent(
         int id,
+        String authority,
         String path,
         String subprotocol,
         long timestampNanos,
         Headers<CharSequence, CharSequence, ?> requestHeaders) {
-      super(Type.HANDSHAKE_START, id, path, subprotocol, timestampNanos);
+      super(Type.HANDSHAKE_START, id, authority, path, subprotocol, timestampNanos);
       this.requestHeaders = requestHeaders;
     }
 
@@ -60,27 +62,39 @@ public abstract class WebSocketEvent extends Http2WebSocketEvent.Http2WebSocketL
 
     WebSocketHandshakeErrorEvent(
         int id,
+        String authority,
         String path,
         String subprotocols,
         long timestampNanos,
         Headers<CharSequence, CharSequence, ?> responseHeaders,
         Throwable error) {
-      this(id, path, subprotocols, timestampNanos, responseHeaders, error, null, null);
+      this(id, authority, path, subprotocols, timestampNanos, responseHeaders, error, null, null);
     }
 
     WebSocketHandshakeErrorEvent(
         int id,
+        String authority,
         String path,
         String subprotocols,
         long timestampNanos,
         Headers<CharSequence, CharSequence, ?> responseHeaders,
         String errorName,
         String errorMessage) {
-      this(id, path, subprotocols, timestampNanos, responseHeaders, null, errorName, errorMessage);
+      this(
+          id,
+          authority,
+          path,
+          subprotocols,
+          timestampNanos,
+          responseHeaders,
+          null,
+          errorName,
+          errorMessage);
     }
 
     private WebSocketHandshakeErrorEvent(
         int id,
+        String authority,
         String path,
         String subprotocols,
         long timestampNanos,
@@ -88,7 +102,7 @@ public abstract class WebSocketEvent extends Http2WebSocketEvent.Http2WebSocketL
         Throwable error,
         String errorName,
         String errorMessage) {
-      super(Type.HANDSHAKE_ERROR, id, path, subprotocols, timestampNanos);
+      super(Type.HANDSHAKE_ERROR, id, authority, path, subprotocols, timestampNanos);
       this.responseHeaders = responseHeaders;
       this.errorName = errorName;
       this.errorMessage = errorMessage;
@@ -133,12 +147,13 @@ public abstract class WebSocketEvent extends Http2WebSocketEvent.Http2WebSocketL
 
     WebSocketHandshakeSuccessEvent(
         int id,
+        String authority,
         String path,
         String subprotocols,
         String subprotocol,
         long timestampNanos,
         Headers<CharSequence, CharSequence, ?> responseHeaders) {
-      super(Type.HANDSHAKE_SUCCESS, id, path, subprotocols, timestampNanos);
+      super(Type.HANDSHAKE_SUCCESS, id, authority, path, subprotocols, timestampNanos);
       this.subprotocol = subprotocol;
       this.responseHeaders = responseHeaders;
     }
