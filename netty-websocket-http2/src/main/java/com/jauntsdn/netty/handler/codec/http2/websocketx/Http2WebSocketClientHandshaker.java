@@ -40,6 +40,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.ScheduledFuture;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
 import java.util.Objects;
@@ -447,11 +448,21 @@ public final class Http2WebSocketClientHandshaker {
     int streamId = streamIdFactory.incrementAndGetNextStreamId();
     webSocketsParent.register(streamId, webSocketChannel.setStreamId(streamId));
 
-    String path = webSocketChannel.path();
     String authority = webSocketChannel.authority();
     if (authority.isEmpty()) {
-      authority = authorityFromAddress();
+      SocketAddress address = webSocketsParent.context().channel().remoteAddress();
+      authority = authorityFromAddress(address);
+      if (authority == null) {
+        WebSocketHandshakeException e =
+            new WebSocketHandshakeException(
+                Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_ADDRESS_FAMILY
+                    + address.getClass().getName());
+        handshake.complete(e);
+        return;
+      }
     }
+    String path = webSocketChannel.path();
+
     Http2Headers headers =
         Http2WebSocketProtocol.extendedConnect(
             new DefaultHttp2Headers()
@@ -500,11 +511,6 @@ public final class Http2WebSocketClientHandshaker {
             });
   }
 
-  private String authorityFromAddress() {
-    return ((InetSocketAddress) webSocketsParent.context().channel().remoteAddress())
-        .getHostString();
-  }
-
   private CharSequence encodeExtensions(
       PerMessageDeflateClientExtensionHandshaker compressionExtension,
       boolean isNomaskingExtension) {
@@ -518,6 +524,19 @@ public final class Http2WebSocketClientHandshaker {
                       compressionExtension.newRequestData(), isNomaskingExtension));
     }
     return header;
+  }
+
+  static String authorityFromAddress(SocketAddress address) {
+    if (address instanceof InetSocketAddress) {
+      InetSocketAddress inetAddress = (InetSocketAddress) address;
+      String host = inetAddress.getHostString();
+      int port = inetAddress.getPort();
+      if (port == 80 || port == 443) {
+        return host;
+      }
+      return host + ":" + port;
+    }
+    return null;
   }
 
   private static boolean isEqual(String str, @Nullable CharSequence seq) {

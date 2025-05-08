@@ -78,6 +78,8 @@ final class Http2WebSocketProtocol {
       "websocket handshake error: invalid request headers";
   static final String MSG_HANDSHAKE_INVALID_RESPONSE_HEADERS =
       "websocket handshake error: invalid response headers";
+  static final String MSG_HANDSHAKE_UNSUPPORTED_ADDRESS_FAMILY =
+      "websocket handshake error: unsupported address family - ";
   static final String MSG_WRITE_ERROR = "websocket frame write error";
 
   static Http2Headers extendedConnect(Http2Headers headers) {
