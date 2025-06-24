@@ -27,6 +27,7 @@ import io.netty.handler.codec.http2.Http2LocalFlowController;
 import io.netty.handler.codec.http2.Http2Settings;
 import io.netty.handler.ssl.SslHandler;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+import java.util.function.IntSupplier;
 import javax.annotation.Nullable;
 
 /**
@@ -45,6 +46,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
 
   private final long handshakeTimeoutMillis;
   private final PerMessageDeflateClientExtensionHandshaker compressionHandshaker;
+  private final IntSupplier externalMask;
   private final short streamWeight;
 
   private CharSequence scheme;
@@ -58,6 +60,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       boolean isNomaskingExtension,
+      IntSupplier externalMask,
       short streamWeight,
       long handshakeTimeoutMillis,
       long closedWebSocketRemoveTimeoutMillis,
@@ -70,6 +73,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
         isNomaskingExtension,
         closedWebSocketRemoveTimeoutMillis,
         isSingleWebSocketPerConnection);
+    this.externalMask = externalMask;
     this.streamWeight = streamWeight;
     this.handshakeTimeoutMillis = handshakeTimeoutMillis;
     this.compressionHandshaker = compressionHandshaker;
@@ -167,6 +171,7 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
             config,
             isEncoderMaskPayload,
             nomaskingExtension,
+            externalMask,
             streamWeight,
             scheme,
             handshakeTimeoutMillis,

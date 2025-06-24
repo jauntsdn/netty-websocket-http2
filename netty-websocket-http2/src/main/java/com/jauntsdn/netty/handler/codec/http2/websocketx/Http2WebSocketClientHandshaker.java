@@ -48,6 +48,7 @@ import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.function.IntSupplier;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +73,7 @@ public final class Http2WebSocketClientHandshaker {
   private final PerMessageDeflateClientExtensionHandshaker compressionHandshaker;
   private final boolean isEncoderMaskPayload;
   private final boolean isNomaskingExtension;
+  private final IntSupplier externalMask;
   private final long timeoutMillis;
   private Queue<Handshake> deferred;
   private Boolean supportsWebSocket;
@@ -84,6 +86,7 @@ public final class Http2WebSocketClientHandshaker {
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       boolean isNomaskingExtension,
+      IntSupplier externalMask,
       short streamWeight,
       CharSequence scheme,
       long handshakeTimeoutMillis,
@@ -94,6 +97,7 @@ public final class Http2WebSocketClientHandshaker {
     this.webSocketDecoderConfig = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
     this.isNomaskingExtension = isNomaskingExtension;
+    this.externalMask = externalMask;
     this.timeoutMillis = handshakeTimeoutMillis;
     this.streamWeight = streamWeight;
     this.scheme = scheme;
@@ -216,6 +220,7 @@ public final class Http2WebSocketClientHandshaker {
                 path,
                 subprotocol,
                 webSocketCodec,
+                externalMask,
                 webSocketHandler)
             .initialize();
 

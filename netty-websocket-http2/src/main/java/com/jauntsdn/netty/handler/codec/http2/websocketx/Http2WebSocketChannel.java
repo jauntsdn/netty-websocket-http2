@@ -68,6 +68,7 @@ import java.util.Queue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import java.util.function.IntSupplier;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -192,6 +193,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
       String path,
       String subprotocol,
       Http1WebSocketCodec webSocketCodec,
+      IntSupplier externalMask,
       ChannelHandler websocketHandler) {
     this.webSocketChannelParent = webSocketChannelParent;
     this.websocketChannelSerial = websocketChannelSerial;
@@ -205,7 +207,8 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
 
     closePromise = pl.newPromise();
     handshakePromise = pl.newPromise();
-    handshakePromiseListener = new CompleteClientHandshake(preHandshakeHandler, webSocketCodec);
+    handshakePromiseListener =
+        new CompleteClientHandshake(preHandshakeHandler, webSocketCodec, externalMask);
   }
 
   /*called on user thread, done outside constructor to not publish
@@ -222,11 +225,15 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
   class CompleteClientHandshake implements GenericFutureListener<ChannelFuture> {
     private final PreHandshakeHandler preHandshakeHandler;
     private final Http1WebSocketCodec webSocketCodec;
+    private final IntSupplier externalMask;
 
     public CompleteClientHandshake(
-        PreHandshakeHandler preHandshakeHandler, Http1WebSocketCodec webSocketCodec) {
+        PreHandshakeHandler preHandshakeHandler,
+        Http1WebSocketCodec webSocketCodec,
+        IntSupplier externalMask) {
       this.preHandshakeHandler = preHandshakeHandler;
       this.webSocketCodec = webSocketCodec;
+      this.externalMask = externalMask;
     }
 
     @Override
@@ -251,7 +258,10 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
       if (decoder == null) {
         decoder = codec.decoder(config);
       }
-      WebSocketFrameEncoder encoder = codec.encoder(maskPayload);
+      WebSocketFrameEncoder encoder = codec.encoder(maskPayload, externalMask);
+      if (encoder == null) {
+        encoder = codec.encoder(maskPayload);
+      }
       if (comprEncoder != null && comprDecoder != null) {
         pl.addFirst(decoder, comprDecoder, encoder, comprEncoder);
       } else {

@@ -19,6 +19,8 @@ package com.jauntsdn.netty.handler.codec.http2.websocketx;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateClientExtensionHandshaker;
 import java.util.Objects;
+import java.util.function.IntSupplier;
+import javax.annotation.Nullable;
 
 /** Builder for {@link Http2WebSocketClientHandler} */
 public final class Http2WebSocketClientBuilder {
@@ -33,6 +35,7 @@ public final class Http2WebSocketClientBuilder {
   private boolean isSingleWebSocketPerConnection;
   private boolean isMaskPayload = true;
   private boolean isNomaskingExtension;
+  private IntSupplier externalMask;
 
   Http2WebSocketClientBuilder() {}
 
@@ -67,6 +70,16 @@ public final class Http2WebSocketClientBuilder {
    */
   public Http2WebSocketClientBuilder maskPayload(boolean maskPayload) {
     this.isMaskPayload = maskPayload;
+    return this;
+  }
+
+  /**
+   * @param externalMask generator for payload masking key, used if underlying http1 codec supports
+   *     It. May be null.
+   * @return this {@link Http2WebSocketClientBuilder} instance
+   */
+  public Http2WebSocketClientBuilder mask(@Nullable IntSupplier externalMask) {
+    this.externalMask = externalMask;
     return this;
   }
 
@@ -205,6 +218,7 @@ public final class Http2WebSocketClientBuilder {
         config,
         maskPayload,
         isNomaskingExtension,
+        externalMask,
         weight,
         handshakeTimeoutMillis,
         closedWebSocketRemoveTimeoutMillis,
