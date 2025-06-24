@@ -44,7 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class WebSocketTest extends AbstractTest {
+class FramesExchangeTest extends AbstractTest {
   private static final int INITIAL_WINDOW_SIZE = 100;
 
   private Channel server;

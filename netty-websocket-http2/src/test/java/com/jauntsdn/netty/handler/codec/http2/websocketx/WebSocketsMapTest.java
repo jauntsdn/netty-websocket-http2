@@ -26,7 +26,7 @@ import java.util.List;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class SingleElementOptimizedMapTest {
+public class WebSocketsMapTest {
 
   @Test
   void putSingleElement() {
