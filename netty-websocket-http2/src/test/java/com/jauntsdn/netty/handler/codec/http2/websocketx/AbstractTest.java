@@ -16,6 +16,7 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketSupportedEvent;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -89,7 +90,7 @@ abstract class AbstractTest {
     SslProvider sslProvider = sslProvider();
     KeyStore keyStore = KeyStore.getInstance("PKCS12");
     InputStream keystoreStream =
-        PingPongTest.class.getClassLoader().getResourceAsStream(keystoreFile);
+        AbstractTest.class.getClassLoader().getResourceAsStream(keystoreFile);
     char[] keystorePasswordArray = keystorePassword.toCharArray();
     keyStore.load(keystoreStream, keystorePasswordArray);
 
@@ -127,37 +128,47 @@ abstract class AbstractTest {
   }
 
   static class WebsocketEventsHandler extends ChannelInboundHandlerAdapter {
-    private final int eventsCount;
-    private final List<Http2WebSocketEvent> events = new ArrayList<>();
-    private volatile ChannelPromise eventsReceived;
+    private final int orderedEventsCount;
+    private final List<Http2WebSocketEvent> orderedEvents = new ArrayList<>();
+    private Http2WebSocketEvent webSocketSupportedEvent;
+    private volatile ChannelPromise orderedEventsReceived;
 
-    public WebsocketEventsHandler(int eventsCount) {
-      this.eventsCount = eventsCount;
+    public WebsocketEventsHandler(int orderedEventsCount) {
+      this.orderedEventsCount = orderedEventsCount;
     }
 
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
-      eventsReceived = ctx.newPromise();
+      orderedEventsReceived = ctx.newPromise();
       super.handlerAdded(ctx);
     }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
       if (evt instanceof Http2WebSocketEvent) {
-        events.add((Http2WebSocketEvent) evt);
-        if (events.size() == eventsCount) {
-          eventsReceived.setSuccess();
+        /*may occur in any order relative to other events so accounted separately*/
+        if (evt instanceof Http2WebSocketSupportedEvent) {
+          webSocketSupportedEvent = (Http2WebSocketEvent) evt;
+          return;
+        }
+        orderedEvents.add((Http2WebSocketEvent) evt);
+        if (orderedEvents.size() == orderedEventsCount) {
+          orderedEventsReceived.setSuccess();
         }
       }
       super.userEventTriggered(ctx, evt);
     }
 
     ChannelFuture eventsReceived() {
-      return eventsReceived;
+      return orderedEventsReceived;
     }
 
     public List<Http2WebSocketEvent> events() {
-      return events;
+      return orderedEvents;
+    }
+
+    public Http2WebSocketEvent webSocketSupportedEvent() {
+      return webSocketSupportedEvent;
     }
   }
 

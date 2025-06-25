@@ -4,6 +4,7 @@ import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketProtocol;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.WebSocketFrameDecoder;
 import io.netty.handler.codec.http.websocketx.WebSocketFrameEncoder;
+import java.util.function.IntSupplier;
 
 /** Provides integration with jauntsdn/netty-websocket-http1 - high performance websocket codec. */
 public final class WebSocketCallbacksCodec implements Http1WebSocketCodec {
@@ -18,6 +19,11 @@ public final class WebSocketCallbacksCodec implements Http1WebSocketCodec {
   @Override
   public WebSocketFrameEncoder encoder(boolean maskPayload) {
     return WebSocketProtocol.frameEncoder(maskPayload);
+  }
+
+  @Override
+  public WebSocketFrameEncoder encoder(boolean maskPayload, IntSupplier externalMask) {
+    return WebSocketProtocol.frameEncoder(maskPayload, externalMask);
   }
 
   @Override

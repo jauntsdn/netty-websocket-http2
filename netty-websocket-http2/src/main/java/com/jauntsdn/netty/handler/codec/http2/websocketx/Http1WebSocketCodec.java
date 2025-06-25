@@ -21,10 +21,15 @@ import io.netty.handler.codec.http.websocketx.WebSocket13FrameEncoder;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.WebSocketFrameDecoder;
 import io.netty.handler.codec.http.websocketx.WebSocketFrameEncoder;
+import java.util.function.IntSupplier;
 
 public interface Http1WebSocketCodec {
 
   WebSocketFrameEncoder encoder(boolean maskPayload);
+
+  default WebSocketFrameEncoder encoder(boolean maskPayload, IntSupplier externalMask) {
+    return null;
+  }
 
   WebSocketFrameDecoder decoder(WebSocketDecoderConfig config);
 

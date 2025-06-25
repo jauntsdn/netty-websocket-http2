@@ -98,6 +98,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
     long startNanos = System.nanoTime();
     ChannelHandlerContext ctx = webSocketsParent.context();
 
+    String authority = nonNullString(requestHeaders.authority());
     String path = requestHeaders.path().toString();
     CharSequence webSocketVersion =
         requestHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_VERSION_NAME);
@@ -110,6 +111,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
       Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
+          authority,
           path,
           subprotocols,
           requestHeaders,
@@ -186,6 +188,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
       Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
+          authority,
           path,
           subprotocols,
           requestHeaders,
@@ -204,6 +207,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
       Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
+          authority,
           path,
           subprotocols,
           requestHeaders,
@@ -228,6 +232,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
       Http2WebSocketEvent.fireHandshakeStartAndError(
           ctx.channel(),
           streamId,
+          authority,
           path,
           subprotocols,
           requestHeaders,
@@ -259,6 +264,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
                 Http2WebSocketEvent.fireHandshakeStartAndError(
                     ch,
                     streamId,
+                    authority,
                     path,
                     subprotocols,
                     requestHeaders,
@@ -273,6 +279,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
                   new Http2WebSocketChannel(
                           webSocketsParent,
                           streamId,
+                          authority,
                           path,
                           acceptedSubprotocol,
                           finalDecoderConfig,
@@ -290,6 +297,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
                 Http2WebSocketEvent.fireHandshakeStartAndError(
                     ctx.channel(),
                     streamId,
+                    authority,
                     path,
                     subprotocols,
                     requestHeaders,
@@ -306,6 +314,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
                 Http2WebSocketEvent.fireHandshakeStartAndError(
                     ctx.channel(),
                     streamId,
+                    authority,
                     path,
                     subprotocols,
                     requestHeaders,
@@ -320,6 +329,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
               Http2WebSocketEvent.fireHandshakeStartAndSuccess(
                   webSocket,
                   streamId,
+                  authority,
                   path,
                   subprotocols,
                   acceptedSubprotocol,

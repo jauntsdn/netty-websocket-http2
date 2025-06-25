@@ -39,6 +39,7 @@ import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.AsciiString;
 import io.netty.util.concurrent.Future;
+import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.List;
 import java.util.UUID;
@@ -49,6 +50,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 public class ApplicationHandshakeTest extends AbstractTest {
   private Channel server;
@@ -906,6 +909,59 @@ public class ApplicationHandshakeTest extends AbstractTest {
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("200"));
   }
 
+  @ParameterizedTest
+  @ValueSource(strings = {"", "test.com:8080"})
+  void nonEmptyAuthorityAccept(String authority) throws Throwable {
+    HeadersRecordingAcceptor acceptor =
+        new HeadersRecordingAcceptor(new ChannelInboundHandlerAdapter());
+    server =
+        createServer(
+                ch -> {
+                  SslHandler sslHandler = serverSslContext.newHandler(ch.alloc());
+                  Http2FrameCodecBuilder http2FrameCodecBuilder =
+                      Http2FrameCodecBuilder.forServer().validateHeaders(false);
+                  Http2Settings settings = http2FrameCodecBuilder.initialSettings();
+                  settings.put(Http2WebSocketProtocol.SETTINGS_ENABLE_CONNECT_PROTOCOL, (Long) 1L);
+                  Http2FrameCodec http2frameCodec = http2FrameCodecBuilder.build();
+                  Http2WebSocketServerHandler http2webSocketHandler =
+                      Http2WebSocketServerBuilder.create().acceptor(acceptor).build();
+                  ch.pipeline().addLast(sslHandler, http2frameCodec, http2webSocketHandler);
+                })
+            .sync()
+            .channel();
+
+    SocketAddress address = server.localAddress();
+    client =
+        createClient(
+                address,
+                ch -> {
+                  SslHandler sslHandler = clientSslContext.newHandler(ch.alloc());
+                  Http2FrameCodec http2FrameCodec = Http2FrameCodecBuilder.forClient().build();
+                  Http2WebSocketClientHandler http2WebSocketClientHandler =
+                      Http2WebSocketClientBuilder.create().handshakeTimeoutMillis(5_000).build();
+                  ch.pipeline().addLast(sslHandler, http2FrameCodec, http2WebSocketClientHandler);
+                })
+            .sync()
+            .channel();
+
+    DefaultHttp2Headers headers = new DefaultHttp2Headers();
+
+    String expectedAuthority =
+        authority.isEmpty()
+            ? ((InetSocketAddress) client.remoteAddress()).getHostString()
+            : authority;
+
+    ChannelFuture handshake =
+        Http2WebSocketClientHandshaker.create(client)
+            .handshake(expectedAuthority, "/test", "", headers, new ChannelInboundHandlerAdapter());
+    handshake.await(5, TimeUnit.SECONDS);
+    Assertions.assertThat(handshake.isSuccess()).isTrue();
+    Http2Headers requestHeaders = acceptor.requestHeaders();
+    Assertions.assertThat(requestHeaders.get(":authority"))
+        .isNotNull()
+        .isEqualTo(AsciiString.of(expectedAuthority));
+  }
+
   @BeforeEach
   void setUp() throws Exception {
     serverSslContext = serverSslContext();
@@ -956,6 +1012,30 @@ public class ApplicationHandshakeTest extends AbstractTest {
           .newFailedFuture(
               new WebSocketHandshakeException(
                   String.format("Path not found: %s , subprotocols: %s", path, subprotocols)));
+    }
+  }
+
+  private static class HeadersRecordingAcceptor implements Http2WebSocketAcceptor {
+    private final ChannelHandler webSocketHandler;
+    private volatile Http2Headers requestHeaders;
+
+    HeadersRecordingAcceptor(ChannelHandler webSocketHandler) {
+      this.webSocketHandler = webSocketHandler;
+    }
+
+    public Http2Headers requestHeaders() {
+      return requestHeaders;
+    }
+
+    @Override
+    public Future<ChannelHandler> accept(
+        ChannelHandlerContext ctx,
+        String path,
+        List<String> subprotocols,
+        Http2Headers request,
+        Http2Headers response) {
+      requestHeaders = request;
+      return ctx.executor().newSucceededFuture(webSocketHandler);
     }
   }
 }

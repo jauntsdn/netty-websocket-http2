@@ -40,6 +40,7 @@ import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.ScheduledFuture;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.channels.ClosedChannelException;
 import java.util.ArrayDeque;
 import java.util.Objects;
@@ -47,6 +48,7 @@ import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+import java.util.function.IntSupplier;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +73,7 @@ public final class Http2WebSocketClientHandshaker {
   private final PerMessageDeflateClientExtensionHandshaker compressionHandshaker;
   private final boolean isEncoderMaskPayload;
   private final boolean isNomaskingExtension;
+  private final IntSupplier externalMask;
   private final long timeoutMillis;
   private Queue<Handshake> deferred;
   private Boolean supportsWebSocket;
@@ -83,6 +86,7 @@ public final class Http2WebSocketClientHandshaker {
       WebSocketDecoderConfig webSocketDecoderConfig,
       boolean isEncoderMaskPayload,
       boolean isNomaskingExtension,
+      IntSupplier externalMask,
       short streamWeight,
       CharSequence scheme,
       long handshakeTimeoutMillis,
@@ -93,6 +97,7 @@ public final class Http2WebSocketClientHandshaker {
     this.webSocketDecoderConfig = webSocketDecoderConfig;
     this.isEncoderMaskPayload = isEncoderMaskPayload;
     this.isNomaskingExtension = isNomaskingExtension;
+    this.externalMask = externalMask;
     this.timeoutMillis = handshakeTimeoutMillis;
     this.streamWeight = streamWeight;
     this.scheme = scheme;
@@ -123,7 +128,7 @@ public final class Http2WebSocketClientHandshaker {
    *     soon as this method returns.
    */
   public ChannelFuture handshake(String path, ChannelHandler webSocketHandler) {
-    return handshake(path, "", EMPTY_HEADERS, webSocketHandler);
+    return handshake("", path, "", EMPTY_HEADERS, webSocketHandler);
   }
 
   /**
@@ -138,7 +143,7 @@ public final class Http2WebSocketClientHandshaker {
    */
   public ChannelFuture handshake(
       String path, Http2Headers requestHeaders, ChannelHandler webSocketHandler) {
-    return handshake(path, "", requestHeaders, webSocketHandler);
+    return handshake("", path, "", requestHeaders, webSocketHandler);
   }
 
   /**
@@ -152,7 +157,7 @@ public final class Http2WebSocketClientHandshaker {
    *     soon as this method returns.
    */
   public ChannelFuture handshake(String path, String subprotocol, ChannelHandler webSocketHandler) {
-    return handshake(path, subprotocol, EMPTY_HEADERS, webSocketHandler);
+    return handshake("", path, subprotocol, EMPTY_HEADERS, webSocketHandler);
   }
 
   /**
@@ -171,7 +176,30 @@ public final class Http2WebSocketClientHandshaker {
       String subprotocol,
       Http2Headers requestHeaders,
       ChannelHandler webSocketHandler) {
+    return handshake("", path, subprotocol, requestHeaders, webSocketHandler);
+  }
+
+  /**
+   * Starts websocket-over-http2 handshake using given authority, path, subprotocol and request
+   * headers
+   *
+   * @param authority websocket authority, must be non-null
+   * @param path websocket path, must be non-empty
+   * @param subprotocol websocket subprotocol, must be non-null
+   * @param requestHeaders request headers, must be non-null
+   * @param webSocketHandler http1 websocket handler added to pipeline of subchannel created for
+   *     successfully handshaked http2 websocket
+   * @return ChannelFuture with result of handshake. Its channel accepts http1 WebSocketFrames as
+   *     soon as this method returns.
+   */
+  public ChannelFuture handshake(
+      String authority,
+      String path,
+      String subprotocol,
+      Http2Headers requestHeaders,
+      ChannelHandler webSocketHandler) {
     requireNonEmpty(path, "path");
+    Objects.requireNonNull(authority, "authority");
     Objects.requireNonNull(subprotocol, "subprotocol");
     Objects.requireNonNull(requestHeaders, "requestHeaders");
     Objects.requireNonNull(webSocketHandler, "webSocketHandler");
@@ -186,7 +214,14 @@ public final class Http2WebSocketClientHandshaker {
 
     Http2WebSocketChannel webSocketChannel =
         new Http2WebSocketChannel(
-                webSocketsParent, serial, path, subprotocol, webSocketCodec, webSocketHandler)
+                webSocketsParent,
+                serial,
+                authority,
+                path,
+                subprotocol,
+                webSocketCodec,
+                externalMask,
+                webSocketHandler)
             .initialize();
 
     Handshake handshake =
@@ -357,6 +392,7 @@ public final class Http2WebSocketClientHandshaker {
       Http2WebSocketEvent.fireHandshakeStartAndError(
           webSocketChannel.parent(),
           webSocketChannel.serial(),
+          webSocketChannel.authority(),
           webSocketChannel.path(),
           webSocketChannel.subprotocol(),
           requestHeaders,
@@ -417,8 +453,21 @@ public final class Http2WebSocketClientHandshaker {
     int streamId = streamIdFactory.incrementAndGetNextStreamId();
     webSocketsParent.register(streamId, webSocketChannel.setStreamId(streamId));
 
-    String authority = authority();
+    String authority = webSocketChannel.authority();
+    if (authority.isEmpty()) {
+      SocketAddress address = webSocketsParent.context().channel().remoteAddress();
+      authority = authorityFromAddress(address);
+      if (authority == null) {
+        WebSocketHandshakeException e =
+            new WebSocketHandshakeException(
+                Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_ADDRESS_FAMILY
+                    + address.getClass().getName());
+        handshake.complete(e);
+        return;
+      }
+    }
     String path = webSocketChannel.path();
+
     Http2Headers headers =
         Http2WebSocketProtocol.extendedConnect(
             new DefaultHttp2Headers()
@@ -467,11 +516,6 @@ public final class Http2WebSocketClientHandshaker {
             });
   }
 
-  private String authority() {
-    return ((InetSocketAddress) webSocketsParent.context().channel().remoteAddress())
-        .getHostString();
-  }
-
   private CharSequence encodeExtensions(
       PerMessageDeflateClientExtensionHandshaker compressionExtension,
       boolean isNomaskingExtension) {
@@ -485,6 +529,19 @@ public final class Http2WebSocketClientHandshaker {
                       compressionExtension.newRequestData(), isNomaskingExtension));
     }
     return header;
+  }
+
+  static String authorityFromAddress(SocketAddress address) {
+    if (address instanceof InetSocketAddress) {
+      InetSocketAddress inetAddress = (InetSocketAddress) address;
+      String host = inetAddress.getHostString();
+      int port = inetAddress.getPort();
+      if (port == 80 || port == 443) {
+        return host;
+      }
+      return host + ":" + port;
+    }
+    return null;
   }
 
   private static boolean isEqual(String str, @Nullable CharSequence seq) {

@@ -14,7 +14,7 @@ callbacks codec (described below).
 * Websocket multiprotocol: for application servers, It provides transparent use of existing http1 websocket handlers to process both http1 and http2 websockets. 
 Compatible with callbacks codec (described below).
 
-[https://jauntsdn.com/post/netty-websocket-http2/](https://jauntsdn.com/post/netty-websocket-http2/)
+[https://jauntsdn.com/post/netty-websocket-http2/](https://jauntsdn.github.io/post/netty-websocket-http2/)
 
 ### much faster http1 codec
 Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http1) codec (callbacks codec) for websocket-http1 
@@ -95,7 +95,7 @@ EchoWebSocketHandler http1WebSocketHandler = new EchoWebSocketHandler();
 Http2WebSocketClientHandshaker handShaker = Http2WebSocketClientHandshaker.create(channel);
 
 Http2Headers headers =
-   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.3.0");
+   new DefaultHttp2Headers().set("user-agent", "jauntsdn-websocket-http2-client/1.4.0");
 ChannelFuture handshakeFuture =
    /*http1 websocket handler*/
    handShaker.handshake("/echo", headers, new EchoWebSocketHandler());
@@ -320,7 +320,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.3.0'
+    implementation 'com.jauntsdn.netty:netty-websocket-http2:1.4.0'
 }
 ```
 
