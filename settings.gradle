@@ -20,7 +20,6 @@ pluginManagement {
         id "io.spring.dependency-management" version "${dependencyManagementPluginVersion}"
         id "com.palantir.git-version" version "${gitPluginVersion}"
         id "com.google.osdetector" version "${osDetectorPluginVersion}"
-        id "com.github.ben-manes.versions" version "${versionsPluginVersion}"
     }
 }
 
