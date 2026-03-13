@@ -169,49 +169,56 @@ public class Main {
 
         switch (handshakeEvent.type()) {
           case HANDSHAKE_START:
-            startNanos = timestampNanos;
-            Http2WebSocketHandshakeStartEvent startEvent = handshakeEvent.cast();
-            logger.info(
-                "==> WebSocket handshake start event - id: {}, path: {}, subprotocols: {}, request headers: {}",
-                id,
-                path,
-                subprotocolsOrEmpty,
-                headers(startEvent.requestHeaders()));
+            if (handshakeEvent instanceof Http2WebSocketHandshakeStartEvent) {
+              startNanos = timestampNanos;
+              Http2WebSocketHandshakeStartEvent startEvent = handshakeEvent.cast();
+              logger.info(
+                  "==> WebSocket handshake start event - id: {}, path: {}, subprotocols: {}, request headers: {}",
+                  id,
+                  path,
+                  subprotocolsOrEmpty,
+                  headers(startEvent.requestHeaders()));
+            }
             break;
           case HANDSHAKE_SUCCESS:
-            long handshakeSuccessMillis =
-                TimeUnit.NANOSECONDS.toMillis(timestampNanos - startNanos);
-            Http2WebSocketHandshakeSuccessEvent successEvent = handshakeEvent.cast();
-            logger.info(
-                "==> WebSocket handshake success event - id: {}, path: {}, subprotocols: {}, duration: {} millis, response headers: {}",
-                id,
-                path,
-                subprotocolsOrEmpty,
-                handshakeSuccessMillis,
-                headers(successEvent.responseHeaders()));
+            if (handshakeEvent instanceof Http2WebSocketHandshakeSuccessEvent) {
+              long handshakeSuccessMillis =
+                  TimeUnit.NANOSECONDS.toMillis(timestampNanos - startNanos);
+              Http2WebSocketHandshakeSuccessEvent successEvent = handshakeEvent.cast();
+              logger.info(
+                  "==> WebSocket handshake success event - id: {}, path: {}, subprotocols: {}, duration: {} millis, response headers: {}",
+                  id,
+                  path,
+                  subprotocolsOrEmpty,
+                  handshakeSuccessMillis,
+                  headers(successEvent.responseHeaders()));
+            }
             break;
           case HANDSHAKE_ERROR:
-            long handshakeErrorMillis = TimeUnit.NANOSECONDS.toMillis(timestampNanos - startNanos);
-            Http2WebSocketHandshakeErrorEvent errorEvent = handshakeEvent.cast();
-            String errorName;
-            String errorMessage;
-            Throwable cause = errorEvent.error();
-            if (cause != null) {
-              errorName = cause.getClass().getSimpleName();
-              errorMessage = cause.getMessage();
-            } else {
-              errorName = errorEvent.errorName();
-              errorMessage = errorEvent.errorMessage();
+            if (handshakeEvent instanceof Http2WebSocketHandshakeErrorEvent) {
+              long handshakeErrorMillis =
+                  TimeUnit.NANOSECONDS.toMillis(timestampNanos - startNanos);
+              Http2WebSocketHandshakeErrorEvent errorEvent = handshakeEvent.cast();
+              String errorName;
+              String errorMessage;
+              Throwable cause = errorEvent.error();
+              if (cause != null) {
+                errorName = cause.getClass().getSimpleName();
+                errorMessage = cause.getMessage();
+              } else {
+                errorName = errorEvent.errorName();
+                errorMessage = errorEvent.errorMessage();
+              }
+              logger.info(
+                  "==> WebSocket handshake error event - id: {}, path: {}, subprotocols: {}, duration: {} millis, error: {}: {}, response headers: {}",
+                  id,
+                  path,
+                  subprotocolsOrEmpty,
+                  handshakeErrorMillis,
+                  errorName,
+                  errorMessage,
+                  headers(errorEvent.responseHeaders()));
             }
-            logger.info(
-                "==> WebSocket handshake error event - id: {}, path: {}, subprotocols: {}, duration: {} millis, error: {}: {}, response headers: {}",
-                id,
-                path,
-                subprotocolsOrEmpty,
-                handshakeErrorMillis,
-                errorName,
-                errorMessage,
-                headers(errorEvent.responseHeaders()));
             break;
           case CLOSE_REMOTE_ENDSTREAM:
             logger.info(

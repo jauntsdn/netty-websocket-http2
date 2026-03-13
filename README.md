@@ -105,9 +105,9 @@ handshakeFuture.channel().writeAndFlush(new TextWebSocketFrame("hello http2 webs
 Successfully handshaked http2 stream spawns websocket subchannel, with provided  
 http1 websocket handlers on its pipeline.
 
-Runnable demo is available in `netty-websocket-http2-example` module - 
-[channelserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelserver/Main.java), 
-[channelclient](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelclient/Main.java).
+Runnable demo is available in `netty-websocket-http2-examples` module - 
+[channelserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-examples/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelserver/Main.java), 
+[channelclient](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-examples/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelclient/Main.java).
 
 ### websocket handshake only API
 Intended for intermediaries/proxies.   
@@ -131,9 +131,9 @@ Works with both callbacks-style `Http2ConnectionHandler` and frames based `Http2
 Http2WebSocketServerBuilder.buildHandshakeOnly();
 ```
  
-Runnable demo is available in `netty-websocket-http2-example` module - 
-[handshakeserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/handshakeserver/Main.java), 
-[channelclient](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelclient/Main.java).
+Runnable demo is available in `netty-websocket-http2-examples` module - 
+[handshakeserver](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-examples/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/handshakeserver/Main.java), 
+[channelclient](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-examples/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/channelclient/Main.java).
 
 ### websocket multiprotocol
 Provides transparent use of existing http1 websocket handlers to process both http1 and http2 websockets. 
@@ -150,10 +150,10 @@ Provides transparent use of existing http1 websocket handlers to process both ht
        ch.pipeline().addLast(sslHandler, multiprotocolHandler);
 ```
 
-Runnable demo is available in `netty-websocket-http2-example` module - 
-[multiprotocol.server.defaultcodec](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/multiprotocol/server/defaultcodec/Main.java), 
-[multiprotocol.server.callbackscodec](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/multiprotocol/server/callbackscodec/Main.java), 
-[multiprotocol.client.defaultcodec](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-example/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/multiprotocol/client/Main.java), 
+Runnable demo is available in `netty-websocket-http2-examples` module - 
+[multiprotocol.server.defaultcodec](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-examples/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/multiprotocol/server/defaultcodec/Main.java), 
+[multiprotocol.server.callbackscodec](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-examples/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/multiprotocol/server/callbackscodec/Main.java), 
+[multiprotocol.client.defaultcodec](https://github.com/jauntsdn/netty-websocket-http2/blob/develop/netty-websocket-http2-examples/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/example/multiprotocol/client/Main.java), 
 
 ### configuration
 Initial settings of server http2 codecs (`Http2ConnectionHandler` or `Http2FrameCodec`)  should contain [SETTINGS_ENABLE_CONNECT_PROTOCOL=1](https://tools.ietf.org/html/rfc8441#section-9.1)
@@ -295,7 +295,7 @@ the results are as follows (measured over time spans of 5 seconds):
 
 ### examples
 
-`netty-websocket-http2-example` module contains demos showcasing both API styles, with this library/browser as clients.
+`netty-websocket-http2-examples` module contains demos showcasing both API styles, with this library/browser as clients.
  
 * `channelserver, channelclient` packages for websocket subchannel API demos. 
 * `handshakeserver, channelclient` packages for handshake only API demo.

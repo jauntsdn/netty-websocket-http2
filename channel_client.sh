@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./gradlew netty-websocket-http2-example:runChannelClient
+./gradlew netty-websocket-http2-examples:runChannelClient

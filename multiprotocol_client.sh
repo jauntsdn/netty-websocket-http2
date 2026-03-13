@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./gradlew netty-websocket-http2-example:runMultiProtocolClient
+./gradlew netty-websocket-http2-examples:runMultiProtocolClient

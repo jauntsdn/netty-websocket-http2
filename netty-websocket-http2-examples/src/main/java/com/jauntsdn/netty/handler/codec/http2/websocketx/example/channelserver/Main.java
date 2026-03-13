@@ -206,44 +206,50 @@ public class Main {
 
         switch (handshakeEvent.type()) {
           case HANDSHAKE_START:
-            Http2WebSocketHandshakeStartEvent startEvent = handshakeEvent.cast();
-            logger.info(
-                "==> WebSocket handshake start event - id: {}, path: {}, subprotocols: {}, request headers: {}",
-                id,
-                path,
-                subprotocolsOrEmpty,
-                headers(startEvent.requestHeaders()));
+            if (handshakeEvent instanceof Http2WebSocketHandshakeStartEvent) {
+              Http2WebSocketHandshakeStartEvent startEvent = handshakeEvent.cast();
+              logger.info(
+                  "==> WebSocket handshake start event - id: {}, path: {}, subprotocols: {}, request headers: {}",
+                  id,
+                  path,
+                  subprotocolsOrEmpty,
+                  headers(startEvent.requestHeaders()));
+            }
             break;
           case HANDSHAKE_SUCCESS:
-            Http2WebSocketHandshakeSuccessEvent successEvent = handshakeEvent.cast();
-            logger.info(
-                "==> WebSocket handshake success event - id: {}, path: {}, subprotocols: {}, response headers: {}",
-                id,
-                path,
-                subprotocolsOrEmpty,
-                headers(successEvent.responseHeaders()));
+            if (handshakeEvent instanceof Http2WebSocketHandshakeSuccessEvent) {
+              Http2WebSocketHandshakeSuccessEvent successEvent = handshakeEvent.cast();
+              logger.info(
+                  "==> WebSocket handshake success event - id: {}, path: {}, subprotocols: {}, response headers: {}",
+                  id,
+                  path,
+                  subprotocolsOrEmpty,
+                  headers(successEvent.responseHeaders()));
+            }
             break;
           case HANDSHAKE_ERROR:
-            Http2WebSocketHandshakeErrorEvent errorEvent = handshakeEvent.cast();
-            String errorName;
-            String errorMessage;
-            Throwable cause = errorEvent.error();
-            if (cause != null) {
-              errorName = cause.getClass().getSimpleName();
-              errorMessage = cause.getMessage();
-            } else {
-              errorName = errorEvent.errorName();
-              errorMessage = errorEvent.errorMessage();
+            if (handshakeEvent instanceof Http2WebSocketHandshakeErrorEvent) {
+              Http2WebSocketHandshakeErrorEvent errorEvent = handshakeEvent.cast();
+              String errorName;
+              String errorMessage;
+              Throwable cause = errorEvent.error();
+              if (cause != null) {
+                errorName = cause.getClass().getSimpleName();
+                errorMessage = cause.getMessage();
+              } else {
+                errorName = errorEvent.errorName();
+                errorMessage = errorEvent.errorMessage();
+              }
+              logger.info(
+                  "==> WebSocket handshake error event - id: {}, path: {}, subprotocols: {}, error: {}: {}, response headers: {}",
+                  id,
+                  path,
+                  subprotocolsOrEmpty,
+                  errorName,
+                  errorMessage,
+                  headers(errorEvent.responseHeaders()));
+              break;
             }
-            logger.info(
-                "==> WebSocket handshake error event - id: {}, path: {}, subprotocols: {}, error: {}: {}, response headers: {}",
-                id,
-                path,
-                subprotocolsOrEmpty,
-                errorName,
-                errorMessage,
-                headers(errorEvent.responseHeaders()));
-            break;
           case CLOSE_REMOTE_ENDSTREAM:
             logger.info(
                 "==> WebSocket stream close remote END_STREAM - id: {}, path: {}, subprotocols: {}",
