@@ -88,7 +88,7 @@ public class Main {
 
     Transport transport = Transport.get(isNativeTransport);
 
-    final SslContext sslContext = Security.clientLocalSslContext();
+    final SslContext sslContext = Security.clientLocalSslContextHttp2();
 
     Channel channel =
         new Bootstrap()

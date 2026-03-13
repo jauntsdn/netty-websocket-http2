@@ -35,6 +35,13 @@ dependencies {
     } else if (osdetector.os == "osx") {
         runtimeOnly "io.netty:netty-transport-native-kqueue::${osdetector.classifier}"
     }
+
+    testImplementation project(":netty-websocket-multiprotocol")
+    testImplementation "org.assertj:assertj-core"
+    testImplementation "org.junit.jupiter:junit-jupiter-api"
+    testImplementation "org.junit.jupiter:junit-jupiter-params"
+
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
 }
 
 task runServerMessages(type: JavaExec) {
