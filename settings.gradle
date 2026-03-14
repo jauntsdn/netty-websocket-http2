@@ -28,5 +28,5 @@ include "netty-websocket-http2"
 include "netty-websocket-http2-callbacks-codec"
 include "netty-websocket-multiprotocol"
 include "netty-websocket-http2-examples"
-include "netty-websocket-http2-perftest"
+include "netty-websocket-http2-test"
 

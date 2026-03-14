@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./gradlew netty-websocket-http2-perftest:runClientMessages
+./gradlew netty-websocket-http2-test:runPerfClientMessages

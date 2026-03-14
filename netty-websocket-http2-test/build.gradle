@@ -44,74 +44,74 @@ dependencies {
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
 }
 
-task runServerMessages(type: JavaExec) {
+task runPerfServerMessages(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.server.Main"
 }
 
-task runClientMessages(type: JavaExec) {
+task runPerfClientMessages(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.client.Main"
 }
 
-task runServerCallbacks(type: JavaExec) {
+task runPerfServerCallbacks(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.server.Main"
 }
 
-task runClientCallbacks(type: JavaExec) {
+task runPerfClientCallbacks(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client.Main"
 }
 
-task runServerBulk(type: JavaExec) {
+task runPerfServerBulk(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.bulkcodec.server.Main"
 }
 
-task runClientBulk(type: JavaExec) {
+task runPerfClientBulk(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.bulkcodec.client.Main"
 }
 
 task serverMessagesScripts(type: CreateStartScripts) {
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.server.Main"
-    applicationName = "${project.name}-messages-server"
+    applicationName = "${project.name}-perfmessagesserver"
     classpath = startScripts.classpath
     outputDir = startScripts.outputDir
 }
 
 task clientMessagesScripts(type: CreateStartScripts) {
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.messagecodec.client.Main"
-    applicationName = "${project.name}-messages-client"
+    applicationName = "${project.name}-perfmessagesclient"
     classpath = startScripts.classpath
     outputDir = startScripts.outputDir
 }
 
 task serverCallbacksScripts(type: CreateStartScripts) {
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.server.Main"
-    applicationName = "${project.name}-callbacks-server"
+    applicationName = "${project.name}-perfcallbacksserver"
     classpath = startScripts.classpath
     outputDir = startScripts.outputDir
 }
 
 task clientCallbacksScripts(type: CreateStartScripts) {
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.callbackscodec.client.Main"
-    applicationName = "${project.name}-callbacks-client"
+    applicationName = "${project.name}-perfcallbacksclient"
     classpath = startScripts.classpath
     outputDir = startScripts.outputDir
 }
 
 task serverBulkScripts(type: CreateStartScripts) {
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.bulkcodec.server.Main"
-    applicationName = "${project.name}-bulk-server"
+    applicationName = "${project.name}-perfbulkserver"
     classpath = startScripts.classpath
     outputDir = startScripts.outputDir
 }
 
 task clientBulkScripts(type: CreateStartScripts) {
     mainClass = "com.jauntsdn.netty.handler.codec.http2.websocketx.perftest.bulkcodec.client.Main"
-    applicationName = "${project.name}-bulk-client"
+    applicationName = "${project.name}-perfbulkclient"
     classpath = startScripts.classpath
     outputDir = startScripts.outputDir
 }

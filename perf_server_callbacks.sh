@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./gradlew netty-websocket-http2-perftest:runServerCallbacks
+./gradlew netty-websocket-http2-test:runPerfServerCallbacks

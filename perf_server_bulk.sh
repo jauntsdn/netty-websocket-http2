@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./gradlew netty-websocket-http2-perftest:runServerBulk
+./gradlew netty-websocket-http2-test:runPerfServerBulk

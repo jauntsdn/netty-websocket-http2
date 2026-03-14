@@ -18,7 +18,7 @@ Compatible with callbacks codec (described below).
 
 ### much faster http1 codec
 Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http1) codec (callbacks codec) for websocket-http1 
-frames processing [improves](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-perftest/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest/callbackscodec) 
+frames processing [improves](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-test/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest/callbackscodec) 
 throughput 1.4x - 1.7x for small messages compared to one provided by netty (default codec).
 
 ### websocket channel API  
@@ -256,7 +256,7 @@ it can be updated by firing `Http2WebSocketStreamWeightUpdateEvent` on websocket
 ### performance
 
 Library relies on capabilities provided by netty's `Http2ConnectionHandler` so performance characteristics should be similar.
-[netty-websocket-http2-perftest](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-perftest/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest) 
+[netty-websocket-http2 perftest](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-test/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest) 
 module contains application that gives rough throughput/latency estimate. The application is started with `perf_server.sh`, `perf_client.sh`. 
 
 On modern box one can expect following results for single websocket, 140 bytes payload (TLS connection, per-core throughput):
@@ -270,7 +270,7 @@ On modern box one can expect following results for single websocket, 140 bytes p
 ```
 
 Integration with [jauntsdn/netty-websocket-http1](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-callbacks-codec) codec for websocket-http1 frames 
-processing significantly [improves](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-perftest/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest/callbackscodec) 
+processing significantly [improves](https://github.com/jauntsdn/netty-websocket-http2/tree/develop/netty-websocket-http2-test/src/main/java/com/jauntsdn/netty/handler/codec/http2/websocketx/perftest/callbackscodec) 
 throughput:
 
 ```properties
