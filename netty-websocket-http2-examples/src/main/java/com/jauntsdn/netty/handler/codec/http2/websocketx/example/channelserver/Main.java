@@ -101,7 +101,7 @@ public class Main {
     logger.info("\n==> Server is listening on {}:{}", host, port);
 
     logger.info("\n==> Echo path: {}", echoPath);
-    logger.info("\n==> Modern browser (Firefox, latest Chrome) demo: https://{}", advertiseAddress);
+    logger.info("\n==> Modern browser (Chrome, Opera) demo: https://{}", advertiseAddress);
 
     server.closeFuture().sync();
   }
