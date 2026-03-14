@@ -291,14 +291,15 @@ public final class Http2WebSocketClientHandshaker {
                     ? responseHeaders.get(Http2WebSocketProtocol.HEADER_WEBSOCKET_EXTENSIONS_NAME)
                     : null;
             Http2WebSocketProtocol.WebSocketExtensions extensions =
-                Http2WebSocketProtocol.decodeExtensions(extensionsHeader);
+                Http2WebSocketProtocol.WebSocketExtensions.decode(extensionsHeader);
 
             if (extensions != null) {
               if (extensions.isNomasking() && supportsNomasking) {
                 encoderMaskPayload =
                     Http2WebSocketProtocol.WEBSOCKET_EXTENSIONS_NOMASKING_MASK_PAYLOAD;
                 decoderConfig =
-                    Http2WebSocketProtocol.nomaskingExtensionDecoderConfig(decoderConfig);
+                    Http2WebSocketProtocol.WebSocketExtensions.nomaskingDecoderConfig(
+                        decoderConfig);
               }
               WebSocketExtensionData compression = extensions.compression();
               if (compression != null && supportsCompression) {
@@ -525,7 +526,7 @@ public final class Http2WebSocketClientHandshaker {
       header =
           extensionsHeader =
               AsciiString.of(
-                  Http2WebSocketProtocol.encodeExtensions(
+                  Http2WebSocketProtocol.WebSocketExtensions.encode(
                       compressionExtension.newRequestData(), isNomaskingExtension));
     }
     return header;

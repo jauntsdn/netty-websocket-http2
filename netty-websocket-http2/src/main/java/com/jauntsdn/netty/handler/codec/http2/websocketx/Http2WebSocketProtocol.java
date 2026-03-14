@@ -97,91 +97,7 @@ final class Http2WebSocketProtocol {
 
   /*extensions*/
 
-  @Nullable
-  static WebSocketExtensions decodeExtensions(@Nullable CharSequence extensionHeader) {
-    if (extensionHeader == null || extensionHeader.length() == 0) {
-      return null;
-    }
-    WebSocketExtensionData compression = null;
-    boolean noMasking = false;
-
-    AsciiString asciiExtensionHeader = (AsciiString) extensionHeader;
-    for (AsciiString extension : asciiExtensionHeader.split(',')) {
-      AsciiString[] extensionParameters = extension.split(';');
-      AsciiString name = extensionParameters[0].trim();
-      if (HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE_ASCII.equals(name)) {
-        Map<String, String> parameters;
-        if (extensionParameters.length > 1) {
-          parameters = new HashMap<>(extensionParameters.length - 1);
-          for (int i = 1; i < extensionParameters.length; i++) {
-            AsciiString parameter = extensionParameters[i].trim();
-            Matcher parameterMatcher =
-                HEADER_WEBSOCKET_EXTENSIONS_PARAMETER_PATTERN.matcher(parameter);
-            if (parameterMatcher.matches()) {
-              String key = parameterMatcher.group(1);
-              if (key != null) {
-                String value = parameterMatcher.group(3);
-                parameters.put(key, value);
-              }
-            }
-          }
-        } else {
-          parameters = Collections.emptyMap();
-        }
-        compression =
-            new WebSocketExtensionData(
-                HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE, parameters);
-      } else if (HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING_ASCII.equals(name)) {
-        noMasking = true;
-      }
-    }
-    return compression == null && noMasking
-        ? WebSocketExtensions.NO_MASKING
-        : new WebSocketExtensions(compression, noMasking);
-  }
-
-  static String encodeExtensions(WebSocketExtensionData compression, boolean hasNoMasking) {
-    String name = compression.name();
-    Map<String, String> params = compression.parameters();
-    if (params.isEmpty()) {
-      return name;
-    }
-    /*at most 4 parameters*/
-    StringBuilder sb = new StringBuilder(sizeOf(name, params, hasNoMasking));
-    sb.append(name);
-    for (Map.Entry<String, String> param : params.entrySet()) {
-      sb.append(';');
-      sb.append(param.getKey());
-      String value = param.getValue();
-      if (value != null) {
-        sb.append('=');
-        sb.append(value);
-      }
-    }
-    if (hasNoMasking) {
-      sb.append(',').append(HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING);
-    }
-    return sb.toString();
-  }
-
-  static int sizeOf(
-      String compression, Map<String, String> compressionParameters, boolean noMasking) {
-    int size = compression.length();
-    for (Map.Entry<String, String> param : compressionParameters.entrySet()) {
-      /* key and ; */
-      size += param.getKey().length() + 1;
-      String value = param.getValue();
-      if (value != null) {
-        /* value and = */ size += value.length() + 1;
-      }
-    }
-    if (noMasking) {
-      /* value and , */ size += HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING.length() + 1;
-    }
-    return size;
-  }
-
-  static class WebSocketExtensions {
+  static final class WebSocketExtensions {
     static final WebSocketExtensions NO_MASKING = new WebSocketExtensions(null, true);
 
     WebSocketExtensionData compression;
@@ -199,14 +115,97 @@ final class Http2WebSocketProtocol {
     public boolean isNomasking() {
       return noMasking;
     }
-  }
 
-  static WebSocketDecoderConfig nomaskingExtensionDecoderConfig(
-      WebSocketDecoderConfig decoderConfig) {
-    if (!decoderConfig.expectMaskedFrames() && !decoderConfig.allowMaskMismatch()) {
-      return decoderConfig;
+    @Nullable
+    static WebSocketExtensions decode(@Nullable CharSequence extensionHeader) {
+      if (extensionHeader == null || extensionHeader.length() == 0) {
+        return null;
+      }
+      WebSocketExtensionData compression = null;
+      boolean noMasking = false;
+
+      AsciiString asciiExtensionHeader = (AsciiString) extensionHeader;
+      for (AsciiString extension : asciiExtensionHeader.split(',')) {
+        AsciiString[] extensionParameters = extension.split(';');
+        AsciiString name = extensionParameters[0].trim();
+        if (HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE_ASCII.equals(name)) {
+          Map<String, String> parameters;
+          if (extensionParameters.length > 1) {
+            parameters = new HashMap<>(extensionParameters.length - 1);
+            for (int i = 1; i < extensionParameters.length; i++) {
+              AsciiString parameter = extensionParameters[i].trim();
+              Matcher parameterMatcher =
+                  HEADER_WEBSOCKET_EXTENSIONS_PARAMETER_PATTERN.matcher(parameter);
+              if (parameterMatcher.matches()) {
+                String key = parameterMatcher.group(1);
+                if (key != null) {
+                  String value = parameterMatcher.group(3);
+                  parameters.put(key, value);
+                }
+              }
+            }
+          } else {
+            parameters = Collections.emptyMap();
+          }
+          compression =
+              new WebSocketExtensionData(
+                  HEADER_WEBSOCKET_EXTENSIONS_VALUE_PERMESSAGE_DEFLATE, parameters);
+        } else if (HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING_ASCII.equals(name)) {
+          noMasking = true;
+        }
+      }
+      return compression == null && noMasking
+          ? NO_MASKING
+          : new WebSocketExtensions(compression, noMasking);
     }
-    return decoderConfig.toBuilder().expectMaskedFrames(false).allowMaskMismatch(false).build();
+
+    static String encode(WebSocketExtensionData compression, boolean hasNoMasking) {
+      String name = compression.name();
+      Map<String, String> params = compression.parameters();
+      if (params.isEmpty()) {
+        return name;
+      }
+      /*at most 4 parameters*/
+      StringBuilder sb = new StringBuilder(sizeOf(name, params, hasNoMasking));
+      sb.append(name);
+      for (Map.Entry<String, String> param : params.entrySet()) {
+        sb.append(';');
+        sb.append(param.getKey());
+        String value = param.getValue();
+        if (value != null) {
+          sb.append('=');
+          sb.append(value);
+        }
+      }
+      if (hasNoMasking) {
+        sb.append(',').append(HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING);
+      }
+      return sb.toString();
+    }
+
+    static int sizeOf(
+        String compression, Map<String, String> compressionParameters, boolean noMasking) {
+      int size = compression.length();
+      for (Map.Entry<String, String> param : compressionParameters.entrySet()) {
+        /* key and ; */
+        size += param.getKey().length() + 1;
+        String value = param.getValue();
+        if (value != null) {
+          /* value and = */ size += value.length() + 1;
+        }
+      }
+      if (noMasking) {
+        /* value and , */ size += HEADER_WEBSOCKET_EXTENSIONS_VALUE_NOMASKING.length() + 1;
+      }
+      return size;
+    }
+
+    static WebSocketDecoderConfig nomaskingDecoderConfig(WebSocketDecoderConfig decoderConfig) {
+      if (!decoderConfig.expectMaskedFrames() && !decoderConfig.allowMaskMismatch()) {
+        return decoderConfig;
+      }
+      return decoderConfig.toBuilder().expectMaskedFrames(false).allowMaskMismatch(false).build();
+    }
   }
 
   static final class Validator {
