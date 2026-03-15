@@ -314,17 +314,7 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
   @Override
   public int onDataRead(
       ChannelHandlerContext ctx, int streamId, ByteBuf data, int padding, boolean endOfStream) {
-    /*padded data is not handled, firefox does not pad, we neither*/
-    int readableBytes = data.readableBytes();
-    if (padding > 0) {
-      data.release();
-      pipeline()
-          .fireExceptionCaught(
-              new IllegalArgumentException(
-                  "Http2WebSocketChannel received padded DATA frame, padding length: " + padding));
-      close();
-      return readableBytes;
-    }
+    int bytesRead = data.readableBytes() + padding;
     if (!isHandshakeCompleted) {
       data.release();
       pipeline()
@@ -332,11 +322,11 @@ final class Http2WebSocketChannel extends DefaultAttributeMap
               new IllegalArgumentException(
                   "Http2WebSocketChannel received DATA frame before handshake completion"));
       close();
-      return readableBytes;
+      return bytesRead;
     }
 
     fireChildRead(data, endOfStream);
-    return readableBytes;
+    return bytesRead;
   }
 
   @Override
