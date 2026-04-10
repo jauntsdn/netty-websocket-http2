@@ -16,12 +16,13 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketProtocol.TlsSupport;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
 import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Headers;
-import io.netty.handler.ssl.SslHandler;
 import javax.annotation.Nullable;
 
 /**
@@ -57,8 +58,9 @@ public final class Http2WebSocketServerHandler extends Http2WebSocketChannelHand
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     super.handlerAdded(ctx);
+    ChannelPipeline cp = ctx.pipeline();
     boolean nomaskingExtension =
-        isNomaskingExtension && ctx.pipeline().get(SslHandler.class) != null;
+        isNomaskingExtension && TlsSupport.isAvailable() && TlsSupport.isEnabled(cp);
     this.handshaker =
         new Http2WebSocketServerHandshaker(
             webSocketsParent,

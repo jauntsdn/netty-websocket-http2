@@ -16,7 +16,9 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketProtocol.TlsSupport;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoop;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateClientExtensionHandshaker;
@@ -25,7 +27,6 @@ import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Headers;
 import io.netty.handler.codec.http2.Http2LocalFlowController;
 import io.netty.handler.codec.http2.Http2Settings;
-import io.netty.handler.ssl.SslHandler;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.IntSupplier;
 import javax.annotation.Nullable;
@@ -82,8 +83,9 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
   @Override
   public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
     super.handlerAdded(ctx);
+    ChannelPipeline cp = ctx.pipeline();
     this.scheme =
-        ctx.pipeline().get(SslHandler.class) != null
+        TlsSupport.isAvailable() && TlsSupport.isEnabled(cp)
             ? Http2WebSocketProtocol.SCHEME_HTTPS
             : Http2WebSocketProtocol.SCHEME_HTTP;
     this.streamIdFactory = http2Handler.connection().local();
@@ -161,8 +163,9 @@ public final class Http2WebSocketClientHandler extends Http2WebSocketChannelHand
       throw new IllegalStateException(
           "webSocket handshaker cant be created before channel is registered");
     }
+    ChannelPipeline cp = ctx.pipeline();
     boolean nomaskingExtension =
-        isNomaskingExtension && ctx.pipeline().get(SslHandler.class) != null;
+        isNomaskingExtension && TlsSupport.isAvailable() && TlsSupport.isEnabled(cp);
 
     Http2WebSocketClientHandshaker handShaker =
         new Http2WebSocketClientHandshaker(

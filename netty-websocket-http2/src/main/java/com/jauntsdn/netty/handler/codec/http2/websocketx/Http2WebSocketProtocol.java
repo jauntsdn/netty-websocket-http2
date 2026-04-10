@@ -16,9 +16,11 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
+import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
 import io.netty.handler.codec.http.websocketx.extensions.WebSocketExtensionData;
 import io.netty.handler.codec.http2.Http2Headers;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.util.AsciiString;
 import java.util.Collections;
 import java.util.HashMap;
@@ -360,6 +362,29 @@ final class Http2WebSocketProtocol {
         return containsValidPseudoHeaders(requestHeaders, VALID_PSEUDO_HEADERS)
             && containsValidHeaders(requestHeaders);
       }
+    }
+  }
+
+  static final class TlsSupport {
+    private static final boolean AVAILABLE;
+
+    static {
+      boolean available;
+      try {
+        Class.forName("io.netty.handler.ssl.SslHandler");
+        available = true;
+      } catch (ClassNotFoundException e) {
+        available = false;
+      }
+      AVAILABLE = available;
+    }
+
+    static boolean isAvailable() {
+      return AVAILABLE;
+    }
+
+    static boolean isEnabled(ChannelPipeline pipeline) {
+      return pipeline.get(SslHandler.class) != null;
     }
   }
 
