@@ -32,6 +32,12 @@ dependencyLocking {
     lockAllConfigurations()
 }
 
+configurations {
+    "googleJavaFormat1.6" {
+        resolutionStrategy.deactivateDependencyLocking()
+    }
+}
+
 tasks.named("jar") {
     manifest {
         attributes("Automatic-Module-Name": "com.jauntsdn.netty.websocket.http2")
