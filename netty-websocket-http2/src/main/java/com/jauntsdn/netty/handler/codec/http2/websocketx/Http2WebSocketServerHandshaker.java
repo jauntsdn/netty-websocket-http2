@@ -120,7 +120,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
           WebSocketHandshakeException.class.getName(),
           Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_VERSION + webSocketVersion);
 
-      writeHeaders(ctx, streamId, HEADERS_UNSUPPORTED_VERSION, true).addListener(this);
+      writeHeaders(streamId, HEADERS_UNSUPPORTED_VERSION, true).addListener(this);
       return;
     }
 
@@ -198,7 +198,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
           WebSocketHandshakeException.class.getName(),
           Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_ACCEPTOR_TYPE);
 
-      writeHeaders(ctx, streamId, HEADERS_INTERNAL_ERROR, true).addListener(this);
+      writeHeaders(streamId, HEADERS_INTERNAL_ERROR, true).addListener(this);
       return;
     }
 
@@ -221,7 +221,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
               ? HEADERS_NOT_FOUND
               : HEADERS_REJECTED;
 
-      writeHeaders(ctx, streamId, response, true).addListener(this);
+      writeHeaders(streamId, response, true).addListener(this);
       return;
     }
 
@@ -242,7 +242,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
           WebSocketHandshakeException.class.getName(),
           Http2WebSocketProtocol.MSG_HANDSHAKE_UNEXPECTED_SUBPROTOCOL + subprotocolOrBlank);
 
-      writeHeaders(ctx, streamId, HEADERS_NOT_FOUND, true).addListener(this);
+      writeHeaders(streamId, HEADERS_NOT_FOUND, true).addListener(this);
       return;
     }
 
@@ -254,7 +254,7 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
     WebSocketDecoderConfig finalDecoderConfig = decoderConfig;
 
     Http2Headers successHeaders = successHeaders(responseHeaders);
-    writeHeaders(ctx, streamId, successHeaders, false)
+    writeHeaders(streamId, successHeaders, false)
         .addListener(
             future -> {
               Throwable cause = future.cause();
@@ -364,11 +364,8 @@ final class Http2WebSocketServerHandshaker implements GenericFutureListener<Chan
     }
   }
 
-  private ChannelFuture writeHeaders(
-      ChannelHandlerContext ctx, int streamId, Http2Headers headers, boolean endStream) {
-    ChannelFuture channelFuture = webSocketsParent.writeHeaders(streamId, headers, endStream);
-    ctx.flush();
-    return channelFuture;
+  private ChannelFuture writeHeaders(int streamId, Http2Headers headers, boolean endStream) {
+    return webSocketsParent.writeHeaders(streamId, headers, endStream);
   }
 
   private ChannelFuture writeRstStream(int streamId) {

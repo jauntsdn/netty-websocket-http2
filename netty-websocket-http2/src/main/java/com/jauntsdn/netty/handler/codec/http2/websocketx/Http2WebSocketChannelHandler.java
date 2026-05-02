@@ -356,7 +356,10 @@ abstract class Http2WebSocketChannelHandler extends Http2WebSocketHandler {
     ChannelFuture writeHeaders(int streamId, Http2Headers headers, boolean endStream) {
       ChannelHandlerContext c = ctx;
       ChannelPromise p = c.newPromise();
-      return connectionEncoder.writeHeaders(c, streamId, headers, 0, endStream, p);
+      ChannelFuture channelFuture =
+          connectionEncoder.writeHeaders(c, streamId, headers, 0, endStream, p);
+      c.flush();
+      return channelFuture;
     }
 
     ChannelFuture writeHeaders(
