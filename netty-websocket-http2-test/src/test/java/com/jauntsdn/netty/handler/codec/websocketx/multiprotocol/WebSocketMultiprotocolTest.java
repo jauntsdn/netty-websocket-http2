@@ -141,9 +141,9 @@ public class WebSocketMultiprotocolTest {
   void http1webSocketDefaultCodec() throws Exception {
     String host = "localhost";
     int port = 8099;
-    server = server(host, port, true, new DefaultServerHandler());
+    server = server(host, port, "/test", "", true, new DefaultServerHandler());
     ClientHandler clientHandler = new ClientHandler();
-    Channel client = http1WebSocketClient(host, port, true, clientHandler);
+    Channel client = http1WebSocketClient(host, port, "/test", null, true, clientHandler);
     client.writeAndFlush(new TextWebSocketFrame("test"));
     TextWebSocketFrame receivedFrame = clientHandler.exchangeCompleted().get(5, TimeUnit.SECONDS);
     try {
@@ -157,9 +157,9 @@ public class WebSocketMultiprotocolTest {
   void http2webSocketDefaultCodec() throws Exception {
     String host = "localhost";
     int port = 8099;
-    server = server(host, port, true, new DefaultServerHandler());
+    server = server(host, port, "/test", "", true, new DefaultServerHandler());
     ClientHandler clientHandler = new ClientHandler();
-    Channel client = http2WebSocketClient(host, port, true, clientHandler);
+    Channel client = http2WebSocketClient(host, port, "/test", "", true, clientHandler);
     client.writeAndFlush(new TextWebSocketFrame("test"));
     TextWebSocketFrame receivedFrame = clientHandler.exchangeCompleted().get(5, TimeUnit.SECONDS);
     try {
@@ -173,9 +173,9 @@ public class WebSocketMultiprotocolTest {
   void http1webSocketCallbacksCodec() throws Exception {
     String host = "localhost";
     int port = 8099;
-    server = server(host, port, false, new CallbacksServerHandler());
+    server = server(host, port, "/test", "", false, new CallbacksServerHandler());
     ClientHandler clientHandler = new ClientHandler();
-    Channel client = http1WebSocketClient(host, port, false, clientHandler);
+    Channel client = http1WebSocketClient(host, port, "/test", null, false, clientHandler);
     client.writeAndFlush(new TextWebSocketFrame("test"));
     TextWebSocketFrame receivedFrame = clientHandler.exchangeCompleted().get(5, TimeUnit.SECONDS);
     try {
@@ -189,9 +189,9 @@ public class WebSocketMultiprotocolTest {
   void http2webSocketCallbacksCodec() throws Exception {
     String host = "localhost";
     int port = 8099;
-    server = server(host, port, false, new CallbacksServerHandler());
+    server = server(host, port, "/test", "", false, new CallbacksServerHandler());
     ClientHandler clientHandler = new ClientHandler();
-    Channel client = http2WebSocketClient(host, port, false, clientHandler);
+    Channel client = http2WebSocketClient(host, port, "/test", "", false, clientHandler);
     client.writeAndFlush(new TextWebSocketFrame("test"));
     TextWebSocketFrame receivedFrame = clientHandler.exchangeCompleted().get(5, TimeUnit.SECONDS);
     try {
@@ -201,7 +201,45 @@ public class WebSocketMultiprotocolTest {
     }
   }
 
-  static Channel server(String host, int port, boolean defaultCodec, ChannelHandler handler)
+  @Test
+  void http2WebSocketRejectPath() throws Exception {
+    String host = "localhost";
+    int port = 8099;
+    server = server(host, port, "/test", "", true, new DefaultServerHandler());
+    ClientHandler clientHandler = new ClientHandler();
+    Exception e = null;
+    try {
+      Channel client = http2WebSocketClient(host, port, "/notfound", "", true, clientHandler);
+    } catch (Exception ex) {
+      e = ex;
+    }
+    Assertions.assertThat(e).isNotNull().isInstanceOf(WebSocketHandshakeException.class);
+    Assertions.assertThat(e.getMessage()).startsWith("websocket handshake error: path not found");
+  }
+
+  @Test
+  void http2WebSocketRejectSubprotocol() throws Exception {
+    String host = "localhost";
+    int port = 8099;
+    server = server(host, port, "/test", "subprotocol", true, new DefaultServerHandler());
+    ClientHandler clientHandler = new ClientHandler();
+    Exception e = null;
+    try {
+      Channel client = http2WebSocketClient(host, port, "/test", "", true, clientHandler);
+    } catch (Exception ex) {
+      e = ex;
+    }
+    Assertions.assertThat(e).isNotNull().isInstanceOf(WebSocketHandshakeException.class);
+    Assertions.assertThat(e.getMessage()).startsWith("websocket handshake error: bad request");
+  }
+
+  static Channel server(
+      String host,
+      int port,
+      String path,
+      String subprotocols,
+      boolean defaultCodec,
+      ChannelHandler handler)
       throws Exception {
     SslContext sslContext = Security.serverSslContext("localhost.p12", "localhost");
 
@@ -217,7 +255,8 @@ public class WebSocketMultiprotocolTest {
 
                 MultiprotocolWebSocketServerBuilder builder =
                     MultiprotocolWebSocketServerBuilder.create()
-                        .path("/test")
+                        .path(path)
+                        .subprotocols(subprotocols)
                         .compression(defaultCodec)
                         .handler(handler);
                 if (defaultCodec) {
@@ -235,7 +274,13 @@ public class WebSocketMultiprotocolTest {
   }
 
   static Channel http2WebSocketClient(
-      String host, int port, boolean compression, ChannelHandler handler) throws Exception {
+      String host,
+      int port,
+      String path,
+      String subprotocol,
+      boolean compression,
+      ChannelHandler handler)
+      throws Exception {
     SslContext http2SslContext = Security.clientLocalSslContextHttp2();
 
     WebSocketDecoderConfig decoderConfig =
@@ -274,13 +319,20 @@ public class WebSocketMultiprotocolTest {
     Http2WebSocketClientHandshaker http2WebSocketHandShaker =
         Http2WebSocketClientHandshaker.create(http2Channel);
 
-    ChannelFuture http2WebSocketHandshake = http2WebSocketHandShaker.handshake("/test", handler);
+    ChannelFuture http2WebSocketHandshake =
+        http2WebSocketHandShaker.handshake(path, subprotocol, handler);
 
     return http2WebSocketHandshake.sync().channel();
   }
 
   static Channel http1WebSocketClient(
-      String host, int port, boolean compression, ChannelHandler handler) throws Exception {
+      String host,
+      int port,
+      String path,
+      String subprotocol,
+      boolean compression,
+      ChannelHandler handler)
+      throws Exception {
     SslContext clientSslContext = Security.clientLocalSslContextHttp1();
     WebSocketDecoderConfig decoderConfig =
         WebSocketDecoderConfig.newBuilder()
@@ -288,9 +340,8 @@ public class WebSocketMultiprotocolTest {
             .allowMaskMismatch(false)
             .allowExtensions(true)
             .build();
-
     Http1WebSocketHandshaker http1WebSocketHandshaker =
-        new Http1WebSocketHandshaker("/test", decoderConfig, host, port);
+        new Http1WebSocketHandshaker(path, subprotocol, decoderConfig, host, port);
 
     Channel client =
         new Bootstrap()
@@ -327,12 +378,16 @@ public class WebSocketMultiprotocolTest {
     private ChannelPromise handshakeComplete;
 
     public Http1WebSocketHandshaker(
-        String path, WebSocketDecoderConfig webSocketDecoderConfig, String host, int port) {
+        String path,
+        String subprotocol,
+        WebSocketDecoderConfig webSocketDecoderConfig,
+        String host,
+        int port) {
       handshaker =
           WebSocketClientHandshakerFactory.newHandshaker(
               uri("wss://" + host + ":" + port + path),
               WebSocketVersion.V13,
-              null,
+              subprotocol,
               webSocketDecoderConfig.allowExtensions(),
               null,
               webSocketDecoderConfig.maxFramePayloadLength(),

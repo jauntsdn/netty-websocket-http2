@@ -18,6 +18,8 @@ package com.jauntsdn.netty.handler.codec.websocketx.multiprotocol;
 
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http1WebSocketCodec;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketAcceptor;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandshakeException;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketPathNotFoundException;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler;
 import io.netty.channel.ChannelHandler;
@@ -30,7 +32,6 @@ import io.netty.handler.codec.http.HttpDecoderConfig;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
-import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http.websocketx.extensions.WebSocketServerExtensionHandler;
 import io.netty.handler.codec.http.websocketx.extensions.compression.DeflateFrameServerExtensionHandshaker;
 import io.netty.handler.codec.http.websocketx.extensions.compression.PerMessageDeflateServerExtensionHandshaker;
@@ -131,7 +132,8 @@ public final class MultiProtocolWebSocketServerHandler extends ChannelInitialize
                       http2webSocketBuilder
                           .acceptor(
                               (ctx, path, requestedSubprotocols, request, response) -> {
-                                if (webSocketPath.equals(path)) {
+                                boolean pathMatches = webSocketPath.equals(path);
+                                if (pathMatches) {
                                   String subprotocol =
                                       selectSubprotocol(requestedSubprotocols, subprotocolSet);
                                   if (subprotocol != null) {
@@ -142,12 +144,17 @@ public final class MultiProtocolWebSocketServerHandler extends ChannelInitialize
                                     return ctx.executor().newSucceededFuture(webSocketHandler);
                                   }
                                 }
-                                return ctx.executor()
-                                    .newFailedFuture(
-                                        new WebSocketHandshakeException(
-                                            String.format(
-                                                "websocket rejected, path: %s, subprotocols: %s",
-                                                path, requestedSubprotocols)));
+                                Exception e =
+                                    !pathMatches
+                                        ? new Http2WebSocketPathNotFoundException(
+                                            rejectMessage(
+                                                "websocket path rejected", path, subprotocols))
+                                        : new Http2WebSocketHandshakeException(
+                                            rejectMessage(
+                                                "websocket subprotocol rejected",
+                                                path,
+                                                subprotocols));
+                                return ctx.executor().newFailedFuture(e);
                               })
                           .build();
 
@@ -214,6 +221,10 @@ public final class MultiProtocolWebSocketServerHandler extends ChannelInitialize
         };
 
     ch.pipeline().addLast(alpnHandler);
+  }
+
+  private static String rejectMessage(String reason, String path, String subprotocols) {
+    return reason + ", path: " + path + ", subprotocols: " + subprotocols;
   }
 
   static Http2FrameCodecBuilder applyConfig(
