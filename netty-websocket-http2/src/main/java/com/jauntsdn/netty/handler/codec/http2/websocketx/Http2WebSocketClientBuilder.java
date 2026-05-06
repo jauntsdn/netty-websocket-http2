@@ -170,7 +170,7 @@ public final class Http2WebSocketClientBuilder {
    * @return this {@link Http2WebSocketClientBuilder} instance
    */
   public Http2WebSocketClientBuilder streamWeight(int weight) {
-    this.streamWeight = Http2WebSocketProtocol.requireRange(weight, 1, 256, "streamWeight");
+    this.streamWeight = Http2WebSocketProtocol.ensureRange(weight, 1, 256);
     return this;
   }
 

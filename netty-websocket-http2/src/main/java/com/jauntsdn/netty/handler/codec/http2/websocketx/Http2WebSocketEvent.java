@@ -551,7 +551,7 @@ public abstract class Http2WebSocketEvent {
 
     Http2WebSocketStreamWeightUpdateEvent(short streamWeight) {
       super(Type.WEIGHT_UPDATE);
-      this.streamWeight = Http2WebSocketProtocol.requireRange(streamWeight, 1, 256, "streamWeight");
+      this.streamWeight = Http2WebSocketProtocol.ensureRange(streamWeight, 1, 256);
     }
 
     public short streamWeight() {

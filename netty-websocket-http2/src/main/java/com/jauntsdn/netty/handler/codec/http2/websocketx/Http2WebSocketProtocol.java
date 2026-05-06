@@ -388,20 +388,22 @@ final class Http2WebSocketProtocol {
     }
   }
 
-  /*preconditions*/
+  static short ensureRange(int value, int from, int toInclusive) {
+    int result;
+    if (value < from) {
+      result = from;
+    } else if (value > toInclusive) {
+      result = toInclusive;
+    } else {
+      result = value;
+    }
+    return (short) result;
+  }
 
   static long requirePositive(long value, String message) {
     if (value <= 0) {
       throw new IllegalArgumentException(message + " must be positive: " + value);
     }
     return value;
-  }
-
-  static short requireRange(int value, int from, int to, String message) {
-    if (value >= from && value <= to) {
-      return (short) value;
-    }
-    throw new IllegalArgumentException(
-        String.format("%s must belong to range [%d, %d]: ", message, from, to));
   }
 }
