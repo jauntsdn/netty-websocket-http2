@@ -328,7 +328,8 @@ public final class Http2WebSocketClientHandshaker {
         errorMessage = Http2WebSocketProtocol.MSG_HANDSHAKE_GENERIC_ERROR + status;
     }
     if (errorMessage != null) {
-      Exception cause = new WebSocketHandshakeException(errorMessage);
+      WebSocketHandshakeException cause =
+          newHandshakeException(errorMessage, "handshake(Http2WebSocket, Http2Headers, boolean)");
       if (handshakePromise.tryFailure(cause)) {
         Http2WebSocketEvent.fireHandshakeError(
             webSocketChannel, responseHeaders, System.nanoTime(), cause);
@@ -360,9 +361,10 @@ public final class Http2WebSocketClientHandshaker {
     if (handshakePromise.isDone()) {
       return;
     }
-    Exception cause =
-        new WebSocketHandshakeException(
-            Http2WebSocketProtocol.MSG_HANDSHAKE_INVALID_RESPONSE_HEADERS);
+    WebSocketHandshakeException cause =
+        newHandshakeException(
+            Http2WebSocketProtocol.MSG_HANDSHAKE_INVALID_RESPONSE_HEADERS,
+            "reject(int, Http2WebSocket, Http2Headers, boolean)");
     if (handshakePromise.tryFailure(cause)) {
       Http2WebSocketEvent.fireHandshakeError(webSocketChannel, headers, System.nanoTime(), cause);
     }
@@ -388,8 +390,8 @@ public final class Http2WebSocketClientHandshaker {
     ChannelFuture registered = eventLoop.register(webSocketChannel);
     if (!registered.isSuccess()) {
       Throwable cause = registered.cause();
-      Exception e =
-          new WebSocketHandshakeException("websocket handshake channel registration error", cause);
+      WebSocketHandshakeException e =
+          newHandshakeException("websocket handshake channel registration error", cause);
       Http2WebSocketEvent.fireHandshakeStartAndError(
           webSocketChannel.parent(),
           webSocketChannel.serial(),
@@ -445,8 +447,9 @@ public final class Http2WebSocketClientHandshaker {
     /*server does not support http2 websockets*/
     if (!supportsWebSocket) {
       WebSocketHandshakeException e =
-          new WebSocketHandshakeException(
-              Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_BOOTSTRAP);
+          newHandshakeException(
+              Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_BOOTSTRAP,
+              "handshakeImmediate(Handshake, boolean)");
       Http2WebSocketEvent.fireHandshakeError(webSocketChannel, null, System.nanoTime(), e);
       handshake.complete(e);
       return;
@@ -460,9 +463,10 @@ public final class Http2WebSocketClientHandshaker {
       authority = authorityFromAddress(address);
       if (authority == null) {
         WebSocketHandshakeException e =
-            new WebSocketHandshakeException(
+            newHandshakeException(
                 Http2WebSocketProtocol.MSG_HANDSHAKE_UNSUPPORTED_ADDRESS_FAMILY
-                    + address.getClass().getName());
+                    + address.getClass().getName(),
+                "handshakeImmediate(Handshake, boolean)");
         handshake.complete(e);
         return;
       }
@@ -543,6 +547,19 @@ public final class Http2WebSocketClientHandshaker {
       return host + ":" + port;
     }
     return null;
+  }
+
+  static WebSocketHandshakeException newHandshakeException(String message, String callSite) {
+    WebSocketHandshakeException e = new Http2WebSocketHandshakeException(message);
+    e.setStackTrace(
+        new StackTraceElement[] {
+          new StackTraceElement(Http2WebSocketClientHandshaker.class.getName(), callSite, null, -1)
+        });
+    return e;
+  }
+
+  static WebSocketHandshakeException newHandshakeException(String message, Throwable cause) {
+    return new Http2WebSocketHandshakeException(message, cause);
   }
 
   private static boolean isEqual(String str, @Nullable CharSequence seq) {

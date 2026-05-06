@@ -182,7 +182,7 @@ public class ProtocolHandshakeTest extends AbstractTest {
             .handshake("/test", new ChannelInboundHandlerAdapter());
     handshake.await(6, TimeUnit.SECONDS);
     Assertions.assertThat(handshake.isSuccess()).isFalse();
-    Assertions.assertThat(handshake.cause()).isExactlyInstanceOf(WebSocketHandshakeException.class);
+    Assertions.assertThat(handshake.cause()).isInstanceOf(WebSocketHandshakeException.class);
     Channel webSocketChannel = handshake.channel();
     webSocketChannel.closeFuture().await(5, TimeUnit.SECONDS);
     Assertions.assertThat(webSocketChannel.isOpen()).isFalse();
@@ -216,11 +216,11 @@ public class ProtocolHandshakeTest extends AbstractTest {
     Assertions.assertThat(http2errorEvent)
         .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
     Assertions.assertThat(http2errorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+        .isInstanceOf(WebSocketHandshakeException.class);
 
     Assertions.assertThat(errorEvent).isExactlyInstanceOf(WebSocketHandshakeErrorEvent.class);
     Assertions.assertThat(errorEvent.<WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+        .isInstanceOf(WebSocketHandshakeException.class);
   }
 
   @ParameterizedTest

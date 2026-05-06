@@ -22,6 +22,7 @@ import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Htt
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketHandshakeSuccessEvent;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketLifecycleEvent;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent.Http2WebSocketLocalCloseEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandshakeException;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.example.Security;
@@ -40,7 +41,6 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
-import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http2.DefaultHttp2DataFrame;
 import io.netty.handler.codec.http2.DefaultHttp2GoAwayFrame;
 import io.netty.handler.codec.http2.DefaultHttp2Headers;
@@ -146,7 +146,7 @@ public class Main {
                     }
                     return ctx.executor()
                         .newFailedFuture(
-                            new WebSocketHandshakeException(
+                            new Http2WebSocketHandshakeException(
                                 String.format(
                                     "websocket rejected, path: %s, subprotocols: %s, user-agent: %s",
                                     path, subprotocols, request.get("user-agent"))));

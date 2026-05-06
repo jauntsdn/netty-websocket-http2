@@ -171,7 +171,7 @@ public class ApplicationHandshakeTest extends AbstractTest {
     handshake.await(6, TimeUnit.SECONDS);
     Assertions.assertThat(handshake.isSuccess()).isFalse();
     Throwable cause = handshake.cause();
-    Assertions.assertThat(cause).isExactlyInstanceOf(WebSocketHandshakeException.class);
+    Assertions.assertThat(cause).isInstanceOf(WebSocketHandshakeException.class);
     Channel webSocketChannel = handshake.channel();
     webSocketChannel.closeFuture().await(5, TimeUnit.SECONDS);
     Assertions.assertThat(webSocketChannel.isOpen()).isFalse();
@@ -197,11 +197,11 @@ public class ApplicationHandshakeTest extends AbstractTest {
     Assertions.assertThat(http2ErrorEvent)
         .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
     Assertions.assertThat(http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+        .isInstanceOf(WebSocketHandshakeException.class);
 
     Assertions.assertThat(errorEvent).isExactlyInstanceOf(WebSocketHandshakeErrorEvent.class);
     Assertions.assertThat(errorEvent.<WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+        .isInstanceOf(WebSocketHandshakeException.class);
   }
 
   @Test
@@ -575,14 +575,14 @@ public class ApplicationHandshakeTest extends AbstractTest {
     Assertions.assertThat(http2ErrorEvent)
         .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
     Assertions.assertThat(http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+        .isInstanceOf(WebSocketHandshakeException.class);
     Http2Headers http2responseHeaders =
         http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
     Assertions.assertThat(http2responseHeaders.get(":status")).isEqualTo(AsciiString.of("404"));
 
     Assertions.assertThat(errorEvent).isExactlyInstanceOf(WebSocketHandshakeErrorEvent.class);
     Assertions.assertThat(errorEvent.<WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+        .isInstanceOf(WebSocketHandshakeException.class);
     Headers<CharSequence, CharSequence, ?> responseHeaders =
         http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("404"));
@@ -659,14 +659,14 @@ public class ApplicationHandshakeTest extends AbstractTest {
     Assertions.assertThat(http2ErrorEvent)
         .isExactlyInstanceOf(Http2WebSocketHandshakeErrorEvent.class);
     Assertions.assertThat(http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+        .isInstanceOf(WebSocketHandshakeException.class);
     Http2Headers http2responseHeaders =
         http2ErrorEvent.<Http2WebSocketHandshakeErrorEvent>cast().responseHeaders();
     Assertions.assertThat(http2responseHeaders.get(":status")).isEqualTo(AsciiString.of("404"));
 
     Assertions.assertThat(errorEvent).isExactlyInstanceOf(WebSocketHandshakeErrorEvent.class);
     Assertions.assertThat(errorEvent.<WebSocketHandshakeErrorEvent>cast().error())
-        .isExactlyInstanceOf(WebSocketHandshakeException.class);
+        .isInstanceOf(WebSocketHandshakeException.class);
     Headers<CharSequence, CharSequence, ?> responseHeaders =
         errorEvent.<WebSocketHandshakeErrorEvent>cast().responseHeaders();
     Assertions.assertThat(responseHeaders.get(":status")).isEqualTo(AsciiString.of("404"));

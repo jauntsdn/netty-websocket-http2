@@ -21,6 +21,7 @@ import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketFrameFactory;
 import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketFrameListener;
 import com.jauntsdn.netty.handler.codec.http.websocketx.WebSocketProtocol;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketEvent;
+import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketHandshakeException;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerBuilder;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.Http2WebSocketServerHandler;
 import com.jauntsdn.netty.handler.codec.http2.websocketx.WebSocketCallbacksCodec;
@@ -37,7 +38,6 @@ import io.netty.channel.epoll.Epoll;
 import io.netty.channel.kqueue.KQueue;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.websocketx.WebSocketDecoderConfig;
-import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
 import io.netty.handler.codec.http2.DefaultHttp2RemoteFlowController;
 import io.netty.handler.codec.http2.Http2Connection;
 import io.netty.handler.codec.http2.Http2FrameCodec;
@@ -141,7 +141,7 @@ public class Main {
                     }
                     return ctx.executor()
                         .newFailedFuture(
-                            new WebSocketHandshakeException(
+                            new Http2WebSocketHandshakeException(
                                 String.format(
                                     "path not found: %s, subprotocols: %s", path, subprotocols)));
                   })
