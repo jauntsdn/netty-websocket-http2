@@ -16,9 +16,7 @@
 
 package com.jauntsdn.netty.handler.codec.http2.websocketx;
 
-import io.netty.handler.codec.http.websocketx.WebSocketHandshakeException;
-
-public final class Http2WebSocketPathNotFoundException extends WebSocketHandshakeException {
+public final class Http2WebSocketPathNotFoundException extends Http2WebSocketHandshakeException {
   public Http2WebSocketPathNotFoundException(String message) {
     super(message);
   }
